@@ -1,0 +1,7 @@
+whatsapp_lite:
+  id: whatsapp_lite
+  logo: whatsapp_lite.png
+  i18n_key: whatsapp_lite
+  action: /whatsapp_lite
+  hook_type: account
+  allow_multiple_hooks: false
