@@ -1,0 +1,519 @@
+{
+  "updatedAt": "2026-05-22T14:41:56.000Z",
+  "createdAt": "2026-05-22T14:41:56.000Z",
+  "id": "hTMMQvoGIvQMuO2B",
+  "name": "WA Lite — Connect",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh",
+      "name": "Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wa-connect",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wa/connect",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "sa",
+      "name": "Sanitize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "fields": {
+          "values": [
+            {
+              "name": "phone",
+              "type": "string",
+              "stringValue": "={{ $json.body.phone.replace(/\\D/g,'') }}"
+            },
+            {
+              "name": "instanceName",
+              "type": "string",
+              "stringValue": "={{ $json.body.phone.replace(/\\D/g,'') + '_' + Date.now().toString(36) }}"
+            },
+            {
+              "name": "usePairing",
+              "type": "boolean",
+              "booleanValue": "={{ $json.body.usePairing === true }}"
+            },
+            {
+              "name": "chatwootAccountId",
+              "type": "string",
+              "stringValue": "={{ String($json.body.chatwootAccountId || '1') }}"
+            },
+            {
+              "name": "chatwootToken",
+              "type": "string",
+              "stringValue": "={{ $json.body.chatwootToken }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ci",
+      "name": "Create Instance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution-api:8080/instance/create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ instanceName: $json.instanceName, integration: \"WHATSAPP-BAILEYS\" }) }}"
+      }
+    },
+    {
+      "id": "gq",
+      "name": "Get QR or Pairing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={  'http://evolution-api:8080/instance/connect/' + $('Sanitize').item.json.instanceName + ($('Sanitize').item.json.usePairing ? '?number=' + $('Sanitize').item.json.phone : '') }",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "cc",
+      "name": "Config Chatwoot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={  'http://evolution-api:8080/chatwoot/set/' + $('Sanitize').item.json.instanceName }",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ enabled: true, accountId: $(\"Sanitize\").item.json.chatwootAccountId, token: $(\"Sanitize\").item.json.chatwootToken, url: \"https://chat.opp4s.com\", signMsg: false, reopenConversation: true, conversationPending: false, nameInbox: $(\"Sanitize\").item.json.phone, autoCreate: true, importContacts: true, importMessages: false, daysLimitImportMessages: 0, mergeBrazilContacts: true }) }}"
+      }
+    },
+    {
+      "id": "rr",
+      "name": "Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "fields": {
+          "values": [
+            {
+              "name": "sessionId",
+              "type": "string",
+              "stringValue": "={{ $('Sanitize').item.json.instanceName }}"
+            },
+            {
+              "name": "qrCode",
+              "type": "string",
+              "stringValue": "={{ $('Get QR or Pairing').item.json.base64 ? 'data:image/png;base64,' + $('Get QR or Pairing').item.json.base64 : null }}"
+            },
+            {
+              "name": "pairingCode",
+              "type": "string",
+              "stringValue": "={{ $('Get QR or Pairing').item.json.code || null }}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "Sanitize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize": {
+      "main": [
+        [
+          {
+            "node": "Create Instance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Instance": {
+      "main": [
+        [
+          {
+            "node": "Get QR or Pairing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get QR or Pairing": {
+      "main": [
+        [
+          {
+            "node": "Config Chatwoot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Chatwoot": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "f8782c45-9e3c-41f4-b2f1-c6f1030046fe",
+  "activeVersionId": "f8782c45-9e3c-41f4-b2f1-c6f1030046fe",
+  "versionCounter": 3,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-22T14:41:56.000Z",
+      "createdAt": "2026-05-22T14:41:56.000Z",
+      "role": "workflow:owner",
+      "workflowId": "hTMMQvoGIvQMuO2B",
+      "projectId": "6jfVB7E6iovdwomh",
+      "project": {
+        "updatedAt": "2025-08-05T19:18:00.355Z",
+        "createdAt": "2025-08-05T17:19:26.218Z",
+        "id": "6jfVB7E6iovdwomh",
+        "name": "sandro mello <atendimento@opp4s.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "78b2d92c-97e7-4034-9366-4d65bcd7cc44"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-22T14:41:56.000Z",
+    "createdAt": "2026-05-22T14:41:56.000Z",
+    "versionId": "f8782c45-9e3c-41f4-b2f1-c6f1030046fe",
+    "workflowId": "hTMMQvoGIvQMuO2B",
+    "nodes": [
+      {
+        "id": "wh",
+        "name": "Trigger",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "webhookId": "wa-connect",
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "wa/connect",
+          "responseMode": "lastNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "sa",
+        "name": "Sanitize",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "mode": "manual",
+          "includeOtherFields": false,
+          "fields": {
+            "values": [
+              {
+                "name": "phone",
+                "type": "string",
+                "stringValue": "={{ $json.body.phone.replace(/\\D/g,'') }}"
+              },
+              {
+                "name": "instanceName",
+                "type": "string",
+                "stringValue": "={{ $json.body.phone.replace(/\\D/g,'') + '_' + Date.now().toString(36) }}"
+              },
+              {
+                "name": "usePairing",
+                "type": "boolean",
+                "booleanValue": "={{ $json.body.usePairing === true }}"
+              },
+              {
+                "name": "chatwootAccountId",
+                "type": "string",
+                "stringValue": "={{ String($json.body.chatwootAccountId || '1') }}"
+              },
+              {
+                "name": "chatwootToken",
+                "type": "string",
+                "stringValue": "={{ $json.body.chatwootToken }}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "ci",
+        "name": "Create Instance",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "http://evolution-api:8080/instance/create",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+              }
+            ]
+          },
+          "options": {},
+          "sendBody": true,
+          "contentType": "json",
+          "jsonBody": "={{ JSON.stringify({ instanceName: $json.instanceName, integration: \"WHATSAPP-BAILEYS\" }) }}"
+        }
+      },
+      {
+        "id": "gq",
+        "name": "Get QR or Pairing",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          660,
+          0
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "={  'http://evolution-api:8080/instance/connect/' + $('Sanitize').item.json.instanceName + ($('Sanitize').item.json.usePairing ? '?number=' + $('Sanitize').item.json.phone : '') }",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "cc",
+        "name": "Config Chatwoot",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          880,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={  'http://evolution-api:8080/chatwoot/set/' + $('Sanitize').item.json.instanceName }",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+              }
+            ]
+          },
+          "options": {},
+          "sendBody": true,
+          "contentType": "json",
+          "jsonBody": "={{ JSON.stringify({ enabled: true, accountId: $(\"Sanitize\").item.json.chatwootAccountId, token: $(\"Sanitize\").item.json.chatwootToken, url: \"https://chat.opp4s.com\", signMsg: false, reopenConversation: true, conversationPending: false, nameInbox: $(\"Sanitize\").item.json.phone, autoCreate: true, importContacts: true, importMessages: false, daysLimitImportMessages: 0, mergeBrazilContacts: true }) }}"
+        }
+      },
+      {
+        "id": "rr",
+        "name": "Response",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1100,
+          0
+        ],
+        "parameters": {
+          "mode": "manual",
+          "includeOtherFields": false,
+          "fields": {
+            "values": [
+              {
+                "name": "sessionId",
+                "type": "string",
+                "stringValue": "={{ $('Sanitize').item.json.instanceName }}"
+              },
+              {
+                "name": "qrCode",
+                "type": "string",
+                "stringValue": "={{ $('Get QR or Pairing').item.json.base64 ? 'data:image/png;base64,' + $('Get QR or Pairing').item.json.base64 : null }}"
+              },
+              {
+                "name": "pairingCode",
+                "type": "string",
+                "stringValue": "={{ $('Get QR or Pairing').item.json.code || null }}"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Trigger": {
+        "main": [
+          [
+            {
+              "node": "Sanitize",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sanitize": {
+        "main": [
+          [
+            {
+              "node": "Create Instance",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Instance": {
+        "main": [
+          [
+            {
+              "node": "Get QR or Pairing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get QR or Pairing": {
+        "main": [
+          [
+            {
+              "node": "Config Chatwoot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Config Chatwoot": {
+        "main": [
+          [
+            {
+              "node": "Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "sandro mello",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-22T14:41:56.621Z",
+        "id": 1472,
+        "workflowId": "hTMMQvoGIvQMuO2B",
+        "versionId": "f8782c45-9e3c-41f4-b2f1-c6f1030046fe",
+        "event": "activated",
+        "userId": "78b2d92c-97e7-4034-9366-4d65bcd7cc44"
+      }
+    ]
+  }
+}

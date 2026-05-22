@@ -1,0 +1,219 @@
+{
+  "updatedAt": "2026-05-22T14:41:56.803Z",
+  "createdAt": "2026-05-22T14:41:56.803Z",
+  "id": "ikznVLt27aFwpSW1",
+  "name": "WA Lite — Status",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh",
+      "name": "Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wa-status",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "wa/status/:sessionId",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "fi",
+      "name": "Fetch Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={ 'http://evolution-api:8080/instance/fetchInstances?instanceName=' + $json.params.sessionId }",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "rs",
+      "name": "Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "\nconst raw = $input.first().json;\nconst arr = Array.isArray(raw) ? raw : [raw];\nconst inst = arr[0] || {};\nreturn [{ json: {\n  status: inst.connectionStatus || 'close',\n  phone:  (inst.ownerJid || '').replace('@s.whatsapp.net','') || null,\n  qrCode: inst.qrcode?.base64 ? 'data:image/png;base64,' + inst.qrcode.base64 : null\n}}];\n"
+      }
+    }
+  ],
+  "connections": {
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Status": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "afd8ddc9-0a70-4950-8c7c-902fd822db4f",
+  "activeVersionId": "afd8ddc9-0a70-4950-8c7c-902fd822db4f",
+  "versionCounter": 3,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-22T14:41:56.803Z",
+      "createdAt": "2026-05-22T14:41:56.803Z",
+      "role": "workflow:owner",
+      "workflowId": "ikznVLt27aFwpSW1",
+      "projectId": "6jfVB7E6iovdwomh",
+      "project": {
+        "updatedAt": "2025-08-05T19:18:00.355Z",
+        "createdAt": "2025-08-05T17:19:26.218Z",
+        "id": "6jfVB7E6iovdwomh",
+        "name": "sandro mello <atendimento@opp4s.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "78b2d92c-97e7-4034-9366-4d65bcd7cc44"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-22T14:41:56.803Z",
+    "createdAt": "2026-05-22T14:41:56.803Z",
+    "versionId": "afd8ddc9-0a70-4950-8c7c-902fd822db4f",
+    "workflowId": "ikznVLt27aFwpSW1",
+    "nodes": [
+      {
+        "id": "wh",
+        "name": "Trigger",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "webhookId": "wa-status",
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "wa/status/:sessionId",
+          "responseMode": "lastNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "fi",
+        "name": "Fetch Status",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "={ 'http://evolution-api:8080/instance/fetchInstances?instanceName=' + $json.params.sessionId }",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "rs",
+        "name": "Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "jsCode": "\nconst raw = $input.first().json;\nconst arr = Array.isArray(raw) ? raw : [raw];\nconst inst = arr[0] || {};\nreturn [{ json: {\n  status: inst.connectionStatus || 'close',\n  phone:  (inst.ownerJid || '').replace('@s.whatsapp.net','') || null,\n  qrCode: inst.qrcode?.base64 ? 'data:image/png;base64,' + inst.qrcode.base64 : null\n}}];\n"
+        }
+      }
+    ],
+    "connections": {
+      "Trigger": {
+        "main": [
+          [
+            {
+              "node": "Fetch Status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Status": {
+        "main": [
+          [
+            {
+              "node": "Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "sandro mello",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-22T14:41:57.028Z",
+        "id": 1473,
+        "workflowId": "ikznVLt27aFwpSW1",
+        "versionId": "afd8ddc9-0a70-4950-8c7c-902fd822db4f",
+        "event": "activated",
+        "userId": "78b2d92c-97e7-4034-9366-4d65bcd7cc44"
+      }
+    ]
+  }
+}

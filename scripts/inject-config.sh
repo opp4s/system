@@ -11,7 +11,7 @@ WA_API_BASE="${WA_API_BASE:?WA_API_BASE is required}"
 SNIPPET="window.whatsappLiteConfig={apiBase:'${WA_API_BASE}'};"
 CONFIG_FILE="/app/public/dashboard/custom-scripts.js"
 
-docker exec "$CONTAINER" bash -c "
+docker exec "$CONTAINER" sh -c "
   if [ -f '$CONFIG_FILE' ] && grep -q 'whatsappLiteConfig' '$CONFIG_FILE'; then
     sed -i \"s|window.whatsappLiteConfig=.*|${SNIPPET}|\" '$CONFIG_FILE'
   else

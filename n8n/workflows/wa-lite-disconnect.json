@@ -1,0 +1,239 @@
+{
+  "updatedAt": "2026-05-22T14:41:58.478Z",
+  "createdAt": "2026-05-22T14:41:58.478Z",
+  "id": "pLtHnqdLM7OUAv6f",
+  "name": "WA Lite — Disconnect",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh",
+      "name": "Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wa-disconnect",
+      "parameters": {
+        "httpMethod": "DELETE",
+        "path": "wa/instances/:instanceId",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "di",
+      "name": "Delete Instance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "DELETE",
+        "url": "={ 'http://evolution-api:8080/instance/delete/' + $json.params.instanceId }",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "rr",
+      "name": "Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "fields": {
+          "values": [
+            {
+              "name": "ok",
+              "type": "boolean",
+              "booleanValue": true
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "Delete Instance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Instance": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "005b0b3e-8d0f-47bd-991d-2e95f6eee8ca",
+  "activeVersionId": "005b0b3e-8d0f-47bd-991d-2e95f6eee8ca",
+  "versionCounter": 3,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-22T14:41:58.478Z",
+      "createdAt": "2026-05-22T14:41:58.478Z",
+      "role": "workflow:owner",
+      "workflowId": "pLtHnqdLM7OUAv6f",
+      "projectId": "6jfVB7E6iovdwomh",
+      "project": {
+        "updatedAt": "2025-08-05T19:18:00.355Z",
+        "createdAt": "2025-08-05T17:19:26.218Z",
+        "id": "6jfVB7E6iovdwomh",
+        "name": "sandro mello <atendimento@opp4s.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "78b2d92c-97e7-4034-9366-4d65bcd7cc44"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-22T14:41:58.478Z",
+    "createdAt": "2026-05-22T14:41:58.478Z",
+    "versionId": "005b0b3e-8d0f-47bd-991d-2e95f6eee8ca",
+    "workflowId": "pLtHnqdLM7OUAv6f",
+    "nodes": [
+      {
+        "id": "wh",
+        "name": "Trigger",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "webhookId": "wa-disconnect",
+        "parameters": {
+          "httpMethod": "DELETE",
+          "path": "wa/instances/:instanceId",
+          "responseMode": "lastNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "di",
+        "name": "Delete Instance",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "method": "DELETE",
+          "url": "={ 'http://evolution-api:8080/instance/delete/' + $json.params.instanceId }",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "b1e46777454d01dfe014cd68e3bbf59d0a85515c3317b70c5e73a4c80005ae35"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "rr",
+        "name": "Response",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "mode": "manual",
+          "includeOtherFields": false,
+          "fields": {
+            "values": [
+              {
+                "name": "ok",
+                "type": "boolean",
+                "booleanValue": true
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Trigger": {
+        "main": [
+          [
+            {
+              "node": "Delete Instance",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Delete Instance": {
+        "main": [
+          [
+            {
+              "node": "Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "sandro mello",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-22T14:41:58.805Z",
+        "id": 1476,
+        "workflowId": "pLtHnqdLM7OUAv6f",
+        "versionId": "005b0b3e-8d0f-47bd-991d-2e95f6eee8ca",
+        "event": "activated",
+        "userId": "78b2d92c-97e7-4034-9366-4d65bcd7cc44"
+      }
+    ]
+  }
+}
