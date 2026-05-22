@@ -1,0 +1,6 @@
+pt_BR:
+  integration_apps:
+    whatsapp_lite:
+      name: "WhatsApp Lite"
+      short_description: "Conecte números WhatsApp via Evolution API com QR Code ou código de pareamento."
+      description: "Gerencie conexões WhatsApp diretamente no Chatwoot. Conecte múltiplos números via Evolution API com wizard nativo de QR Code ou código de pareamento."

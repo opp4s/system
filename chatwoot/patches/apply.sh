@@ -23,19 +23,22 @@ if ! grep -q "whatsapp_lite:" "$APPS_YML"; then
   echo "  ✓ apps.yml updated"
 fi
 
-# 3. Append translations to en.yml
-EN_YML="$CW_SRC/config/locales/en.yml"
-if ! grep -q "whatsapp_lite:" "$EN_YML"; then
-  # Insert under integration_apps key
-  python3 - "$EN_YML" "$PLUGIN_DIR/config/locales/whatsapp_lite.en.yml" <<'PYEOF'
-import sys, re
+# 3. Append translations to en.yml and pt_BR.yml
+patch_locale() {
+  local main_file="$1"
+  local patch_file="$2"
+  local lang_key="$3"
+  if ! grep -q "whatsapp_lite:" "$main_file" 2>/dev/null; then
+    python3 - "$main_file" "$patch_file" "$lang_key" <<'PYEOF'
+import sys
 
 main_file = sys.argv[1]
 patch_file = sys.argv[2]
+lang_key = sys.argv[3]
 
 with open(patch_file) as f:
     lines = f.readlines()
-# Extract content under 'en: > integration_apps:'
+
 patch_content = ""
 in_block = False
 for line in lines:
@@ -48,17 +51,17 @@ for line in lines:
 with open(main_file) as f:
     content = f.read()
 
-# Insert before the closing of integration_apps block
-content = content.replace(
-    "\n  openai:",
-    patch_content + "\n  openai:"
-)
+content = content.replace("\n  openai:", patch_content + "\n  openai:")
 
 with open(main_file, "w") as f:
     f.write(content)
 PYEOF
-  echo "  ✓ en.yml updated"
-fi
+    echo "  ✓ $lang_key updated"
+  fi
+}
+
+patch_locale "$CW_SRC/config/locales/en.yml"    "$PLUGIN_DIR/config/locales/whatsapp_lite.en.yml"    "en"
+patch_locale "$CW_SRC/config/locales/pt_BR.yml" "$PLUGIN_DIR/config/locales/whatsapp_lite.pt_BR.yml" "pt_BR"
 
 # 4. Register route in integrations.routes.js
 ROUTES="$CW_SRC/app/javascript/dashboard/routes/dashboard/settings/integrations/integrations.routes.js"

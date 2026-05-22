@@ -41,13 +41,13 @@ RUN SECRET_KEY_BASE=precompile_placeholder \
     RAILS_LOG_TO_STDOUT=enabled \
     bundle exec rake assets:precompile
 
-# Mover assets compilados para o diretório da app
-RUN cp -r /tmp/build/public/packs /app/public/packs \
- && (cp -r /tmp/build/public/assets /app/public/assets 2>/dev/null || true)
+# Mover assets compilados para o diretório da app (Chatwoot v4 usa Vite → public/vite/)
+RUN cp -r /tmp/build/public/vite /app/public/vite
 
 # Copiar arquivos de config patchados
 RUN cp /tmp/build/config/integration/apps.yml /app/config/integration/apps.yml \
- && cp /tmp/build/config/locales/en.yml /app/config/locales/en.yml
+ && cp /tmp/build/config/locales/en.yml /app/config/locales/en.yml \
+ && cp /tmp/build/config/locales/pt_BR.yml /app/config/locales/pt_BR.yml
 
 # Copiar logo
 RUN mkdir -p /app/public/dashboard/images/integrations \
@@ -58,6 +58,9 @@ RUN mkdir -p /app/public/dashboard/images/integrations \
 RUN rm -rf /tmp/build /plugin /assets \
  && npm uninstall -g pnpm 2>/dev/null || true \
  && apk del python3 curl xz 2>/dev/null || true
+
+# Restaurar workdir original da imagem oficial
+WORKDIR /app
 
 LABEL org.opencontainers.image.title="Chatwoot + WhatsApp Lite" \
       org.opencontainers.image.source="https://github.com/opp4s/system" \
