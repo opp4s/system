@@ -51,7 +51,7 @@ for line in lines:
 with open(main_file) as f:
     content = f.read()
 
-content = content.replace("\n  openai:", patch_content + "\n  openai:")
+content = content.replace("\n    openai:", patch_content + "\n    openai:")
 
 with open(main_file, "w") as f:
     f.write(content)

@@ -76,7 +76,7 @@ async function requestConnection() {
 function startPolling() {
   pollTimer = setInterval(async () => {
     try {
-      const res = await fetch(`${props.apiBase}/wa/status/${sessionId.value}`);
+      const res = await fetch(`${props.apiBase}/wa/status?sessionId=${sessionId.value}`);
       const data = await res.json();
       if (data.status === 'open') {
         clearInterval(pollTimer);
@@ -99,7 +99,7 @@ async function refreshQr() {
   loadingQr.value = true;
   apiError.value = '';
   try {
-    const res = await fetch(`${props.apiBase}/wa/refresh/${sessionId.value}`, { method: 'POST' });
+    const res = await fetch(`${props.apiBase}/wa/refresh?sessionId=${sessionId.value}`, { method: 'POST' });
     const data = await res.json();
     qrCode.value = data.qrCode;
   } catch {
