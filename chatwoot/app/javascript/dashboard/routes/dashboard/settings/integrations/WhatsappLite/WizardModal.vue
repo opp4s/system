@@ -51,10 +51,17 @@ function selectPlatform(p) {
   step.value = 'phone';
 }
 
+function fullPhoneNumber() {
+  if (ddi.value) {
+    return `${ddi.value}${phone.value.replace(/\D/g, '')}`;
+  }
+  return phone.value.trim();
+}
+
 function validatePhone() {
-  const digits = phone.value.replace(/\D/g, '');
-  if (digits.length < 6) {
-    phoneError.value = 'Digite um número válido';
+  const digits = fullPhoneNumber().replace(/\D/g, '');
+  if (digits.length < 8) {
+    phoneError.value = ddi.value ? 'Digite um número válido' : 'Digite o número completo com +DDI (ex: +5541999000000)';
     return false;
   }
   phoneError.value = '';
@@ -112,11 +119,10 @@ async function requestConnection() {
   apiError.value = '';
 
   try {
-    const digits = phone.value.replace(/\D/g, '');
     const res = await axios.post(
       `${apiBase()}/connect`,
       {
-        phone_number: `${ddi.value}${digits}`,
+        phone_number: fullPhoneNumber(),
         method: usePairing.value ? 'pairing' : 'qr',
       },
       { signal: abortController.signal }
@@ -291,7 +297,7 @@ onUnmounted(() => {
             <input
               v-model="phone"
               type="tel"
-              :placeholder="ddi === '+55' ? '41 99999-0000' : ''"
+              :placeholder="ddi === '+55' ? '41 99999-0000' : ddi ? '' : '+5541999000000'"
               class="flex-1 px-3 py-2.5 rounded-lg border text-sm text-n-slate-12 bg-n-alpha-1 outline-none transition-colors"
               :class="phoneError
                 ? 'border-ruby-500 focus:border-ruby-500'
