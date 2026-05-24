@@ -1,16 +1,28 @@
 <script setup>
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 
 /* global axios */
 
 const props = defineProps({
   accountId: { type: [String, Number], default: '' },
+  reconnectInstance: { type: Object, default: null },
 });
 
 const emit = defineEmits(['close', 'connected']);
 
+const DDI_OPTIONS = [
+  { label: '+55 Brasil', value: '+55' },
+  { label: '+1 EUA/Canadá', value: '+1' },
+  { label: '+351 Portugal', value: '+351' },
+  { label: '+54 Argentina', value: '+54' },
+  { label: '+598 Uruguai', value: '+598' },
+  { label: '+56 Chile', value: '+56' },
+  { label: '+57 Colômbia', value: '+57' },
+];
+
 const step = ref('platform');
 const platform = ref(null);
+const ddi = ref('+55');
 const phone = ref('');
 const phoneError = ref('');
 const instanceId = ref(null);
@@ -41,8 +53,8 @@ function selectPlatform(p) {
 
 function validatePhone() {
   const digits = phone.value.replace(/\D/g, '');
-  if (digits.length < 10) {
-    phoneError.value = 'Digite um número válido com DDD';
+  if (digits.length < 6) {
+    phoneError.value = 'Digite um número válido';
     return false;
   }
   phoneError.value = '';
@@ -100,10 +112,11 @@ async function requestConnection() {
   apiError.value = '';
 
   try {
+    const digits = phone.value.replace(/\D/g, '');
     const res = await axios.post(
       `${apiBase()}/connect`,
       {
-        phone_number: `+55${phone.value.replace(/\D/g, '')}`,
+        phone_number: `${ddi.value}${digits}`,
         method: usePairing.value ? 'pairing' : 'qr',
       },
       { signal: abortController.signal }
@@ -149,6 +162,22 @@ function close() {
   clearTimeout(refreshTimer);
   emit('close');
 }
+
+onMounted(() => {
+  if (props.reconnectInstance) {
+    const raw = props.reconnectInstance.phone_number || '';
+    const matched = DDI_OPTIONS.find(o => raw.startsWith(o.value));
+    if (matched) {
+      ddi.value = matched.value;
+      phone.value = raw.slice(matched.value.length).replace(/\D/g, '');
+    } else {
+      ddi.value = '';
+      phone.value = raw.replace(/\D/g, '');
+    }
+    platform.value = 'android';
+    step.value = 'phone';
+  }
+});
 
 onUnmounted(() => {
   clearInterval(pollTimer);
@@ -239,20 +268,37 @@ onUnmounted(() => {
         <div v-else-if="step === 'phone'" class="flex flex-col max-w-sm mx-auto">
           <h3 class="text-heading-3 text-n-slate-12 mb-1">Qual o número do WhatsApp?</h3>
           <p class="text-body-sm text-n-slate-10 mb-6">
-            Digite o número com DDD (Brasil). Ex: 41 99999-0000
+            Selecione o país e digite o número com DDD
           </p>
 
+          <label class="text-xs font-medium text-n-slate-11 mb-1.5 block">País</label>
+          <select
+            v-model="ddi"
+            class="w-full px-3 py-2.5 rounded-lg border border-n-weak text-sm text-n-slate-12 bg-n-alpha-1 outline-none transition-colors focus:border-woot-500 mb-3"
+          >
+            <option v-for="opt in DDI_OPTIONS" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+            <option value="">Outro (digitar +DDI junto)</option>
+          </select>
+
           <label class="text-xs font-medium text-n-slate-11 mb-1.5 block">Número de telefone</label>
-          <input
-            v-model="phone"
-            type="tel"
-            placeholder="41 99999-0000"
-            class="w-full px-3 py-2.5 rounded-lg border text-sm text-n-slate-12 bg-n-alpha-1 outline-none transition-colors"
-            :class="phoneError
-              ? 'border-ruby-500 focus:border-ruby-500'
-              : 'border-n-weak focus:border-woot-500'"
-            @keyup.enter="requestConnection"
-          />
+          <div class="flex gap-2">
+            <span
+              v-if="ddi"
+              class="flex items-center px-3 rounded-lg border border-n-weak bg-n-alpha-2 text-sm text-n-slate-11 whitespace-nowrap"
+            >{{ ddi }}</span>
+            <input
+              v-model="phone"
+              type="tel"
+              :placeholder="ddi === '+55' ? '41 99999-0000' : ''"
+              class="flex-1 px-3 py-2.5 rounded-lg border text-sm text-n-slate-12 bg-n-alpha-1 outline-none transition-colors"
+              :class="phoneError
+                ? 'border-ruby-500 focus:border-ruby-500'
+                : 'border-n-weak focus:border-woot-500'"
+              @keyup.enter="requestConnection"
+            />
+          </div>
           <p v-if="phoneError" class="text-xs text-ruby-500 mt-1">{{ phoneError }}</p>
 
           <label class="flex items-center gap-2 mt-4 cursor-pointer">
@@ -366,7 +412,7 @@ onUnmounted(() => {
                 </div>
                 <img
                   v-else-if="qrCode"
-                  :src="`data:image/png;base64,${qrCode}`"
+                  :src="qrCode"
                   alt="QR Code"
                   class="w-48 h-48 rounded-xl border border-n-weak"
                 />

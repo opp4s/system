@@ -2,7 +2,9 @@ module WhatsappLite
   module Api
     class InstancesController < BaseController
       def index
-        channels = WhatsappLiteChannel.where(account: current_account)
+        channels = WhatsappLiteChannel
+          .joins(:inbox)
+          .where(account: current_account)
         render json: channels.map { |c|
           { instance_id: c.instance_id, phone_number: c.phone_number,
             status: c.status, inbox_id: c.inbox_id }

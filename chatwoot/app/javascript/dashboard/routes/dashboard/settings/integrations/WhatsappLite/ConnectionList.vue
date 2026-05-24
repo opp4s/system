@@ -1,10 +1,15 @@
 <script setup>
+import { ref } from 'vue';
+
 defineProps({
   instances: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
 });
 
-defineEmits(['disconnect']);
+const emit = defineEmits(['disconnect', 'reconnect', 'delete']);
+
+const confirmingDelete = ref(null);
+const actionLoading = ref(null);
 
 function statusColor(status) {
   return status === 'connected' ? 'text-green-500' : 'text-n-slate-9';
@@ -18,6 +23,44 @@ function statusLabel(status) {
     qr_expired:   'QR Expirado',
   };
   return map[status] || status;
+}
+
+async function handleDisconnect(instanceId) {
+  actionLoading.value = `disconnect-${instanceId}`;
+  try {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    emit('disconnect', instanceId);
+  } finally {
+    actionLoading.value = null;
+  }
+}
+
+async function handleReconnect(inst) {
+  actionLoading.value = `reconnect-${inst.instance_id}`;
+  try {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    emit('reconnect', inst);
+  } finally {
+    actionLoading.value = null;
+  }
+}
+
+function confirmDelete(instanceId) {
+  confirmingDelete.value = instanceId;
+}
+
+function cancelDelete() {
+  confirmingDelete.value = null;
+}
+
+async function handleDelete(instanceId) {
+  actionLoading.value = `delete-${instanceId}`;
+  confirmingDelete.value = null;
+  try {
+    emit('delete', instanceId);
+  } finally {
+    actionLoading.value = null;
+  }
 }
 </script>
 
@@ -62,12 +105,47 @@ function statusLabel(status) {
             </span>
           </td>
           <td class="py-3 text-right">
-            <button
-              class="text-ruby-500 hover:text-ruby-600 text-xs font-medium"
-              @click="$emit('disconnect', inst.instance_id)"
-            >
-              Desconectar
-            </button>
+            <template v-if="confirmingDelete === inst.instance_id">
+              <span class="text-xs text-n-slate-11 mr-2">Excluir inbox e conversas?</span>
+              <button
+                class="text-ruby-500 hover:text-ruby-600 text-xs font-medium mr-3"
+                @click="handleDelete(inst.instance_id)"
+              >
+                Confirmar
+              </button>
+              <button
+                class="text-n-slate-9 hover:text-n-slate-12 text-xs"
+                @click="cancelDelete"
+              >
+                Cancelar
+              </button>
+            </template>
+            <template v-else>
+              <button
+                v-if="inst.status !== 'connected'"
+                class="text-woot-500 hover:text-woot-600 text-xs font-medium mr-3 disabled:opacity-50"
+                :disabled="actionLoading === `reconnect-${inst.instance_id}`"
+                @click="handleReconnect(inst)"
+              >
+                <span v-if="actionLoading === `reconnect-${inst.instance_id}`" class="i-woot-spinner animate-spin mr-1" />
+                Reconectar
+              </button>
+              <button
+                class="text-n-slate-9 hover:text-n-slate-12 text-xs font-medium mr-3 disabled:opacity-50"
+                :disabled="actionLoading === `disconnect-${inst.instance_id}`"
+                @click="handleDisconnect(inst.instance_id)"
+              >
+                <span v-if="actionLoading === `disconnect-${inst.instance_id}`" class="i-woot-spinner animate-spin mr-1" />
+                Desconectar
+              </button>
+              <button
+                class="text-ruby-500 hover:text-ruby-600 text-xs font-medium disabled:opacity-50"
+                :disabled="!!actionLoading"
+                @click="confirmDelete(inst.instance_id)"
+              >
+                Excluir
+              </button>
+            </template>
           </td>
         </tr>
       </tbody>

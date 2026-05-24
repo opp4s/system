@@ -10,6 +10,7 @@ const route = useRoute();
 const instances = ref([]);
 const showWizard = ref(false);
 const loading = ref(false);
+const wizardReconnect = ref(null);
 
 function accountId() {
   return route.params.accountId;
@@ -41,8 +42,31 @@ async function disconnect(instanceId) {
   await fetchInstances();
 }
 
+async function deleteInstance(instanceId) {
+  try {
+    await axios.delete(
+      `/api/v1/accounts/${accountId()}/whatsapp_lite/instances`,
+      { params: { instance_id: instanceId, destroy_inbox: true } }
+    );
+  } catch {
+    // ignore errors
+  }
+  await fetchInstances();
+}
+
+function reconnect(inst) {
+  wizardReconnect.value = inst;
+  showWizard.value = true;
+}
+
+function onWizardClose() {
+  showWizard.value = false;
+  wizardReconnect.value = null;
+}
+
 function onConnected() {
   showWizard.value = false;
+  wizardReconnect.value = null;
   fetchInstances();
 }
 
@@ -80,13 +104,16 @@ onMounted(fetchInstances);
         :instances="instances"
         :loading="loading"
         @disconnect="disconnect"
+        @reconnect="reconnect"
+        @delete="deleteInstance"
       />
     </div>
 
     <WizardModal
       v-if="showWizard"
       :account-id="accountId()"
-      @close="showWizard = false"
+      :reconnect-instance="wizardReconnect"
+      @close="onWizardClose"
       @connected="onConnected"
     />
   </div>
