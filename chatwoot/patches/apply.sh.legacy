@@ -26,42 +26,42 @@ fi
 # 3. Append translations to en.yml and pt_BR.yml
 patch_locale() {
   local main_file="$1"
-  local patch_file="$2"
-  local lang_key="$3"
-  if ! grep -q "whatsapp_lite:" "$main_file" 2>/dev/null; then
-    python3 - "$main_file" "$patch_file" "$lang_key" <<'PYEOF'
-import sys
+  local name="$2"
+  local short_desc="$3"
+  local desc="$4"
 
-main_file = sys.argv[1]
-patch_file = sys.argv[2]
-lang_key = sys.argv[3]
-
-with open(patch_file) as f:
-    lines = f.readlines()
-
-patch_content = ""
-in_block = False
-for line in lines:
-    if "integration_apps:" in line:
-        in_block = True
-        continue
-    if in_block:
-        patch_content += line
-
-with open(main_file) as f:
-    content = f.read()
-
-content = content.replace("\n    openai:", patch_content + "\n    openai:")
-
-with open(main_file, "w") as f:
-    f.write(content)
-PYEOF
-    echo "  ✓ $lang_key updated"
+  if grep -q "whatsapp_lite:" "$main_file" 2>/dev/null; then
+    echo "  (locale ja patchado)"
+    return
   fi
+
+  ruby - "$main_file" "$name" "$short_desc" "$desc" <<'RUBYEOF'
+fname, name, short_desc, desc = ARGV
+content = File.read(fname)
+
+insertion = "    whatsapp_lite:\n      name: '#{name}'\n      short_description: '#{short_desc}'\n      description: '#{desc}'\n"
+
+ia_pos = content.index('  integration_apps:')
+abort("ERRO: integration_apps nao encontrado em #{fname}") unless ia_pos
+
+openai_pos = content.index("\n    openai:", ia_pos)
+abort("ERRO: openai: nao encontrado apos integration_apps em #{fname}") unless openai_pos
+
+content = content[0..openai_pos] + insertion + content[(openai_pos + 1)..]
+File.write(fname, content)
+RUBYEOF
+  echo "  ✓ $main_file updated"
 }
 
-patch_locale "$CW_SRC/config/locales/en.yml"    "$PLUGIN_DIR/config/locales/whatsapp_lite.en.yml"    "en"
-patch_locale "$CW_SRC/config/locales/pt_BR.yml" "$PLUGIN_DIR/config/locales/whatsapp_lite.pt_BR.yml" "pt_BR"
+patch_locale "$CW_SRC/config/locales/pt_BR.yml" \
+  "WhatsApp Lite" \
+  "Conecte números WhatsApp via Evolution API com QR Code ou código de pareamento." \
+  "Gerencie conexões WhatsApp diretamente no Chatwoot. Conecte múltiplos números via Evolution API."
+
+patch_locale "$CW_SRC/config/locales/en.yml" \
+  "WhatsApp Lite" \
+  "Connect WhatsApp numbers via Evolution API with QR Code or pairing code." \
+  "Manage WhatsApp connections directly in Chatwoot. Connect multiple numbers via Evolution API."
 
 # 4. Register route in integrations.routes.js
 ROUTES="$CW_SRC/app/javascript/dashboard/routes/dashboard/settings/integrations/integrations.routes.js"
