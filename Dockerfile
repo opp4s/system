@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Estratégia: usa a imagem oficial do Chatwoot como base (gems Ruby já compiladas),
 # adiciona Node.js apenas para recompilar os assets frontend com os patches aplicados.
-# Tempo de build: ~10-15 min (vs ~2h compilando tudo do zero).
+# Tempo de build: ~10-15 min.
 
 ARG CHATWOOT_VERSION=v4.14.0
 
@@ -14,52 +14,55 @@ ENV NODE_OPTIONS="--max-old-space-size=4096 --openssl-legacy-provider"
 ENV PNPM_HOME="/root/.local/share/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-# Instalar Node.js e pnpm via Alpine (sem conflitos com binários existentes)
-RUN apk add --no-cache nodejs npm python3 \
+# Instalar Node.js e pnpm via Alpine
+RUN apk add --no-cache nodejs npm \
  && npm install -g pnpm@${PNPM_VERSION} --no-fund --no-audit
 
-# Clonar source do Chatwoot na versão exata (para recompilar assets com patches)
-RUN git clone --depth 1 --branch ${CHATWOOT_VERSION} \
-      https://github.com/chatwoot/chatwoot /tmp/build
-
-# Copiar plugin e aplicar patches
+# Copiar plugin e assets
 COPY chatwoot/ /plugin/
 COPY assets/   /assets/
-RUN CHATWOOT_SRC=/tmp/build sh /plugin/patches/apply.sh
 
-WORKDIR /tmp/build
+# Aplicar patches no source do Chatwoot (Vue components + integrations.routes.js)
+RUN CHATWOOT_SRC=/app sh /plugin/patches/apply.sh
 
-# Usar as gems já existentes na imagem (BUNDLE_PATH=/gems já configurado)
-RUN bundle config set path '/gems' \
- && bundle config set without 'development test'
+WORKDIR /app
 
-# Instalar dependências JS
-RUN pnpm install --frozen-lockfile
+# Instalar dependências JS (pnpm já instalado, node_modules pode já existir na imagem)
+RUN pnpm install --frozen-lockfile || pnpm install
 
-# Compilar assets frontend (reutiliza gems Ruby da imagem oficial — sem bundle install)
+# Compilar assets frontend
 RUN SECRET_KEY_BASE=precompile_placeholder \
     RAILS_LOG_TO_STDOUT=enabled \
     bundle exec rake assets:precompile
 
-# Mover assets compilados para o diretório da app (Chatwoot v4 usa Vite → public/vite/)
-RUN cp -r /tmp/build/public/vite /app/public/vite
+# Backend Ruby do plugin (copiado após o build para não afetar compilação)
+RUN mkdir -p \
+      /app/lib/whatsapp_lite/listeners \
+      /app/app/controllers/whatsapp_lite/api \
+      /app/app/jobs/whatsapp_lite \
+      /app/db/migrate_plugin \
+ && cp -r /plugin/lib/whatsapp_lite/. /app/lib/whatsapp_lite/ \
+ && cp    /plugin/app/models/whatsapp_lite_channel.rb /app/app/models/ \
+ && cp -r /plugin/app/controllers/whatsapp_lite       /app/app/controllers/ \
+ && cp -r /plugin/app/jobs/whatsapp_lite              /app/app/jobs/ \
+ && cp    /plugin/db/migrate/*.rb                     /app/db/migrate_plugin/ \
+ && cp    /plugin/config/initializers/whatsapp_lite.rb /app/config/initializers/
 
-# Copiar arquivos de config patchados
-RUN cp /tmp/build/config/integration/apps.yml /app/config/integration/apps.yml \
- && cp /tmp/build/config/locales/en.yml /app/config/locales/en.yml \
- && cp /tmp/build/config/locales/pt_BR.yml /app/config/locales/pt_BR.yml
+# Locales do plugin
+RUN mkdir -p /app/config/locales \
+ && cp /plugin/config/locales/whatsapp_lite.*.yml /app/config/locales/ 2>/dev/null || true
 
-# Copiar logo
+# Logo
 RUN mkdir -p /app/public/dashboard/images/integrations \
  && cp /assets/whatsapp_lite.png /app/public/dashboard/images/integrations/whatsapp_lite.png \
- && cp /assets/whatsapp_lite.png /app/public/dashboard/images/integrations/whatsapp_lite-dark.png
+ && cp /assets/whatsapp_lite.png /app/public/dashboard/images/integrations/whatsapp_lite-dark.png \
+ 2>/dev/null || true
 
 # Limpar deps de build
-RUN rm -rf /tmp/build /plugin /assets \
+RUN rm -rf /plugin /assets \
  && npm uninstall -g pnpm 2>/dev/null || true \
- && apk del python3 curl xz 2>/dev/null || true
+ && apk del nodejs npm 2>/dev/null || true
 
-# Restaurar workdir original da imagem oficial
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="Chatwoot + WhatsApp Lite" \

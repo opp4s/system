@@ -1,30 +1,38 @@
 <script setup>
 import { ref, computed, onUnmounted } from 'vue';
 
+/* global axios */
+
 const props = defineProps({
-  apiBase: { type: String, default: '' },
+  accountId: { type: [String, Number], default: '' },
 });
 
 const emit = defineEmits(['close', 'connected']);
 
-// Steps: platform → phone → qr → success
 const step = ref('platform');
 const platform = ref(null);
 const phone = ref('');
 const phoneError = ref('');
-const sessionId = ref(null);
+const instanceId = ref(null);
 const qrCode = ref(null);
 const pairingCode = ref(null);
+const expiresAt = ref(null);
 const usePairing = ref(false);
 const loadingQr = ref(false);
 const apiError = ref('');
 
 let pollTimer = null;
+let refreshTimer = null;
+let abortController = null;
 
 const stepIndex = computed(() => {
   const map = { platform: 0, phone: 1, qr: 2, success: 3 };
   return map[step.value] ?? 0;
 });
+
+function apiBase() {
+  return `/api/v1/accounts/${props.accountId}/whatsapp_lite`;
+}
 
 function selectPlatform(p) {
   platform.value = p;
@@ -41,53 +49,42 @@ function validatePhone() {
   return true;
 }
 
-async function requestConnection() {
-  if (!validatePhone()) return;
-  loadingQr.value = true;
-  apiError.value = '';
-  try {
-    const body = {
-      phone: phone.value.replace(/\D/g, ''),
-      platform: platform.value,
-      usePairing: usePairing.value,
-    };
-    const res = await fetch(`${props.apiBase}/wa/connect`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    sessionId.value = data.sessionId;
-    if (usePairing.value) {
-      pairingCode.value = data.pairingCode;
-    } else {
-      qrCode.value = data.qrCode;
-    }
-    step.value = 'qr';
-    startPolling();
-  } catch (e) {
-    apiError.value = e.message || 'Erro ao criar conexão. Tente novamente.';
-  } finally {
-    loadingQr.value = false;
+function scheduleQrRefresh(expiresAtIso) {
+  clearTimeout(refreshTimer);
+  const msUntilExpiry = new Date(expiresAtIso).getTime() - Date.now() - 5000;
+  if (msUntilExpiry > 0) {
+    refreshTimer = setTimeout(async () => {
+      try {
+        const res = await axios.post(`${apiBase()}/refresh`, {
+          instance_id: instanceId.value,
+        });
+        qrCode.value = res.data.qr_code_base64;
+        expiresAt.value = res.data.expires_at;
+        scheduleQrRefresh(res.data.expires_at);
+      } catch {
+        // ignored — modal may have been closed
+      }
+    }, msUntilExpiry);
   }
 }
 
 function startPolling() {
+  clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
+    if (!instanceId.value) return;
     try {
-      const res = await fetch(`${props.apiBase}/wa/status?sessionId=${sessionId.value}`);
-      const data = await res.json();
-      if (data.status === 'open') {
+      const res = await axios.get(`${apiBase()}/status`, {
+        params: { instance_id: instanceId.value },
+      });
+      const status = res.data.status;
+      if (status === 'connected') {
         clearInterval(pollTimer);
+        clearTimeout(refreshTimer);
         step.value = 'success';
-        setTimeout(() => emit('connected'), 1500);
-      } else if (data.status === 'expired') {
+        setTimeout(() => emit('connected', { instanceId: instanceId.value }), 1500);
+      } else if (status === 'qr_expired') {
         clearInterval(pollTimer);
-        apiError.value = 'QR Code expirado. Tente novamente.';
-        step.value = 'phone';
-      } else if (data.qrCode && !usePairing.value) {
-        qrCode.value = data.qrCode;
+        apiError.value = 'QR expirado. Clique em "Atualizar QR" para gerar um novo.';
       }
     } catch {
       // silently retry
@@ -95,13 +92,50 @@ function startPolling() {
   }, 3000);
 }
 
+async function requestConnection() {
+  if (!validatePhone()) return;
+
+  abortController = new AbortController();
+  loadingQr.value = true;
+  apiError.value = '';
+
+  try {
+    const res = await axios.post(
+      `${apiBase()}/connect`,
+      {
+        phone_number: `+55${phone.value.replace(/\D/g, '')}`,
+        method: usePairing.value ? 'pairing' : 'qr',
+      },
+      { signal: abortController.signal }
+    );
+
+    instanceId.value = res.data.instance_id;
+    qrCode.value = res.data.qr_code_base64;
+    pairingCode.value = res.data.pairing_code;
+    expiresAt.value = res.data.expires_at;
+
+    step.value = 'qr';
+    if (expiresAt.value) scheduleQrRefresh(expiresAt.value);
+    startPolling();
+  } catch (e) {
+    if (e.name === 'CanceledError' || e.name === 'AbortError') return;
+    const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+    apiError.value = msg || 'Erro ao criar conexão. Tente novamente.';
+  } finally {
+    loadingQr.value = false;
+  }
+}
+
 async function refreshQr() {
   loadingQr.value = true;
   apiError.value = '';
   try {
-    const res = await fetch(`${props.apiBase}/wa/refresh?sessionId=${sessionId.value}`, { method: 'POST' });
-    const data = await res.json();
-    qrCode.value = data.qrCode;
+    const res = await axios.post(`${apiBase()}/refresh`, {
+      instance_id: instanceId.value,
+    });
+    qrCode.value = res.data.qr_code_base64;
+    expiresAt.value = res.data.expires_at;
+    if (expiresAt.value) scheduleQrRefresh(expiresAt.value);
   } catch {
     apiError.value = 'Não foi possível atualizar o QR Code.';
   } finally {
@@ -110,11 +144,16 @@ async function refreshQr() {
 }
 
 function close() {
+  abortController?.abort();
   clearInterval(pollTimer);
+  clearTimeout(refreshTimer);
   emit('close');
 }
 
-onUnmounted(() => clearInterval(pollTimer));
+onUnmounted(() => {
+  clearInterval(pollTimer);
+  clearTimeout(refreshTimer);
+});
 </script>
 
 <template>
@@ -200,7 +239,7 @@ onUnmounted(() => clearInterval(pollTimer));
         <div v-else-if="step === 'phone'" class="flex flex-col max-w-sm mx-auto">
           <h3 class="text-heading-3 text-n-slate-12 mb-1">Qual o número do WhatsApp?</h3>
           <p class="text-body-sm text-n-slate-10 mb-6">
-            Digite o número com DDD. Ex: 41 99999-0000
+            Digite o número com DDD (Brasil). Ex: 41 99999-0000
           </p>
 
           <label class="text-xs font-medium text-n-slate-11 mb-1.5 block">Número de telefone</label>
@@ -218,7 +257,7 @@ onUnmounted(() => clearInterval(pollTimer));
 
           <label class="flex items-center gap-2 mt-4 cursor-pointer">
             <input v-model="usePairing" type="checkbox" class="rounded" />
-            <span class="text-sm text-n-slate-11">Usar código de pareamento <span class="text-n-slate-9">(sem QR Code — recomendado)</span></span>
+            <span class="text-sm text-n-slate-11">Usar código de pareamento <span class="text-n-slate-9">(sem QR Code)</span></span>
           </label>
 
           <p v-if="apiError" class="text-xs text-ruby-500 mt-3">{{ apiError }}</p>
@@ -295,7 +334,8 @@ onUnmounted(() => clearInterval(pollTimer));
             </template>
 
             <div class="mt-auto pt-4">
-              <p class="text-xs text-n-slate-9 flex items-center gap-1.5">
+              <p v-if="apiError" class="text-xs text-ruby-500 mb-2">{{ apiError }}</p>
+              <p v-else class="text-xs text-n-slate-9 flex items-center gap-1.5">
                 <span class="i-woot-spinner animate-spin" />
                 Aguardando conexão...
               </p>
@@ -304,7 +344,6 @@ onUnmounted(() => clearInterval(pollTimer));
 
           <!-- Right: QR or Pairing Code -->
           <div class="flex flex-col items-center justify-center flex-shrink-0">
-            <!-- Pairing code -->
             <template v-if="usePairing">
               <div class="bg-n-alpha-2 rounded-xl px-6 py-4 text-center">
                 <p class="text-xs text-n-slate-9 mb-2 font-medium uppercase tracking-wide">Código de Pareamento</p>
@@ -320,7 +359,6 @@ onUnmounted(() => clearInterval(pollTimer));
               </div>
             </template>
 
-            <!-- QR Code -->
             <template v-else>
               <div class="relative">
                 <div v-if="loadingQr" class="w-48 h-48 bg-n-alpha-2 rounded-xl flex items-center justify-center">
@@ -328,7 +366,7 @@ onUnmounted(() => clearInterval(pollTimer));
                 </div>
                 <img
                   v-else-if="qrCode"
-                  :src="qrCode"
+                  :src="`data:image/png;base64,${qrCode}`"
                   alt="QR Code"
                   class="w-48 h-48 rounded-xl border border-n-weak"
                 />

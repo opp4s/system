@@ -1,5 +1,12 @@
 require Rails.root.join('lib', 'whatsapp_lite', 'engine')
 
+# Merge plugin integration into APPS_CONFIG (loaded by 00_init.rb before this runs).
+# Runs at top-level so it's available synchronously before any request.
+plugin_yml = Rails.root.join('config', 'integration', 'whatsapp_lite.yml')
+if plugin_yml.exist? && defined?(APPS_CONFIG)
+  APPS_CONFIG.merge!(YAML.safe_load_file(plugin_yml))
+end
+
 # aws-sdk-s3 >= 1.210 defaults to request_checksum_calculation: "when_supported",
 # which adds a CRC32 checksum that conflicts with ActiveStorage's content_md5.
 # Set to "when_required" so only checksums explicitly requested are sent.

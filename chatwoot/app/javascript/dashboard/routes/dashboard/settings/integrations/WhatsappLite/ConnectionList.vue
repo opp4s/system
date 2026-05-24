@@ -7,11 +7,16 @@ defineProps({
 defineEmits(['disconnect']);
 
 function statusColor(status) {
-  return status === 'open' ? 'text-green-500' : 'text-n-slate-9';
+  return status === 'connected' ? 'text-green-500' : 'text-n-slate-9';
 }
 
 function statusLabel(status) {
-  const map = { open: 'Conectado', close: 'Desconectado', connecting: 'Conectando...' };
+  const map = {
+    connected:    'Conectado',
+    disconnected: 'Desconectado',
+    qr_pending:   'Aguardando QR',
+    qr_expired:   'QR Expirado',
+  };
   return map[status] || status;
 }
 </script>
@@ -36,7 +41,7 @@ function statusLabel(status) {
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-n-weak text-n-slate-10 text-left">
-          <th class="pb-3 pr-4 font-medium">Nome</th>
+          <th class="pb-3 pr-4 font-medium">Instância</th>
           <th class="pb-3 pr-4 font-medium">Número</th>
           <th class="pb-3 pr-4 font-medium">Estado</th>
           <th class="pb-3 font-medium text-right">Ações</th>
@@ -45,11 +50,11 @@ function statusLabel(status) {
       <tbody>
         <tr
           v-for="inst in instances"
-          :key="inst.id"
+          :key="inst.instance_id"
           class="border-b border-n-weak last:border-0"
         >
-          <td class="py-3 pr-4 font-medium text-n-slate-12">{{ inst.name }}</td>
-          <td class="py-3 pr-4 text-n-slate-11">{{ inst.phone || '—' }}</td>
+          <td class="py-3 pr-4 font-medium text-n-slate-12 font-mono text-xs">{{ inst.instance_id }}</td>
+          <td class="py-3 pr-4 text-n-slate-11">{{ inst.phone_number || '—' }}</td>
           <td class="py-3 pr-4">
             <span class="flex items-center gap-1.5" :class="statusColor(inst.status)">
               <span class="w-2 h-2 rounded-full bg-current" />
@@ -59,7 +64,7 @@ function statusLabel(status) {
           <td class="py-3 text-right">
             <button
               class="text-ruby-500 hover:text-ruby-600 text-xs font-medium"
-              @click="$emit('disconnect', inst.id)"
+              @click="$emit('disconnect', inst.instance_id)"
             >
               Desconectar
             </button>
