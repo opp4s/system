@@ -1,5 +1,13 @@
 require Rails.root.join('lib', 'whatsapp_lite', 'engine')
 
+# aws-sdk-s3 >= 1.210 defaults to request_checksum_calculation: "when_supported",
+# which adds a CRC32 checksum that conflicts with ActiveStorage's content_md5.
+# Set to "when_required" so only checksums explicitly requested are sent.
+Aws.config.update(
+  request_checksum_calculation: 'when_required',
+  response_checksum_validation: 'when_required'
+) if defined?(Aws)
+
 plugin_migrations = Rails.root.join('db', 'migrate_plugin')
 Rails.application.config.paths['db/migrate'] << plugin_migrations.to_s if plugin_migrations.exist?
 

@@ -144,3 +144,44 @@ Container roda sem gems de test/development. Level 2 (RSpec) substituído por:
 `ApplicationController` do Chatwoot pode não ter o callback `verify_authenticity_token` definido
 (ou ter uma configuração diferente). Em Rails 7.1, `skip_before_action` levanta `ArgumentError` se
 o callback não existir. **Fix:** `skip_before_action :verify_authenticity_token, raise: false`.
+
+---
+
+## Parte 5 — Webhook Controller
+
+### `ContactInbox` requer `source_id`
+`ContactInbox` tem `validates :source_id, presence: true`. Ao usar `find_or_create_by!`,
+o bloco de inicialização deve incluir `ci.source_id = SecureRandom.uuid`.
+Sem isso: `ActiveRecord::RecordInvalid: Validation failed: Source can't be blank`.
+
+### `Attachment.file_types` não tem `:document`
+`Attachment.file_types.keys` inclui `image`, `audio`, `video`, `file` — mas NÃO `document`.
+**Fix:** mapear `'document' → 'file'` no DownloadMediaJob (constante `FILE_TYPE_MAP`).
+
+---
+
+## Parte 6 — DownloadMediaJob (Mídia)
+
+### aws-sdk-s3 >= 1.210 conflita com `content_md5` do ActiveStorage
+`aws-sdk-s3 1.208` + `aws-sdk-core 3.240` adicionam checksum CRC32 automaticamente
+(`request_checksum_calculation: "when_supported"` é o default). ActiveStorage S3 service
+também envia `content_md5`. S3 rejeita: `You can only specify one non-default checksum at a time`.
+**Fix:** no initializer do plugin (top-level, fora de qualquer block), antes do after_initialize:
+```ruby
+Aws.config.update(
+  request_checksum_calculation: 'when_required',
+  response_checksum_validation: 'when_required'
+) if defined?(Aws)
+```
+Isso precisa ficar no TOP NÍVEL do initializer (não dentro de um block), porque o cliente S3
+é criado em `after_initialize` — se o config já estiver setado quando o cliente for criado,
+ele usa o valor correto.
+
+### Faraday 2.x não segue redirects por padrão
+Picsum.photos e algumas CDNs retornam 302. Faraday 2.x requer middleware explícito:
+```ruby
+require 'faraday/follow_redirects'
+conn = Faraday.new { |f| f.response :follow_redirects }
+```
+Gem `faraday-follow_redirects` já está disponível no container (confirmado).
+Sem isso: `response.success?` é `false` para 302, job retorna early sem criar attachment.
