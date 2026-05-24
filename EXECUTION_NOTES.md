@@ -110,6 +110,36 @@ Como a imagem tem os locales corrompidos, qualquer force-recreate restaura a cor
 - /opt/apps/chatwoot-whatsapp-lite/chatwoot/config/locales/pt_BR.yml:/app/config/locales/pt_BR.yml
 ```
 
+---
+
+## Parte 4 — Listener + Dispatcher (pré-investigação)
+
+### Check A: MESSAGE_CREATED despachado em app/models/message.rb:379
+`dispatch_create_events` é chamado via `after_create_commit → execute_after_create_commit_callbacks`.
+Portanto `Message.create!` dispara o evento diretamente — builder não é necessário no smoke test.
+
+### Check B: Dispatcher disponível, mas sem `.subscribe` direto
+`Rails.configuration.dispatcher` é instância de `Dispatcher` (Singleton).
+Não tem `subscribe` nem `listeners` expostos — tem `sync_dispatcher` e `async_dispatcher`.
+Ambos herdam de `BaseDispatcher < Wisper::Publisher` e TÊM `subscribe`.
+Subscribe correto: `dispatcher.sync_dispatcher.subscribe(listener_instance)`.
+
+### Check B2: Timing — `after_initialize` roda ANTES de `to_prepare`
+`event_handlers.rb` cria o dispatcher em `config.to_prepare` (roda após `after_initialize`).
+Se subscrevermos em `after_initialize`, o dispatcher ainda não existe.
+**Fix:** usar `config.to_prepare` no inicializador do plugin — mesma estratégia do Chatwoot.
+Como `event_handlers.rb` (e) vem antes de `whatsapp_lite.rb` (w) alfabeticamente,
+seu `to_prepare` (que cria o dispatcher) roda antes do nosso (que subscreve).
+
+### Check C: Volumes OK em web e sidekiq
+`lib/whatsapp_lite` e `app/jobs/whatsapp_lite` montados em ambos os containers. ✅
+`app/controllers/whatsapp_lite` só no web (sidekiq não precisa de controllers). ✅
+
+### RSpec não disponível no container (production mode)
+Container roda sem gems de test/development. Level 2 (RSpec) substituído por:
+- Level 1: log "[whatsapp_lite] MessageListener subscribed" no boot
+- Level 3: criar Message real → verificar Sidekiq queue via rails runner
+
 ### `skip_before_action :verify_authenticity_token` requer `raise: false`
 `ApplicationController` do Chatwoot pode não ter o callback `verify_authenticity_token` definido
 (ou ter uma configuração diferente). Em Rails 7.1, `skip_before_action` levanta `ArgumentError` se

@@ -1,0 +1,3 @@
+NAME               IMAGE                           COMMAND                  SERVICE            CREATED       STATUS                 PORTS
+chatwoot-sidekiq   chatwoot-whatsapp-lite:latest   "bundle exec sidekiq…"   chatwoot-sidekiq   4 hours ago   Up 4 hours             3000/tcp
+chatwoot-web       chatwoot-whatsapp-lite:latest   "docker/entrypoints/…"   chatwoot-web       4 hours ago   Up 3 hours (healthy)   3000/tcp
