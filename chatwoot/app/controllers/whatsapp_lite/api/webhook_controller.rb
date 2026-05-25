@@ -64,6 +64,14 @@ module WhatsappLite
         return if msg_data.blank?
         return if msg_data.dig(:key, :fromMe)
 
+        # Skip non-message event types (delivery acks, reactions, etc.)
+        msg_type = msg_data[:messageType].to_s
+        return if msg_type.present? && !%w[conversation extendedTextMessage imageMessage audioMessage documentMessage].include?(msg_type)
+
+        # Skip if we already have a Chatwoot message with this Evolution ID (echo-back prevention)
+        evolution_id = msg_data.dig(:key, :id)
+        return if evolution_id.present? && Message.exists?(source_id: evolution_id)
+
         sender_jid    = msg_data.dig(:key, :remoteJid).to_s
         sender_digits = sender_jid.split('@').first.gsub(/\D/, '')
         sender_phone  = "+#{sender_digits}"
@@ -113,7 +121,8 @@ module WhatsappLite
           inbox_id:     channel.inbox_id,
           message_type: :incoming,
           content:      text_content.presence || '',
-          content_type: :text
+          content_type: :text,
+          source_id:    evolution_id
         )
 
         if media_url

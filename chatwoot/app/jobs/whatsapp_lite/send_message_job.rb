@@ -27,10 +27,17 @@ module WhatsappLite
 
       number = contact_phone.gsub(/\D/, '')
 
-      conn.post("/message/sendText/#{channel.instance_id}") do |req|
+      resp = conn.post("/message/sendText/#{channel.instance_id}") do |req|
         req.headers['apikey']       = api_key
         req.headers['Content-Type'] = 'application/json'
         req.body = { number: number, text: message.content }.to_json
+      end
+
+      # Persist Evolution message ID so webhook_controller can skip the echo-back.
+      if resp.body.present?
+        resp_data = JSON.parse(resp.body, symbolize_names: true) rescue {}
+        evolution_id = resp_data.dig(:key, :id) || resp_data[:id]
+        message.update_column(:source_id, evolution_id) if evolution_id.present?
       end
 
       Rails.logger.tagged('whatsapp_lite', 'send') do
