@@ -25,8 +25,11 @@ module WhatsappLite
         parts      = params[:instance_id].to_s.split('-')
         account_id = parts[1]&.to_i
 
+        # The channel belongs to whatever tenant account_id points to.
+        # Credentials (including webhook_token) always come from the primary account.
         account  = Account.find_by(id: account_id)
-        token    = account&.settings&.dig('whatsapp_lite', 'evolution_webhook_token')
+        creds    = WhatsappLite::AccountHelpers.credentials_for(account)
+        token    = creds['evolution_webhook_token']
         provided = request.headers['X-Evolution-Token'].to_s
 
         unless account && token.present? &&

@@ -5,7 +5,7 @@ set -e
 cols=$(docker exec postgres psql -U opp4s -d chatwoot -tA -c \
   "SELECT count(*) FROM information_schema.columns
    WHERE table_name='whatsapp_lite_channels'")
-[ "$cols" -eq 9 ] || { echo "  ❌ tabela: esperado 9 colunas, encontrado $cols"; exit 1; }
+[ "$cols" -eq 10 ] || { echo "  ❌ tabela: esperado 10 colunas, encontrado $cols"; exit 1; }
 
 # Índice unique em instance_id
 idx=$(docker exec postgres psql -U opp4s -d chatwoot -tA -c \
@@ -38,4 +38,4 @@ docker exec chatwoot-web bundle exec rails runner '
 ' 2>&1 | grep -v "warning\|WARN\|deprecated\|fiddle\|gemspec\|IP_LOOKUP\|Loading\|RubyLLM" | grep -q "model OK" \
   || { echo "  ❌ model não funciona"; exit 1; }
 
-echo "  ✓ 9 colunas · índice unique · enum · race-safe"
+echo "  ✓ 10 colunas · índice unique · enum · race-safe"

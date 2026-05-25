@@ -2,16 +2,28 @@ module WhatsappLite
   module Api
     class SettingsController < BaseController
       def show
-        settings = current_account.settings.dig('whatsapp_lite') || {}
+        is_primary = WhatsappLite::AccountHelpers.primary?(current_account)
+        creds      = WhatsappLite::AccountHelpers.credentials_for(current_account)
+
+        configured = creds['evolution_api_url'].present? &&
+                     creds['evolution_api_key'].present? &&
+                     creds['evolution_webhook_token'].present?
+
         render json: {
-          configured:       settings['evolution_api_url'].present? &&
-                            settings['evolution_api_key'].present? &&
-                            settings['evolution_webhook_token'].present?,
-          evolution_api_url: settings['evolution_api_url'].to_s
+          is_primary_account: is_primary,
+          configured:         configured,
+          evolution_api_url:  is_primary ? creds['evolution_api_url'].to_s : nil
         }
       end
 
       def update
+        unless WhatsappLite::AccountHelpers.primary?(current_account)
+          return render json: {
+            error:   'forbidden',
+            message: 'Apenas a conta principal pode configurar credenciais.'
+          }, status: :forbidden
+        end
+
         api_url       = params[:evolution_api_url].to_s.strip
         api_key       = params[:evolution_api_key].to_s.strip
         webhook_token = params[:evolution_webhook_token].to_s.strip
@@ -26,22 +38,7 @@ module WhatsappLite
                         status: :unprocessable_entity
         end
 
-        # Validate reachability (fast timeout, non-fatal)
-        begin
-          resp = Faraday.new(url: api_url) do |f|
-            f.options.timeout      = 5
-            f.options.open_timeout = 3
-          end.get('/') do |req|
-            req.headers['apikey'] = api_key
-          end
-          unless resp.status < 500
-            return render json: { error: "Evolution respondeu #{resp.status}. Verifique a URL e a chave." },
-                          status: :unprocessable_entity
-          end
-        rescue Faraday::Error => e
-          return render json: { error: "Não foi possível conectar à Evolution: #{e.message}" },
-                        status: :unprocessable_entity
-        end
+        test_connection!(api_url, api_key)
 
         current_settings = current_account.settings || {}
         current_settings['whatsapp_lite'] = {
@@ -54,6 +51,25 @@ module WhatsappLite
         render json: { configured: true }
       rescue ActiveRecord::RecordInvalid => e
         render json: { error: e.message }, status: :unprocessable_entity
+      rescue Faraday::Error, StandardError => e
+        render json: {
+          error:   'evolution_connection_failed',
+          message: "Não foi possível conectar à Evolution: #{e.message}"
+        }, status: :unprocessable_entity
+      end
+
+      private
+
+      def test_connection!(url, key)
+        resp = Faraday.new(url: url) do |f|
+          f.options.timeout      = 5
+          f.options.open_timeout = 3
+        end.get('/') do |req|
+          req.headers['apikey'] = key
+        end
+        if resp.status >= 500
+          raise StandardError, "Evolution respondeu #{resp.status}. Verifique a URL e a chave."
+        end
       end
     end
   end

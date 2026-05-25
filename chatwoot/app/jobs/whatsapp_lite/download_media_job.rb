@@ -19,8 +19,8 @@ module WhatsappLite
       message = Message.find_by(id: message_id)
       return unless message
 
-      settings = message.account.settings.dig('whatsapp_lite') || {}
-      api_key  = settings['evolution_api_key'] || ENV['EVOLUTION_API_KEY']
+      creds   = WhatsappLite::AccountHelpers.credentials_for(message.account)
+      api_key = creds['evolution_api_key'] || ENV['EVOLUTION_API_KEY']
 
       require 'faraday/follow_redirects'
       conn = Faraday.new do |f|

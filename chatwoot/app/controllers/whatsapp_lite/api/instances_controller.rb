@@ -23,9 +23,9 @@ module WhatsappLite
           account:     current_account
         )
 
-        settings = current_account.settings.dig('whatsapp_lite') || {}
-        api_url  = settings['evolution_api_url']
-        api_key  = settings['evolution_api_key']
+        creds    = WhatsappLite::AccountHelpers.credentials_for(current_account)
+        api_url  = creds['evolution_api_url']
+        api_key  = creds['evolution_api_key']
 
         if api_url && api_key
           Faraday.new(url: api_url).delete("/instance/delete/#{channel.instance_id}") do |req|

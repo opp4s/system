@@ -4,11 +4,12 @@ import { ref } from 'vue';
 /* global axios */
 
 const props = defineProps({
-  accountId: { type: [String, Number], default: '' },
+  accountId:  { type: [String, Number], default: '' },
   currentUrl: { type: String, default: '' },
+  showCancel: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['saved']);
+const emit = defineEmits(['saved', 'cancel']);
 
 const form = ref({
   evolution_api_url:       props.currentUrl || '',
@@ -16,8 +17,8 @@ const form = ref({
   evolution_webhook_token: '',
 });
 
-const saving = ref(false);
-const error = ref('');
+const saving  = ref(false);
+const error   = ref('');
 const success = ref(false);
 
 async function save() {
@@ -31,7 +32,7 @@ async function save() {
     success.value = true;
     setTimeout(() => emit('saved'), 800);
   } catch (e) {
-    error.value = e.response?.data?.error || 'Erro ao salvar. Verifique os campos.';
+    error.value = e.response?.data?.message || e.response?.data?.error || 'Erro ao salvar. Verifique os campos.';
   } finally {
     saving.value = false;
   }
@@ -48,9 +49,9 @@ async function save() {
         </svg>
       </div>
       <div>
-        <h2 class="text-heading-2 text-n-slate-12">WhatsApp Lite — Configuração inicial</h2>
+        <h2 class="text-heading-2 text-n-slate-12">WhatsApp Lite — Configurações</h2>
         <p class="text-body-sm text-n-slate-11">
-          Configure a Evolution API que esta conta utilizará.
+          Credenciais da Evolution API (conta principal).
         </p>
       </div>
     </div>
@@ -101,17 +102,25 @@ async function save() {
 
     <div v-if="success" class="mt-4 flex items-center gap-2 text-sm text-green-600">
       <span class="i-woot-checkmark" />
-      Configurações salvas! Redirecionando...
+      Configurações salvas!
     </div>
 
-    <button
-      v-else
-      class="mt-6 flex items-center gap-2 px-5 py-2.5 bg-woot-500 text-white rounded-lg text-sm font-medium hover:bg-woot-600 transition-colors disabled:opacity-50"
-      :disabled="saving"
-      @click="save"
-    >
-      <span v-if="saving" class="i-woot-spinner animate-spin" />
-      {{ saving ? 'Verificando conexão...' : 'Salvar e continuar' }}
-    </button>
+    <div v-else class="mt-6 flex items-center gap-3">
+      <button
+        class="flex items-center gap-2 px-5 py-2.5 bg-woot-500 text-white rounded-lg text-sm font-medium hover:bg-woot-600 transition-colors disabled:opacity-50"
+        :disabled="saving"
+        @click="save"
+      >
+        <span v-if="saving" class="i-woot-spinner animate-spin" />
+        {{ saving ? 'Verificando conexão...' : 'Salvar e continuar' }}
+      </button>
+      <button
+        v-if="showCancel"
+        class="px-4 py-2.5 text-sm text-n-slate-9 hover:text-n-slate-12 transition-colors"
+        @click="emit('cancel')"
+      >
+        Cancelar
+      </button>
+    </div>
   </div>
 </template>

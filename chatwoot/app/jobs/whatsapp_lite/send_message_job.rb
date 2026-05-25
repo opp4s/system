@@ -13,9 +13,9 @@ module WhatsappLite
       contact_phone = message.conversation&.contact&.phone_number
       return unless contact_phone.present?
 
-      settings = message.account.settings.dig('whatsapp_lite') || {}
-      api_url  = settings['evolution_api_url'] || ENV['EVOLUTION_API_URL']
-      api_key  = settings['evolution_api_key']  || ENV['EVOLUTION_API_KEY']
+      creds    = WhatsappLite::AccountHelpers.credentials_for(message.account)
+      api_url  = creds['evolution_api_url'] || ENV['EVOLUTION_API_URL']
+      api_key  = creds['evolution_api_key'] || ENV['EVOLUTION_API_KEY']
 
       raise WhatsappLite::EvolutionApiError, 'Evolution API não configurada' unless api_url && api_key
 

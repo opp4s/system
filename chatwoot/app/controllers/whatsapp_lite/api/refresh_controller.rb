@@ -7,9 +7,9 @@ module WhatsappLite
           account:     current_account
         )
 
-        settings = current_account.settings.dig('whatsapp_lite') || {}
-        api_url  = settings['evolution_api_url'] || ENV['EVOLUTION_API_URL']
-        api_key  = settings['evolution_api_key']  || ENV['EVOLUTION_API_KEY']
+        creds    = WhatsappLite::AccountHelpers.credentials_for(current_account)
+        api_url  = creds['evolution_api_url'] || ENV['EVOLUTION_API_URL']
+        api_key  = creds['evolution_api_key'] || ENV['EVOLUTION_API_KEY']
 
         conn = Faraday.new(url: api_url) do |f|
           f.options.timeout = 15

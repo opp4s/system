@@ -11,19 +11,23 @@ module WhatsappLite
 
         channel.lock!
 
-        settings      = current_account.settings.dig('whatsapp_lite') || {}
-        api_url       = settings['evolution_api_url']
-        api_key       = settings['evolution_api_key']
-        webhook_token = settings['evolution_webhook_token']
+        creds         = WhatsappLite::AccountHelpers.credentials_for(current_account)
+        api_url       = creds['evolution_api_url']
+        api_key       = creds['evolution_api_key']
+        webhook_token = creds['evolution_webhook_token']
 
         if api_url.blank? || api_key.blank? || webhook_token.blank?
-          missing = []
-          missing << 'URL da Evolution API' if api_url.blank?
-          missing << 'Chave da Evolution API' if api_key.blank?
-          missing << 'Token de webhook' if webhook_token.blank?
-          raise WhatsappLite::EvolutionApiError,
-                "Configure as credenciais da Evolution API nas configurações desta conta. " \
-                "Faltando: #{missing.join(', ')}"
+          if WhatsappLite::AccountHelpers.primary?(current_account)
+            missing = []
+            missing << 'URL da Evolution API' if api_url.blank?
+            missing << 'Chave da Evolution API' if api_key.blank?
+            missing << 'Token de webhook' if webhook_token.blank?
+            raise WhatsappLite::EvolutionApiError,
+                  "Configure as credenciais da Evolution API nas configurações. Faltando: #{missing.join(', ')}"
+          else
+            raise WhatsappLite::EvolutionApiError,
+                  "Plugin não configurado. Contate o administrador da plataforma."
+          end
         end
 
         conn = Faraday.new(url: api_url) do |f|

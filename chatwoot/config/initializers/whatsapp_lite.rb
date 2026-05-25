@@ -1,4 +1,5 @@
 require Rails.root.join('lib', 'whatsapp_lite', 'engine')
+require Rails.root.join('lib', 'whatsapp_lite', 'account_helpers')
 
 # Merge plugin integration into APPS_CONFIG (loaded by 00_init.rb before this runs).
 # Runs at top-level so it's available synchronously before any request.
