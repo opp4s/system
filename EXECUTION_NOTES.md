@@ -177,6 +177,46 @@ Isso precisa ficar no TOP NÍVEL do initializer (não dentro de um block), porqu
 é criado em `after_initialize` — se o config já estiver setado quando o cliente for criado,
 ele usa o valor correto.
 
+---
+
+## Parte 13.1 — Diagnóstico: por que os bugs declarados na Parte 13 não foram corrigidos
+
+### Root cause confirmado por diagnóstico
+
+O Docker image foi buildado em `2026-05-24T22:50 UTC`.
+Os commits da Parte 13 (frontend Vue) foram feitos em `2026-05-25T00:29 UTC`.
+**Nenhum rebuild aconteceu após p10–p13.**
+
+Comprovação:
+- `canDisconnect`/`canReconnect`/`canDelete` → NOT in bundle (p13 statusConfig não compilou)
+- `on-disconnect` como nome de evento → NOT in bundle (p13 renomeação não compilou)
+- "Aguardando conexão" no bundle → de `WizardModal.vue` do p9 (spinner text), não de `ConnectionList.vue`
+- "onDisconnect" no bundle → OLD `@disconnect="disconnect"` do Index.vue p9
+
+### Por que os smoke tests deram confiança falsa
+
+Smoke tests cobrem backend via curl. NÃO cobrem:
+- Se o bundle JS compilado contém as mudanças de frontend
+- Qual endpoint o botão "Desconectar" chama na UI
+- Que label textual aparece para cada status
+
+Os p13 smoke tests passaram porque o backend estava correto.
+O frontend estava errado porque NUNCA foi compilado.
+
+### Consequência visível
+
+O bundle p9 tinha `disconnect()` chamando `DELETE /instances`.
+A Parte 13 mudou o backend `destroy` para sempre hard-delete.
+Resultado: o botão "Desconectar" passou a apagar inbox + conversas —
+PIOR do que antes da Parte 13.
+
+### Regra definitiva
+
+**Mudança de frontend → rebuild Docker + validação visual em browser anônimo.**
+Smoke automatizado não substitui olhos no produto rodando.
+
+---
+
 ### Faraday 2.x não segue redirects por padrão
 Picsum.photos e algumas CDNs retornam 302. Faraday 2.x requer middleware explícito:
 ```ruby
