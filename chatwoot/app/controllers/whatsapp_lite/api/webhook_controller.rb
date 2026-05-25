@@ -42,9 +42,12 @@ module WhatsappLite
         channel = WhatsappLiteChannel.find_by(instance_id: params[:instance_id])
         return unless channel
 
+        # Não sobrescreve user_disconnected ou deleted — webhook só atua em estados automáticos
+        return if channel.user_disconnected? || channel.deleted?
+
         new_status = case payload.dig(:data, :state)
                      when 'open'             then :connected
-                     when 'close', 'refused' then :disconnected
+                     when 'close', 'refused' then :auto_disconnected
                      end
 
         channel.update!(status: new_status) if new_status

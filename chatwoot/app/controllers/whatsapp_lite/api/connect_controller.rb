@@ -72,9 +72,10 @@ module WhatsappLite
       end
 
       def call_evolution!(channel)
-        settings = current_account.settings.dig('whatsapp_lite') || {}
-        api_url  = settings['evolution_api_url'] || ENV['EVOLUTION_API_URL']
-        api_key  = settings['evolution_api_key']  || ENV['EVOLUTION_API_KEY']
+        settings      = current_account.settings.dig('whatsapp_lite') || {}
+        api_url       = settings['evolution_api_url']       || ENV['EVOLUTION_API_URL']
+        api_key       = settings['evolution_api_key']       || ENV['EVOLUTION_API_KEY']
+        webhook_token = settings['evolution_webhook_token'] || ENV['EVOLUTION_WEBHOOK_TOKEN']
 
         raise WhatsappLite::EvolutionApiError, 'Evolution API não configurada' unless api_url && api_key
 
@@ -84,15 +85,43 @@ module WhatsappLite
           f.options.timeout = 15
         end
 
-        conn.post('/instance/create') do |req|
-          req.headers['apikey']       = api_key
-          req.headers['Content-Type'] = 'application/json'
-          req.body = {
-            instanceName: channel.instance_id,
-            number:       phone_sanitized,
-            qrcode:       !use_pairing,
-            integration:  'WHATSAPP-BAILEYS'
-          }.to_json
+        # Create or reconnect instance — ignore "already exists" errors
+        begin
+          conn.post('/instance/create') do |req|
+            req.headers['apikey']       = api_key
+            req.headers['Content-Type'] = 'application/json'
+            req.body = {
+              instanceName: channel.instance_id,
+              number:       phone_sanitized,
+              qrcode:       !use_pairing,
+              integration:  'WHATSAPP-BAILEYS'
+            }.to_json
+          end
+        rescue Faraday::Error
+          # instance may already exist on Evolution — proceed to QR step
+        end
+
+        # Configure Evolution webhook so it sends events back to our controller
+        if webhook_token.present?
+          webhook_url = "#{request.base_url}/api/v1/accounts/#{current_account.id}/whatsapp_lite/webhook/#{channel.instance_id}"
+          begin
+            conn.post("/webhook/set/#{channel.instance_id}") do |req|
+              req.headers['apikey']       = api_key
+              req.headers['Content-Type'] = 'application/json'
+              req.body = {
+                webhook: {
+                  enabled:           true,
+                  url:               webhook_url,
+                  webhook_by_events: false,
+                  webhook_base64:    false,
+                  events:            %w[CONNECTION_UPDATE MESSAGES_UPSERT],
+                  headers:           { 'X-Evolution-Token' => webhook_token }
+                }
+              }.to_json
+            end
+          rescue Faraday::Error => e
+            Rails.logger.warn "[whatsapp_lite] webhook set failed for #{channel.instance_id}: #{e.message}"
+          end
         end
 
         if use_pairing
@@ -108,7 +137,9 @@ module WhatsappLite
             req.headers['apikey'] = api_key
           end
           data = JSON.parse(resp.body, symbolize_names: true)
-          { qr_code_base64: data[:base64], expires_at: (Time.current + 45.seconds).iso8601 }
+          # Evolution v2: base64 already contains the full "data:image/png;base64,..." URI
+          qr = data[:base64] || data.dig(:qrcode, :base64) || ''
+          { qr_code_base64: qr, expires_at: (Time.current + 45.seconds).iso8601 }
         end
       rescue Faraday::Error => e
         raise WhatsappLite::EvolutionApiError, e.message

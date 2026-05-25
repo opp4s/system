@@ -34,6 +34,10 @@ Rails.application.config.after_initialize do
                  controller: '/whatsapp_lite/api/instances',  action: :index
           delete 'whatsapp_lite/instances',
                  controller: '/whatsapp_lite/api/instances',  action: :destroy
+          post   'whatsapp_lite/disconnect',
+                 controller: '/whatsapp_lite/api/disconnect', action: :create
+          post   'whatsapp_lite/reconnect',
+                 controller: '/whatsapp_lite/api/reconnect',  action: :create
           post   'whatsapp_lite/webhook/:instance_id',
                  controller: '/whatsapp_lite/api/webhook',    action: :create
         end
