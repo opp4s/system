@@ -11,24 +11,21 @@ const emit = defineEmits(['disconnect', 'reconnect', 'delete']);
 const confirmingDelete = ref(null);
 const actionLoading = ref(null);
 
-function statusColor(status) {
-  return status === 'connected' ? 'text-green-500' : 'text-n-slate-9';
-}
+const statusConfig = {
+  auto_disconnected: { label: 'Desconectado',  color: 'text-red-500',    action: 'reconnect' },
+  qr_pending:        { label: 'Aguardando QR', color: 'text-orange-500', action: 'reconnect' },
+  connected:         { label: 'Conectado',     color: 'text-green-500',  action: 'disconnect' },
+  user_disconnected: { label: 'Desconectado',  color: 'text-violet-400', action: 'reconnect' },
+  deleted:           { label: 'Excluído',      color: 'text-n-slate-8',  action: null },
+};
 
-function statusLabel(status) {
-  const map = {
-    connected:    'Conectado',
-    disconnected: 'Desconectado',
-    qr_pending:   'Aguardando QR',
-    qr_expired:   'QR Expirado',
-  };
-  return map[status] || status;
+function getConfig(status) {
+  return statusConfig[status] || { label: status, color: 'text-n-slate-9', action: null };
 }
 
 async function handleDisconnect(instanceId) {
   actionLoading.value = `disconnect-${instanceId}`;
   try {
-    await new Promise(resolve => setTimeout(resolve, 0));
     emit('disconnect', instanceId);
   } finally {
     actionLoading.value = null;
@@ -38,7 +35,6 @@ async function handleDisconnect(instanceId) {
 async function handleReconnect(inst) {
   actionLoading.value = `reconnect-${inst.instance_id}`;
   try {
-    await new Promise(resolve => setTimeout(resolve, 0));
     emit('reconnect', inst);
   } finally {
     actionLoading.value = null;
@@ -99,9 +95,9 @@ async function handleDelete(instanceId) {
           <td class="py-3 pr-4 font-medium text-n-slate-12 font-mono text-xs">{{ inst.instance_id }}</td>
           <td class="py-3 pr-4 text-n-slate-11">{{ inst.phone_number || '—' }}</td>
           <td class="py-3 pr-4">
-            <span class="flex items-center gap-1.5" :class="statusColor(inst.status)">
+            <span class="flex items-center gap-1.5" :class="getConfig(inst.status).color">
               <span class="w-2 h-2 rounded-full bg-current" />
-              {{ statusLabel(inst.status) }}
+              {{ getConfig(inst.status).label }}
             </span>
           </td>
           <td class="py-3 text-right">
@@ -120,9 +116,9 @@ async function handleDelete(instanceId) {
                 Cancelar
               </button>
             </template>
-            <template v-else>
+            <template v-else-if="inst.status !== 'deleted'">
               <button
-                v-if="inst.status !== 'connected'"
+                v-if="getConfig(inst.status).action === 'reconnect'"
                 class="text-woot-500 hover:text-woot-600 text-xs font-medium mr-3 disabled:opacity-50"
                 :disabled="actionLoading === `reconnect-${inst.instance_id}`"
                 @click="handleReconnect(inst)"
@@ -131,6 +127,7 @@ async function handleDelete(instanceId) {
                 Reconectar
               </button>
               <button
+                v-if="getConfig(inst.status).action === 'disconnect'"
                 class="text-n-slate-9 hover:text-n-slate-12 text-xs font-medium mr-3 disabled:opacity-50"
                 :disabled="actionLoading === `disconnect-${inst.instance_id}`"
                 @click="handleDisconnect(inst.instance_id)"

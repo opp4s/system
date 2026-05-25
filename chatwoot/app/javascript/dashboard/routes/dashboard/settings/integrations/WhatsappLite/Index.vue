@@ -32,9 +32,9 @@ async function fetchInstances() {
 
 async function disconnect(instanceId) {
   try {
-    await axios.delete(
-      `/api/v1/accounts/${accountId()}/whatsapp_lite/instances`,
-      { params: { instance_id: instanceId } }
+    await axios.post(
+      `/api/v1/accounts/${accountId()}/whatsapp_lite/disconnect`,
+      { instance_id: instanceId }
     );
   } catch {
     // ignore errors
@@ -46,7 +46,7 @@ async function deleteInstance(instanceId) {
   try {
     await axios.delete(
       `/api/v1/accounts/${accountId()}/whatsapp_lite/instances`,
-      { params: { instance_id: instanceId, destroy_inbox: true } }
+      { params: { instance_id: instanceId, hard_delete: true } }
     );
   } catch {
     // ignore errors

@@ -162,6 +162,25 @@ async function refreshQr() {
   }
 }
 
+async function requestReconnect() {
+  loadingQr.value = true;
+  apiError.value = '';
+  try {
+    const res = await axios.post(`${apiBase()}/reconnect`, {
+      instance_id: instanceId.value,
+    });
+    qrCode.value = res.data.qr_code_base64;
+    expiresAt.value = res.data.expires_at;
+    if (expiresAt.value) scheduleQrRefresh(expiresAt.value);
+    startPolling();
+  } catch (e) {
+    const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+    apiError.value = msg || 'Erro ao reconectar. Tente novamente.';
+  } finally {
+    loadingQr.value = false;
+  }
+}
+
 function close() {
   abortController?.abort();
   clearInterval(pollTimer);
@@ -171,17 +190,10 @@ function close() {
 
 onMounted(() => {
   if (props.reconnectInstance) {
-    const raw = props.reconnectInstance.phone_number || '';
-    const matched = DDI_OPTIONS.find(o => raw.startsWith(o.value));
-    if (matched) {
-      ddi.value = matched.value;
-      phone.value = raw.slice(matched.value.length).replace(/\D/g, '');
-    } else {
-      ddi.value = '';
-      phone.value = raw.replace(/\D/g, '');
-    }
+    instanceId.value = props.reconnectInstance.instance_id;
     platform.value = 'android';
-    step.value = 'phone';
+    step.value = 'qr';
+    requestReconnect();
   }
 });
 
@@ -208,7 +220,7 @@ onUnmounted(() => {
               <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.554 4.118 1.524 5.845L.057 23.07a.75.75 0 00.932.932l5.226-1.467A11.944 11.944 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.89 0-3.663-.497-5.193-1.367l-.372-.214-3.852 1.081 1.081-3.852-.214-.372A9.944 9.944 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
             </svg>
           </div>
-          <span class="text-heading-3 text-n-slate-12">Conectar WhatsApp</span>
+          <span class="text-heading-3 text-n-slate-12">{{ reconnectInstance ? 'Reconectar WhatsApp' : 'Conectar WhatsApp' }}</span>
         </div>
         <button class="text-n-slate-9 hover:text-n-slate-12 transition-colors" @click="close">
           <span class="i-woot-close text-xl" />
