@@ -16,7 +16,15 @@ module WhatsappLite
         api_key       = settings['evolution_api_key']
         webhook_token = settings['evolution_webhook_token']
 
-        raise WhatsappLite::EvolutionApiError, 'Evolution não configurada' unless api_url && api_key
+        if api_url.blank? || api_key.blank? || webhook_token.blank?
+          missing = []
+          missing << 'URL da Evolution API' if api_url.blank?
+          missing << 'Chave da Evolution API' if api_key.blank?
+          missing << 'Token de webhook' if webhook_token.blank?
+          raise WhatsappLite::EvolutionApiError,
+                "Configure as credenciais da Evolution API nas configurações desta conta. " \
+                "Faltando: #{missing.join(', ')}"
+        end
 
         conn = Faraday.new(url: api_url) do |f|
           f.options.timeout = 15

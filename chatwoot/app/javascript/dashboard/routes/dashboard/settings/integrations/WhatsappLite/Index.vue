@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import ConnectionList from './ConnectionList.vue';
+import SettingsForm from './SettingsForm.vue';
 import WizardModal from './WizardModal.vue';
 
 /* global axios */
@@ -12,8 +13,24 @@ const showWizard = ref(false);
 const loading = ref(false);
 const wizardReconnect = ref(null);
 
+// null = loading, true = configured, false = needs setup
+const settingsConfigured = ref(null);
+const settingsUrl = ref('');
+
 function accountId() {
   return route.params.accountId;
+}
+
+async function checkSettings() {
+  try {
+    const res = await axios.get(
+      `/api/v1/accounts/${accountId()}/whatsapp_lite/settings`
+    );
+    settingsConfigured.value = res.data.configured;
+    settingsUrl.value = res.data.evolution_api_url || '';
+  } catch {
+    settingsConfigured.value = false;
+  }
 }
 
 async function fetchInstances() {
@@ -28,6 +45,11 @@ async function fetchInstances() {
   } finally {
     loading.value = false;
   }
+}
+
+function onSettingsSaved() {
+  settingsConfigured.value = true;
+  fetchInstances();
 }
 
 async function disconnect(inst) {
@@ -86,11 +108,31 @@ function onConnected() {
   fetchInstances();
 }
 
-onMounted(fetchInstances);
+onMounted(async () => {
+  await checkSettings();
+  if (settingsConfigured.value) {
+    await fetchInstances();
+  }
+});
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
+  <!-- Loading -->
+  <div v-if="settingsConfigured === null" class="flex items-center justify-center py-20 text-n-slate-9">
+    <span class="i-woot-spinner animate-spin text-2xl mr-2" />
+    Carregando...
+  </div>
+
+  <!-- Settings form (first-time setup) -->
+  <SettingsForm
+    v-else-if="!settingsConfigured"
+    :account-id="accountId()"
+    :current-url="settingsUrl"
+    @saved="onSettingsSaved"
+  />
+
+  <!-- Main UI -->
+  <div v-else class="flex flex-col h-full">
     <div class="flex items-center justify-between px-6 py-4 border-b border-n-weak">
       <div class="flex items-center gap-3">
         <div class="h-10 w-10 rounded-lg bg-[#25D366]/10 flex items-center justify-center flex-shrink-0">
@@ -106,13 +148,22 @@ onMounted(fetchInstances);
           </p>
         </div>
       </div>
-      <button
-        class="flex items-center gap-2 px-4 py-2 bg-woot-500 text-white rounded-lg text-sm font-medium hover:bg-woot-600 transition-colors"
-        @click="showWizard = true"
-      >
-        <span class="i-woot-plus text-base" />
-        Conectar WhatsApp
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          class="px-3 py-2 text-xs text-n-slate-9 hover:text-n-slate-12 border border-n-weak rounded-lg transition-colors"
+          :title="settingsUrl || 'Configurações'"
+          @click="settingsConfigured = false"
+        >
+          Configurações
+        </button>
+        <button
+          class="flex items-center gap-2 px-4 py-2 bg-woot-500 text-white rounded-lg text-sm font-medium hover:bg-woot-600 transition-colors"
+          @click="showWizard = true"
+        >
+          <span class="i-woot-plus text-base" />
+          Conectar WhatsApp
+        </button>
+      </div>
     </div>
 
     <div class="flex-1 overflow-auto px-6 py-4">

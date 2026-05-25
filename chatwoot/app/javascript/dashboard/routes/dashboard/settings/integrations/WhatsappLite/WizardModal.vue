@@ -138,7 +138,7 @@ async function requestConnection() {
     startPolling();
   } catch (e) {
     if (e.name === 'CanceledError' || e.name === 'AbortError') return;
-    const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+    const msg = e.response?.data?.message || e.response?.data?.error || e.message;
     apiError.value = msg || 'Erro ao criar conexão. Tente novamente.';
   } finally {
     loadingQr.value = false;
@@ -174,7 +174,7 @@ async function requestReconnect() {
     if (expiresAt.value) scheduleQrRefresh(expiresAt.value);
     startPolling();
   } catch (e) {
-    const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+    const msg = e.response?.data?.message || e.response?.data?.error || e.message;
     apiError.value = msg || 'Erro ao reconectar. Tente novamente.';
   } finally {
     loadingQr.value = false;
