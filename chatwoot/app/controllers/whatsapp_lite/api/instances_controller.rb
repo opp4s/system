@@ -33,14 +33,23 @@ module WhatsappLite
           end rescue nil
         end
 
-        if params[:hard_delete] == 'true'
-          channel.inbox&.destroy
+        inbox = channel.inbox
+
+        ActiveRecord::Base.transaction do
+          Rails.logger.tagged('whatsapp_lite', 'destroy') do
+            Rails.logger.info "deleted instance=#{channel.instance_id} " \
+                              "phone=#{channel.phone_number} " \
+                              "inbox=#{inbox&.id} " \
+                              "conversations=#{inbox&.conversations&.count || 0} " \
+                              "by_user=#{current_user&.id} " \
+                              "account=#{current_account.id}"
+          end
+
           channel.destroy
-          render json: { success: true, status: 'destroyed' }
-        else
-          channel.update!(status: :deleted, deleted_at: Time.current)
-          render json: { success: true, status: channel.status }
+          inbox&.destroy
         end
+
+        render json: { success: true }
       rescue ActiveRecord::RecordNotFound
         render json: { error: 'not_found' }, status: :not_found
       end

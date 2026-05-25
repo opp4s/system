@@ -30,26 +30,42 @@ async function fetchInstances() {
   }
 }
 
-async function disconnect(instanceId) {
+async function disconnect(inst) {
+  const ok = confirm(
+    `Desconectar "${inst.phone_number}"?\n\n` +
+    `A caixa de entrada e o histórico serão preservados. ` +
+    `Você poderá reconectar quando quiser.`
+  );
+  if (!ok) return;
+
   try {
     await axios.post(
       `/api/v1/accounts/${accountId()}/whatsapp_lite/disconnect`,
-      { instance_id: instanceId }
+      { instance_id: inst.instance_id }
     );
-  } catch {
-    // ignore errors
+  } catch (e) {
+    console.error('disconnect error', e);
+    alert('Erro ao desconectar. Verifique a conexão.');
   }
   await fetchInstances();
 }
 
-async function deleteInstance(instanceId) {
+async function deleteInstance(inst) {
+  const ok = confirm(
+    `Excluir definitivamente "${inst.phone_number}"?\n\n` +
+    `ATENÇÃO: a caixa de entrada e TODAS as conversas serão removidas.\n` +
+    `Esta ação não pode ser desfeita.`
+  );
+  if (!ok) return;
+
   try {
     await axios.delete(
-      `/api/v1/accounts/${accountId()}/whatsapp_lite/instances`,
-      { params: { instance_id: instanceId, hard_delete: true } }
+      `/api/v1/accounts/${accountId()}/whatsapp_lite/instances` +
+      `?instance_id=${encodeURIComponent(inst.instance_id)}`
     );
-  } catch {
-    // ignore errors
+  } catch (e) {
+    console.error('delete error', e);
+    alert('Erro ao excluir. Verifique a conexão.');
   }
   await fetchInstances();
 }
@@ -103,9 +119,9 @@ onMounted(fetchInstances);
       <ConnectionList
         :instances="instances"
         :loading="loading"
-        @disconnect="disconnect"
-        @reconnect="reconnect"
-        @delete="deleteInstance"
+        @on-disconnect="disconnect"
+        @on-reconnect="reconnect"
+        @on-delete="deleteInstance"
       />
     </div>
 
