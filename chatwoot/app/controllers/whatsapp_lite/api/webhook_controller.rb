@@ -4,7 +4,6 @@ module WhatsappLite
       skip_before_action :verify_authenticity_token, raise: false
       before_action :authenticate_webhook!
 
-      # Replay protection: rejeita requests com timestamp > 5 minutos
       REPLAY_WINDOW = 5.minutes
 
       ALLOWED_MESSAGE_TYPES = %w[
@@ -21,6 +20,8 @@ module WhatsappLite
           handle_connection_update(payload)
         when 'messages.upsert'
           handle_message_upsert(payload)
+        when 'messages.update', 'messages.edit'
+          handle_message_update(payload)
         end
 
         head :ok
@@ -118,11 +119,7 @@ module WhatsappLite
         contact_phone = "+#{sender_digits}"
         contact_name  = msg_data[:pushName].presence || contact_phone
 
-        # Extrair conteúdo de texto
         text_content = extract_text_content(msg_data)
-
-        # Extrair mídia (url + tipo)
-        # Extrair ID da mensagem citada (reply/quote)
         quoted_id = extract_quoted_message_id(msg_data)
         media_url, media_type = extract_media(msg_data)
 
@@ -175,22 +172,43 @@ module WhatsappLite
         end
       end
 
+      def handle_message_update(payload)
+        channel = WhatsappLiteChannel.find_by(instance_id: params[:instance_id])
+        return unless channel
+
+        msg_data = payload[:data] || {}
+        evolution_id = msg_data.dig(:key, :id) || msg_data[:id]
+        return if evolution_id.blank?
+
+        message = Message.find_by(inbox_id: channel.inbox_id, source_id: evolution_id)
+        return unless message
+
+        new_text = msg_data.dig(:editedMessage, :conversation) ||
+                   msg_data.dig(:editedMessage, :extendedTextMessage, :text) ||
+                   msg_data.dig(:message, :conversation) ||
+                   msg_data.dig(:message, :extendedTextMessage, :text)
+
+        if new_text.present? && new_text != message.content
+          message.update!(content: new_text)
+          Rails.logger.tagged('whatsapp_lite', 'webhook') do
+            Rails.logger.info "updated message_id=#{message.id} source_id=#{evolution_id} new_content=#{new_text.first(50)}"
+          end
+        end
+      end
+
       # --- Content extraction helpers ---
 
       def extract_text_content(msg_data)
         msg = msg_data[:message] || {}
 
-        # Texto simples ou extendido
         text = msg.dig(:conversation) || msg.dig(:extendedTextMessage, :text)
         return text if text.present?
 
-        # Caption de mídia (imagem, vídeo, documento)
         caption = msg.dig(:imageMessage, :caption) ||
                   msg.dig(:videoMessage, :caption) ||
                   msg.dig(:documentMessage, :caption)
         return caption if caption.present?
 
-        # Localização → texto formatado
         if msg[:locationMessage]
           loc = msg[:locationMessage]
           lat = loc[:degreesLatitude]
@@ -205,32 +223,26 @@ module WhatsappLite
           return parts.join("\n")
         end
 
-        # Contato (vCard) → texto formatado
         if msg[:contactMessage]
           vcard = msg[:contactMessage][:vcard].to_s
           display = msg[:contactMessage][:displayName].to_s
-          # Extrair telefone do vCard
           phone = vcard[/TEL[^:]*:([+\d\s-]+)/i, 1]&.strip
           parts = ["👤 Contato: #{display}"]
           parts << "Tel: #{phone}" if phone.present?
           return parts.join("\n")
         end
 
-        # Sticker → sem texto (só mídia)
         nil
       end
 
       def extract_quoted_message_id(msg_data)
-        # Evolution envia contextInfo.stanzaId quando a mensagem é reply/quote
         msg = msg_data[:message] || {}
-        # contextInfo pode estar em qualquer tipo de mensagem
         context = msg.dig(:extendedTextMessage, :contextInfo) ||
                   msg.dig(:imageMessage, :contextInfo) ||
                   msg.dig(:videoMessage, :contextInfo) ||
                   msg.dig(:audioMessage, :contextInfo) ||
                   msg.dig(:documentMessage, :contextInfo) ||
                   msg.dig(:stickerMessage, :contextInfo) ||
-                  
                   msg_data.dig(:contextInfo)
         context&.dig(:stanzaId)
       end
