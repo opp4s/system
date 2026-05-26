@@ -76,19 +76,19 @@ STATUS2=$(docker exec chatwoot-web bundle exec rails runner \
 check "$([ "$STATUS2" = "user_disconnected" ] && echo true || echo false)" \
   "Webhook guard: user_disconnected não sobrescrito"
 
-# 8. Soft-delete via DELETE /instances
+# 8. Hard-delete via DELETE /instances (channel + inbox removidos)
 HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
   "$BASE/instances?instance_id=$INSTANCE" -H "api_access_token: $TOKEN")
-STATUS3=$(docker exec chatwoot-web bundle exec rails runner \
-  "puts WhatsappLiteChannel.find_by(instance_id: '$INSTANCE')&.status" 2>/dev/null | tail -1)
-check "$([ "$HTTP" = "200" ] && [ "$STATUS3" = "deleted" ] && echo true || echo false)" \
-  "DELETE /instances → soft-delete, status=deleted"
+GONE=$(docker exec chatwoot-web bundle exec rails runner \
+  "puts WhatsappLiteChannel.find_by(instance_id: '$INSTANCE').nil? ? 'DELETED' : 'EXISTS'" 2>/dev/null | tail -1)
+check "$([ "$HTTP" = "200" ] && [ "$GONE" = "DELETED" ] && echo true || echo false)" \
+  "DELETE /instances → hard-delete, channel removido"
 
-# 9. Soft-deleted excluded from GET /instances
+# 9. Hard-deleted não aparece no GET /instances
 FOUND=$(curl -s "$BASE/instances" -H "api_access_token: $TOKEN" | \
   python3 -c "import sys,json; data=json.load(sys.stdin); print(any(d['instance_id']=='$INSTANCE' for d in data))")
 check "$([ "$FOUND" = "False" ] && echo true || echo false)" \
-  "Soft-deleted excluído do GET /instances"
+  "Hard-deleted excluído do GET /instances"
 
 # Cleanup
 docker exec chatwoot-web bundle exec rails runner "

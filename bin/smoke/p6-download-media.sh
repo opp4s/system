@@ -15,9 +15,10 @@ docker exec chatwoot-web bundle exec rails runner '
 
 # Enviar webhook com imageMessage
 marker="smoke-p6-$(date +%s)"
+key_id="P6-MEDIA-$(date +%s%N)"
 status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_URL" \
   -H "X-Evolution-Token: $TOKEN" -H "Content-Type: application/json" \
-  -d "{\"event\":\"messages.upsert\",\"data\":{\"messages\":[{\"key\":{\"remoteJid\":\"5511444000001@s.whatsapp.net\",\"fromMe\":false},\"pushName\":\"Smoke P6\",\"message\":{\"imageMessage\":{\"url\":\"https://picsum.photos/200\",\"caption\":\"${marker}\"}}}]}}")
+  -d "{\"event\":\"messages.upsert\",\"data\":{\"messages\":[{\"key\":{\"remoteJid\":\"5511444000001@s.whatsapp.net\",\"fromMe\":false,\"id\":\"${key_id}\"},\"messageType\":\"imageMessage\",\"pushName\":\"Smoke P6\",\"message\":{\"imageMessage\":{\"url\":\"https://picsum.photos/200\",\"caption\":\"${marker}\"}}}]}}")
 
 [ "$status" = "200" ] || { echo "  ❌ Webhook retornou $status"; exit 1; }
 

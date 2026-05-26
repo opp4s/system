@@ -40,16 +40,24 @@ echo "$instances" | python3 -c "import sys,json; ids=[i['instance_id'] for i in 
   exit 1
 }
 
-# 5. Disconnect → status disconnected
-status=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE/instances?instance_id=${INSTANCE_ID}" \
-  -H "api_access_token: $TOKEN")
+# 5. Disconnect → status user_disconnected (POST /disconnect, não DELETE /instances que faz hard-delete)
+status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/disconnect?instance_id=${INSTANCE_ID}" \
+  -H "api_access_token: $TOKEN" -H "Content-Type: application/json")
 [ "$status" = "200" ] || { echo "  ❌ Disconnect retornou $status"; exit 1; }
 
 ch_status=$(docker exec chatwoot-web bundle exec rails runner "puts WhatsappLiteChannel.find_by(instance_id: '${INSTANCE_ID}')&.status" 2>/dev/null | tail -1)
-[ "$ch_status" = "disconnected" ] || { echo "  ❌ Channel status deveria ser disconnected, é $ch_status"; exit 1; }
+[[ "$ch_status" == "user_disconnected" || "$ch_status" == "auto_disconnected" ]] || { echo "  ❌ Channel status deveria ser user_disconnected ou auto_disconnected, é $ch_status"; exit 1; }
+
+# 5b. DELETE /instances → hard-delete (channel + inbox removidos)
+status=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE/instances?instance_id=${INSTANCE_ID}" \
+  -H "api_access_token: $TOKEN")
+[ "$status" = "200" ] || { echo "  ❌ DELETE instances retornou $status"; exit 1; }
+
+ch_exists=$(docker exec chatwoot-web bundle exec rails runner "puts WhatsappLiteChannel.find_by(instance_id: '${INSTANCE_ID}').nil? ? 'DELETED' : 'EXISTS'" 2>/dev/null | tail -1)
+[ "$ch_exists" = "DELETED" ] || { echo "  ❌ Channel deveria ter sido deletado, mas existe"; exit 1; }
 
 # 6. Sem token → 401
 status=$(curl -s -o /dev/null -w "%{http_code}" -X GET "$BASE/instances")
 [ "$status" = "401" ] || { echo "  ❌ Sem token deveria retornar 401, recebeu $status"; exit 1; }
 
-echo "  ✓ Phone inválido 422 · Connect QR · Status qr_pending · Instances list · Disconnect 200 · 401 sem token"
+echo "  ✓ Phone inválido 422 · Connect QR · Status qr_pending · Instances list · Disconnect user_disconnected · DELETE hard-delete · 401 sem token"

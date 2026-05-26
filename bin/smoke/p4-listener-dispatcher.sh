@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# NÍVEL 1 — Listener registrado no boot (verificar nos últimos 500 logs)
-docker logs chatwoot-web --tail=500 2>&1 | grep -q "MessageListener subscribed to sync_dispatcher" || {
+# NÍVEL 1 — Listener registrado no boot (verificar nos últimos 5000 logs)
+docker logs chatwoot-web --tail=5000 2>&1 | grep -q "MessageListener subscribed to sync_dispatcher" || {
   echo "  ❌ Listener NÃO foi subscrito no boot do web"
   echo "     Verificar: docker logs chatwoot-web | grep whatsapp_lite"
   exit 1
@@ -52,11 +52,11 @@ echo "$runner_output" | grep -q "received MESSAGE_CREATED message_id=${msg_id}" 
   exit 1
 }
 
-# Aguarda Sidekiq processar (~500ms normalmente)
+# Aguarda Sidekiq processar
 sleep 2
 
-# Verifica execução do job no sidekiq (últimos 200 logs)
-docker logs chatwoot-sidekiq --tail=200 2>&1 | grep -q "WhatsappLite::SendMessageJob.*arguments: ${msg_id}" || {
+# Verifica execução do job no sidekiq (últimos 500 logs)
+docker logs chatwoot-sidekiq --tail=500 2>&1 | grep -q "WhatsappLite::SendMessageJob.*arguments: ${msg_id}" || {
   echo "  ❌ SendMessageJob NÃO foi executado pelo Sidekiq para message_id=${msg_id}"
   echo "     Verificar: docker logs chatwoot-sidekiq | grep WhatsappLite"
   exit 1

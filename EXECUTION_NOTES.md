@@ -225,3 +225,71 @@ conn = Faraday.new { |f| f.response :follow_redirects }
 ```
 Gem `faraday-follow_redirects` já está disponível no container (confirmado).
 Sem isso: `response.success?` é `false` para 302, job retorna early sem criar attachment.
+
+---
+
+## Parte 16 — Espelho completo Evolution → Chatwoot (2026-05-26)
+
+### Premissa de produto (definida tardiamente)
+
+O Chatwoot deve ser **espelho completo** da Evolution API. Toda mensagem que a
+Evolution vê deve ser registrada no Chatwoot, independente da origem:
+- Agente digita no Chatwoot → outgoing
+- Cliente externo envia → incoming
+- Celular físico do dono do número responde direto → outgoing
+- Sistema externo (n8n, automação) envia via Evolution → outgoing
+
+Essa premissa deveria ter sido definida na Parte 1 (pré-voo). Não foi, e custou
+as Partes 14-16 inteiras em retrabalho.
+
+### Bug original: filtro `fromMe` descartava mensagens legítimas
+
+O webhook_controller.rb (Parte 5) tinha:
+```ruby
+return if msg_data.dig(:key, :fromMe)
+```
+Justificativa original: "evitar duplicação quando o Chatwoot envia".
+Efeito real: descartava silenciosamente TODAS as mensagens com fromMe=true,
+incluindo as do celular físico e de sistemas externos.
+
+### Solução: idempotência via source_id
+
+Substituímos o filtro fromMe por deduplicação baseada no `key.id` da Evolution
+(salvo como `Message.source_id`):
+
+| Cenário | fromMe | source_id | Resultado |
+|---------|--------|-----------|-----------|
+| Eco do envio do Chatwoot | true | já existe no banco | ignorado |
+| Celular físico responde | true | novo | cria como :outgoing |
+| n8n envia via Evolution | true | novo | cria como :outgoing |
+| Cliente externo manda | false | novo | cria como :incoming |
+
+### Bug secundário: loop de duplicação no WhatsApp
+
+Ao aceitar fromMe=true como outgoing, o Wisper disparava MESSAGE_CREATED →
+MessageListener → SendMessageJob → Evolution reenviava a mensagem → duplicação.
+
+**Fix:** guard no MessageListener — pula SendMessageJob quando `message.source_id`
+já está preenchido. Apenas mensagens digitadas pelo agente no Chatwoot começam
+sem source_id.
+
+### Arquivos alterados
+
+- `chatwoot/app/controllers/whatsapp_lite/api/webhook_controller.rb`
+  - Removido `return if msg_data.dig(:key, :fromMe)`
+  - Adicionado check `Message.exists?(inbox_id:, source_id:)` para idempotência
+  - `message_type: from_me ? :outgoing : :incoming`
+- `chatwoot/lib/whatsapp_lite/listeners/message_listener.rb`
+  - Adicionado `return if message.source_id.present?`
+
+### Smoke tests
+
+- `bin/smoke/p16-mirror-evolution.sh` (novo, 4 asserções)
+- `bin/smoke/p5-webhook-controller.sh` (atualizado: payload agora inclui key.id,
+  teste fromMe atualizado para nova semântica)
+
+### Débitos identificados (não bloqueantes)
+
+- `p2-migration-model.sh` usa `disconnected?` removido na Parte 12
+- `p4-listener-dispatcher.sh` usa `--tail=500` insuficiente após múltiplos restarts
+- Ambos são problemas dos smoke tests, não do plugin em si.

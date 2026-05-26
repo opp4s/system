@@ -8,7 +8,7 @@ docker cp /opt/apps/chatwoot-whatsapp-lite/chatwoot/app/models/whatsapp_lite_cha
 # NÍVEL 1: Guard — canal desconectado → job não envia
 guard_result=$(docker exec chatwoot-web bundle exec rails runner '
   ch = WhatsappLiteChannel.find_by(instance_id: "cw-1-5511999999999")
-  ch.update!(status: :disconnected)
+  ch.update!(status: :auto_disconnected)
   contact = Contact.find_or_create_by!(account_id: 1, phone_number: "+5511000099999") { |c| c.name = "Guard Test" }
   ci = ContactInbox.find_or_create_by!(contact: contact, inbox: ch.inbox) { |x| x.source_id = SecureRandom.uuid }
   conv = Conversation.find_or_create_by!(account_id: 1, contact: contact, inbox: ch.inbox, contact_inbox: ci) { |c| c.status = :open }
@@ -21,13 +21,13 @@ guard_result=$(docker exec chatwoot-web bundle exec rails runner '
 
 # NÍVEL 2: Envio real via Evolution API (instância conectada)
 runner_output=$(docker exec chatwoot-web bundle exec rails runner '
-  ch = WhatsappLiteChannel.find_or_create_by!(instance_id: "3255_pessoal") do |c|
+  ch = WhatsappLiteChannel.find_or_create_by!(instance_id: "cw-1-5541995017777") do |c|
     channel_api = Channel::Api.create!(account_id: 1)
     inbox = Inbox.create!(account_id: 1, name: "WA P7 Test", channel: channel_api)
-    c.account_id = 1; c.inbox = inbox; c.phone_number = "+5541999953255"; c.status = :connected
+    c.account_id = 1; c.inbox = inbox; c.phone_number = "+5541995017777"; c.status = :connected
   end
   ch.update!(status: :connected)
-  contact = Contact.find_or_create_by!(account_id: 1, phone_number: "+5541999953255") { |c| c.name = "P7 Test" }
+  contact = Contact.find_or_create_by!(account_id: 1, phone_number: "+5541995017777") { |c| c.name = "P7 Test" }
   ci = ContactInbox.find_or_create_by!(contact: contact, inbox: ch.inbox) { |x| x.source_id = SecureRandom.uuid }
   conv = Conversation.find_or_create_by!(account_id: 1, contact: contact, inbox: ch.inbox, contact_inbox: ci) { |c| c.status = :open }
   msg = conv.messages.create!(account_id: 1, inbox_id: ch.inbox_id, message_type: :outgoing, content: "smoke-p7-#{Time.now.to_i}")
