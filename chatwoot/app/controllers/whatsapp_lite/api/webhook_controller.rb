@@ -122,6 +122,8 @@ module WhatsappLite
         text_content = extract_text_content(msg_data)
 
         # Extrair mídia (url + tipo)
+        # Extrair ID da mensagem citada (reply/quote)
+        quoted_id = extract_quoted_message_id(msg_data)
         media_url, media_type = extract_media(msg_data)
 
         contact = Contact.find_or_create_by!(
@@ -158,7 +160,8 @@ module WhatsappLite
           message_type: from_me ? :outgoing : :incoming,
           content:      text_content.presence || '',
           content_type: :text,
-          source_id:    evolution_id
+          source_id:    evolution_id,
+          content_attributes: quoted_id.present? ? { in_reply_to_external_id: quoted_id } : {}
         )
 
         Rails.logger.tagged('whatsapp_lite', 'webhook') do
@@ -215,6 +218,21 @@ module WhatsappLite
 
         # Sticker → sem texto (só mídia)
         nil
+      end
+
+      def extract_quoted_message_id(msg_data)
+        # Evolution envia contextInfo.stanzaId quando a mensagem é reply/quote
+        msg = msg_data[:message] || {}
+        # contextInfo pode estar em qualquer tipo de mensagem
+        context = msg.dig(:extendedTextMessage, :contextInfo) ||
+                  msg.dig(:imageMessage, :contextInfo) ||
+                  msg.dig(:videoMessage, :contextInfo) ||
+                  msg.dig(:audioMessage, :contextInfo) ||
+                  msg.dig(:documentMessage, :contextInfo) ||
+                  msg.dig(:stickerMessage, :contextInfo) ||
+                  
+                  msg_data.dig(:contextInfo)
+        context&.dig(:stanzaId)
       end
 
       def extract_media(msg_data)
