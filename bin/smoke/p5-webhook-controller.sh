@@ -36,9 +36,10 @@ channel_status=$(docker exec chatwoot-web bundle exec rails runner \
 
 # 4. messages.upsert → conversation + contact criados
 marker="smoke-p5-$(date +%s)"
+key_id="P5-MARKER-$(date +%s%N)"
 status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_URL" \
   -H "X-Evolution-Token: $TOKEN" -H "Content-Type: application/json" \
-  -d "{\"event\":\"messages.upsert\",\"data\":{\"messages\":[{\"key\":{\"remoteJid\":\"5511777000001@s.whatsapp.net\",\"fromMe\":false},\"pushName\":\"Smoke P5\",\"message\":{\"conversation\":\"${marker}\"}}]}}")
+  -d "{\"event\":\"messages.upsert\",\"data\":{\"messages\":[{\"key\":{\"remoteJid\":\"5511777000001@s.whatsapp.net\",\"fromMe\":false,\"id\":\"${key_id}\"},\"messageType\":\"conversation\",\"pushName\":\"Smoke P5\",\"message\":{\"conversation\":\"${marker}\"}}]}}")
 [ "$status" = "200" ] || { echo "  ❌ messages.upsert retornou $status"; exit 1; }
 
 msg_count=$(docker exec chatwoot-web bundle exec rails runner \
@@ -49,13 +50,20 @@ phone=$(docker exec chatwoot-web bundle exec rails runner \
   "m = Message.find_by(content: '${marker}'); puts m&.conversation&.contact&.phone_number" 2>/dev/null | tail -1)
 [ "$phone" = "+5511777000001" ] || { echo "  ❌ Contact phone errado: $phone (esperado +5511777000001)"; exit 1; }
 
-# 5. fromMe: true → ignorado
+# 5. fromMe: true + key.id NOVO → cria Message como :outgoing
+#    (premissa "espelho completo Evolution"; antes era ignorado por filtro fromMe)
 fromme_marker="smoke-p5-fromme-$(date +%s)"
+fromme_key="P5-FROMME-$(date +%s%N)"
 curl -s -o /dev/null -X POST "$WEBHOOK_URL" \
   -H "X-Evolution-Token: $TOKEN" -H "Content-Type: application/json" \
-  -d "{\"event\":\"messages.upsert\",\"data\":{\"messages\":[{\"key\":{\"remoteJid\":\"5511000@s.whatsapp.net\",\"fromMe\":true},\"message\":{\"conversation\":\"${fromme_marker}\"}}]}}"
-fromme_count=$(docker exec chatwoot-web bundle exec rails runner \
-  "puts Message.where(content: '${fromme_marker}').count" 2>/dev/null | tail -1)
-[ "$fromme_count" = "0" ] || { echo "  ❌ fromMe:true não deveria criar mensagem (count=$fromme_count)"; exit 1; }
+  -d "{\"event\":\"messages.upsert\",\"data\":{\"messages\":[{\"key\":{\"remoteJid\":\"5511000@s.whatsapp.net\",\"fromMe\":true,\"id\":\"${fromme_key}\"},\"messageType\":\"conversation\",\"message\":{\"conversation\":\"${fromme_marker}\"}}]}}"
+fromme_type=$(docker exec chatwoot-web bundle exec rails runner \
+  "m = Message.find_by(source_id: '${fromme_key}'); puts m ? m.message_type.to_s : 'MISSING'" 2>/dev/null | tail -1)
+[ "$fromme_type" = "outgoing" ] || { echo "  ❌ fromMe:true (key.id novo) deveria criar :outgoing, foi: $fromme_type"; exit 1; }
 
-echo "  ✓ Auth 401 · instance_id inválido 401 · connection.update=connected · mensagem criada E.164 · fromMe ignorado"
+# Cleanup das mensagens criadas pelo smoke
+docker exec chatwoot-web bundle exec rails runner "
+  Message.where(\"content LIKE 'smoke-p5-%'\").delete_all rescue nil
+" >/dev/null 2>&1 || true
+
+echo "  ✓ Auth 401 · instance_id inválido 401 · connection.update=connected · mensagem incoming E.164 · fromMe → :outgoing"
