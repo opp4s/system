@@ -90,6 +90,7 @@ module WhatsappLite
                      end
 
         channel.update!(status: new_status) if new_status
+        WhatsappLiteEvent.track!(account_id: channel.account_id, instance_id: channel.instance_id, event_type: "connection_changed", status: new_status.to_s, metadata: { state: payload.dig(:data, :state) }) if new_status
       end
 
       def handle_message_upsert(payload)
@@ -164,6 +165,7 @@ module WhatsappLite
         Rails.logger.tagged('whatsapp_lite', 'webhook') do
           Rails.logger.info "registered message_id=#{message.id} source_id=#{evolution_id} type=#{message.message_type} from_me=#{from_me} media=#{media_type || 'none'} instance=#{channel.instance_id}"
         end
+        WhatsappLiteEvent.track!(account_id: channel.account_id, instance_id: channel.instance_id, event_type: "message_received", source_id: evolution_id, status: "success", metadata: { message_id: message.id, from_me: from_me, media: media_type })
 
         if media_url
           WhatsappLite::DownloadMediaJob.perform_later(

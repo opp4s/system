@@ -42,6 +42,7 @@ module WhatsappLite
 
       Rails.logger.tagged('whatsapp_lite', 'send') do
         Rails.logger.info "message_id=#{message_id} instance=#{channel.instance_id} phone=#{number} enviado"
+      WhatsappLiteEvent.track!(account_id: message.account_id, instance_id: channel.instance_id, event_type: "message_sent", source_id: message.source_id, status: "success", metadata: { message_id: message_id, phone: number })
       end
     rescue Faraday::Error, WhatsappLite::EvolutionApiError => e
       Rails.logger.tagged('whatsapp_lite', 'send') do
@@ -49,6 +50,7 @@ module WhatsappLite
       end
       message&.update_column(:status, Message.statuses[:failed])
       raise
+      WhatsappLiteEvent.track!(account_id: message&.account_id, instance_id: channel&.instance_id || "unknown", event_type: "message_sent", source_id: message&.source_id, status: "failed", metadata: { message_id: message_id, error: e.message })
     end
   end
 end
