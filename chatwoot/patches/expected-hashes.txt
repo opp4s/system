@@ -1,1 +1,2 @@
+app/models/integrations/app.rb|9ca9a7ff366fe6416e0b5884559f10038ed49000320c81048b993c27d731d118
 app/javascript/dashboard/routes/dashboard/settings/integrations/integrations.routes.js|49128f6277edc4aa2022a076b1a498dde1c239fc18937bf42c1927142c182fa7

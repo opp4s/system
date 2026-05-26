@@ -7,6 +7,7 @@ NEW_VERSION="${1:?Uso: $0 /path/to/chatwoot-src}"
 HASHES_FILE="$(dirname "$0")/expected-hashes.txt"
 
 FILES="
+app/models/integrations/app.rb
 app/javascript/dashboard/routes/dashboard/settings/integrations/integrations.routes.js
 "
 
