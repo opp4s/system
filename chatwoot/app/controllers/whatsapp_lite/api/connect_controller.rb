@@ -17,11 +17,11 @@ module WhatsappLite
 
             if channel.nil?
               WhatsappLiteChannel.transaction(requires_new: true) do
-                channel_api = Channel::Api.create!(account_id: current_account.id)
+                channel_wl = Channel::WhatsappLite.create!(account_id: current_account.id)
                 inbox = Inbox.create!(
                   account_id: current_account.id,
                   name:       "WhatsApp #{phone_number}",
-                  channel:    channel_api
+                  channel:    channel_wl
                 )
                 channel = WhatsappLiteChannel.create!(
                   instance_id:  instance_id,
