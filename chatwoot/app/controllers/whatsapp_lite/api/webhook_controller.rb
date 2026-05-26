@@ -62,20 +62,33 @@ module WhatsappLite
 
         msg_data = Array(payload.dig(:data, :messages)).first || payload[:data]
         return if msg_data.blank?
-        return if msg_data.dig(:key, :fromMe)
 
         # Skip non-message event types (delivery acks, reactions, etc.)
         msg_type = msg_data[:messageType].to_s
         return if msg_type.present? && !%w[conversation extendedTextMessage imageMessage audioMessage documentMessage].include?(msg_type)
 
-        # Skip if we already have a Chatwoot message with this Evolution ID (echo-back prevention)
+        # Idempotência via source_id (key.id da Evolution).
+        # - fromMe=true + source_id já registrado: é eco de mensagem que o Chatwoot enviou → ignorar
+        # - fromMe=true + source_id NOVO: foi o celular físico ou n8n → registrar como outgoing
+        # - fromMe=false + source_id NOVO: foi o cliente externo → registrar como incoming
         evolution_id = msg_data.dig(:key, :id)
-        return if evolution_id.present? && Message.exists?(source_id: evolution_id)
+        return if evolution_id.blank?
 
+        if Message.exists?(inbox_id: channel.inbox_id, source_id: evolution_id)
+          Rails.logger.tagged('whatsapp_lite', 'webhook') do
+            Rails.logger.info "duplicate skipped instance=#{channel.instance_id} source_id=#{evolution_id}"
+          end
+          return
+        end
+
+        from_me = msg_data.dig(:key, :fromMe) ? true : false
+
+        # remoteJid sempre identifica a "outra ponta" da conversa (o contato externo),
+        # tanto quando fromMe=true quanto fromMe=false.
         sender_jid    = msg_data.dig(:key, :remoteJid).to_s
         sender_digits = sender_jid.split('@').first.gsub(/\D/, '')
-        sender_phone  = "+#{sender_digits}"
-        sender_name   = msg_data[:pushName] || sender_phone
+        contact_phone = "+#{sender_digits}"
+        contact_name  = msg_data[:pushName].presence || contact_phone
 
         text_content = msg_data.dig(:message, :conversation) ||
                        msg_data.dig(:message, :extendedTextMessage, :text)
@@ -90,9 +103,9 @@ module WhatsappLite
 
         contact = Contact.find_or_create_by!(
           account_id:   channel.inbox.account_id,
-          phone_number: sender_phone
+          phone_number: contact_phone
         ) do |c|
-          c.name = sender_name
+          c.name = contact_name
         end
 
         contact_inbox = ContactInbox.find_or_create_by!(
@@ -119,11 +132,15 @@ module WhatsappLite
         message = conversation.messages.create!(
           account_id:   channel.inbox.account_id,
           inbox_id:     channel.inbox_id,
-          message_type: :incoming,
+          message_type: from_me ? :outgoing : :incoming,
           content:      text_content.presence || '',
           content_type: :text,
           source_id:    evolution_id
         )
+
+        Rails.logger.tagged('whatsapp_lite', 'webhook') do
+          Rails.logger.info "registered message_id=#{message.id} source_id=#{evolution_id} type=#{message.message_type} from_me=#{from_me} instance=#{channel.instance_id}"
+        end
 
         if media_url
           WhatsappLite::DownloadMediaJob.perform_later(
