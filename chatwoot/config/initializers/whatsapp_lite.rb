@@ -62,3 +62,15 @@ Rails.application.config.to_prepare do
   )
   Rails.logger.info "[whatsapp_lite] MessageListener subscribed to sync_dispatcher (pid=#{Process.pid})"
 end
+
+# Rate limiting para o webhook endpoint (proteção contra flood).
+# Usa Rack::Attack que já está configurado no Chatwoot com Redis.
+# Limite: 120 requests por minuto por instance_id (2/s burst tolerado).
+if defined?(Rack::Attack)
+  Rack::Attack.throttle('whatsapp_lite/webhook', limit: 120, period: 60) do |req|
+    if req.path.match?(%r{/whatsapp_lite/webhook/}) && req.post?
+      # Throttle por instance_id (extraído do path)
+      req.path.split('/whatsapp_lite/webhook/').last&.split('.')&.first
+    end
+  end
+end
