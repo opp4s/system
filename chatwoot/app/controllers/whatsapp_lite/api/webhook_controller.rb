@@ -7,6 +7,12 @@ module WhatsappLite
       # Replay protection: rejeita requests com timestamp > 5 minutos
       REPLAY_WINDOW = 5.minutes
 
+      ALLOWED_MESSAGE_TYPES = %w[
+        conversation extendedTextMessage
+        imageMessage audioMessage documentMessage videoMessage stickerMessage
+        contactMessage locationMessage
+      ].freeze
+
       def create
         payload = JSON.parse(@raw_body, symbolize_names: true)
 
@@ -25,7 +31,6 @@ module WhatsappLite
       private
 
       def authenticate_webhook!
-        # Ler body uma vez (necessário para HMAC e para o create)
         @raw_body = request.body.read
         request.body.rewind
 
@@ -38,15 +43,12 @@ module WhatsappLite
 
         return head(:unauthorized) unless account && token.present?
 
-        # Tentar HMAC primeiro (mais seguro). Se headers não presentes, fallback para token estático.
         signature = request.headers['X-Webhook-Signature'].to_s
         timestamp = request.headers['X-Webhook-Timestamp'].to_s
 
         if signature.present? && timestamp.present?
-          # HMAC mode: verifica assinatura + replay protection
           authenticate_hmac!(token, signature, timestamp)
         else
-          # Fallback: token estático (compatibilidade com Evolution sem HMAC configurado)
           provided = request.headers['X-Evolution-Token'].to_s
           unless ActiveSupport::SecurityUtils.secure_compare(token, provided)
             return head(:unauthorized)
@@ -58,16 +60,14 @@ module WhatsappLite
       end
 
       def authenticate_hmac!(secret, signature, timestamp)
-        # Replay protection: timestamp não pode ser mais velho que REPLAY_WINDOW
         request_time = Time.at(timestamp.to_i) rescue nil
         if request_time.nil? || request_time < REPLAY_WINDOW.ago
           Rails.logger.tagged('whatsapp_lite', 'webhook', 'hmac') do
-            Rails.logger.warn "replay rejected: timestamp=#{timestamp} age=#{request_time ? (Time.current - request_time).to_i : 'invalid'}s"
+            Rails.logger.warn "replay rejected: timestamp=#{timestamp}"
           end
           return head(:unauthorized)
         end
 
-        # HMAC-SHA256: sign(secret, timestamp + body)
         expected = OpenSSL::HMAC.hexdigest('SHA256', secret, "#{timestamp}#{@raw_body}")
 
         unless ActiveSupport::SecurityUtils.secure_compare(expected, signature)
@@ -81,8 +81,6 @@ module WhatsappLite
       def handle_connection_update(payload)
         channel = WhatsappLiteChannel.find_by(instance_id: params[:instance_id])
         return unless channel
-
-        # Não sobrescreve user_disconnected ou deleted — webhook só atua em estados automáticos
         return if channel.user_disconnected? || channel.deleted?
 
         new_status = case payload.dig(:data, :state)
@@ -100,11 +98,9 @@ module WhatsappLite
         msg_data = Array(payload.dig(:data, :messages)).first || payload[:data]
         return if msg_data.blank?
 
-        # Skip non-message event types (delivery acks, reactions, etc.)
         msg_type = msg_data[:messageType].to_s
-        return if msg_type.present? && !%w[conversation extendedTextMessage imageMessage audioMessage documentMessage].include?(msg_type)
+        return if msg_type.present? && !ALLOWED_MESSAGE_TYPES.include?(msg_type)
 
-        # Idempotência via source_id (key.id da Evolution).
         evolution_id = msg_data.dig(:key, :id)
         return if evolution_id.blank?
 
@@ -122,16 +118,11 @@ module WhatsappLite
         contact_phone = "+#{sender_digits}"
         contact_name  = msg_data[:pushName].presence || contact_phone
 
-        text_content = msg_data.dig(:message, :conversation) ||
-                       msg_data.dig(:message, :extendedTextMessage, :text)
+        # Extrair conteúdo de texto
+        text_content = extract_text_content(msg_data)
 
-        media_url  = msg_data.dig(:message, :imageMessage, :url) ||
-                     msg_data.dig(:message, :audioMessage, :url) ||
-                     msg_data.dig(:message, :documentMessage, :url)
-        media_type = if    msg_data.dig(:message, :imageMessage)    then 'image'
-                     elsif msg_data.dig(:message, :audioMessage)    then 'audio'
-                     elsif msg_data.dig(:message, :documentMessage) then 'document'
-                     end
+        # Extrair mídia (url + tipo)
+        media_url, media_type = extract_media(msg_data)
 
         contact = Contact.find_or_create_by!(
           account_id:   channel.inbox.account_id,
@@ -171,13 +162,76 @@ module WhatsappLite
         )
 
         Rails.logger.tagged('whatsapp_lite', 'webhook') do
-          Rails.logger.info "registered message_id=#{message.id} source_id=#{evolution_id} type=#{message.message_type} from_me=#{from_me} instance=#{channel.instance_id}"
+          Rails.logger.info "registered message_id=#{message.id} source_id=#{evolution_id} type=#{message.message_type} from_me=#{from_me} media=#{media_type || 'none'} instance=#{channel.instance_id}"
         end
 
         if media_url
           WhatsappLite::DownloadMediaJob.perform_later(
             message.id, media_url, media_type, channel.instance_id
           )
+        end
+      end
+
+      # --- Content extraction helpers ---
+
+      def extract_text_content(msg_data)
+        msg = msg_data[:message] || {}
+
+        # Texto simples ou extendido
+        text = msg.dig(:conversation) || msg.dig(:extendedTextMessage, :text)
+        return text if text.present?
+
+        # Caption de mídia (imagem, vídeo, documento)
+        caption = msg.dig(:imageMessage, :caption) ||
+                  msg.dig(:videoMessage, :caption) ||
+                  msg.dig(:documentMessage, :caption)
+        return caption if caption.present?
+
+        # Localização → texto formatado
+        if msg[:locationMessage]
+          loc = msg[:locationMessage]
+          lat = loc[:degreesLatitude]
+          lng = loc[:degreesLongitude]
+          name = loc[:name]
+          addr = loc[:address]
+          parts = ["📍 Localização"]
+          parts << name if name.present?
+          parts << addr if addr.present?
+          parts << "#{lat}, #{lng}" if lat && lng
+          parts << "https://maps.google.com/maps?q=#{lat},#{lng}" if lat && lng
+          return parts.join("\n")
+        end
+
+        # Contato (vCard) → texto formatado
+        if msg[:contactMessage]
+          vcard = msg[:contactMessage][:vcard].to_s
+          display = msg[:contactMessage][:displayName].to_s
+          # Extrair telefone do vCard
+          phone = vcard[/TEL[^:]*:([+\d\s-]+)/i, 1]&.strip
+          parts = ["👤 Contato: #{display}"]
+          parts << "Tel: #{phone}" if phone.present?
+          return parts.join("\n")
+        end
+
+        # Sticker → sem texto (só mídia)
+        nil
+      end
+
+      def extract_media(msg_data)
+        msg = msg_data[:message] || {}
+
+        if msg[:imageMessage]
+          [msg.dig(:imageMessage, :url), 'image']
+        elsif msg[:audioMessage]
+          [msg.dig(:audioMessage, :url), 'audio']
+        elsif msg[:documentMessage]
+          [msg.dig(:documentMessage, :url), 'document']
+        elsif msg[:videoMessage]
+          [msg.dig(:videoMessage, :url), 'video']
+        elsif msg[:stickerMessage]
+          [msg.dig(:stickerMessage, :url), 'sticker']
+        else
+          [nil, nil]
         end
       end
     end

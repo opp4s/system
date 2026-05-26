@@ -3,16 +3,29 @@ module WhatsappLite
     queue_as :default
     retry_on StandardError, wait: :polynomially_longer, attempts: 3
 
+    # Chatwoot Attachment.file_types: image, audio, video, file
     FILE_TYPE_MAP = {
       'image'    => 'image',
       'audio'    => 'audio',
-      'document' => 'file'
+      'video'    => 'video',
+      'document' => 'file',
+      'sticker'  => 'image'  # stickers são imagens (webp)
     }.freeze
 
     EXT_MAP = {
       'image'    => 'jpg',
       'audio'    => 'ogg',
-      'document' => 'bin'
+      'video'    => 'mp4',
+      'document' => 'bin',
+      'sticker'  => 'webp'
+    }.freeze
+
+    CONTENT_TYPE_MAP = {
+      'image'    => 'image/jpeg',
+      'audio'    => 'audio/ogg',
+      'video'    => 'video/mp4',
+      'document' => 'application/octet-stream',
+      'sticker'  => 'image/webp'
     }.freeze
 
     def perform(message_id, media_url, media_type, instance_id)
@@ -25,7 +38,7 @@ module WhatsappLite
       require 'faraday/follow_redirects'
       conn = Faraday.new do |f|
         f.response :follow_redirects
-        f.options.timeout      = 30
+        f.options.timeout      = 60  # vídeos podem ser grandes
         f.options.open_timeout = 10
       end
 
@@ -36,16 +49,11 @@ module WhatsappLite
       return unless response.success?
 
       content_type = response.headers['content-type']&.split(';')&.first ||
-                     case media_type
-                     when 'image'    then 'image/jpeg'
-                     when 'audio'    then 'audio/ogg'
-                     when 'document' then 'application/octet-stream'
-                     else 'application/octet-stream'
-                     end
+                     CONTENT_TYPE_MAP.fetch(media_type, 'application/octet-stream')
 
-      ext          = EXT_MAP.fetch(media_type, 'bin')
-      file_type    = FILE_TYPE_MAP.fetch(media_type, 'file')
-      filename     = "wl_media_#{message_id}.#{ext}"
+      ext       = EXT_MAP.fetch(media_type, 'bin')
+      file_type = FILE_TYPE_MAP.fetch(media_type, 'file')
+      filename  = "wl_#{media_type}_#{message_id}.#{ext}"
 
       attachment = message.attachments.new(
         account_id: message.account_id,
@@ -59,7 +67,7 @@ module WhatsappLite
       attachment.save!
 
       Rails.logger.tagged('whatsapp_lite', 'media') do
-        Rails.logger.info "downloaded #{media_type} for message_id=#{message_id}"
+        Rails.logger.info "downloaded #{media_type} (#{response.body.bytesize} bytes) for message_id=#{message_id}"
       end
     end
   end
