@@ -4,8 +4,11 @@ module WhatsappLite
       skip_before_action :verify_authenticity_token, raise: false
       before_action :authenticate_webhook!
 
+      # Replay protection: rejeita requests com timestamp > 5 minutos
+      REPLAY_WINDOW = 5.minutes
+
       def create
-        payload = JSON.parse(request.body.read, symbolize_names: true)
+        payload = JSON.parse(@raw_body, symbolize_names: true)
 
         case payload[:event]
         when 'connection.update'
@@ -22,23 +25,57 @@ module WhatsappLite
       private
 
       def authenticate_webhook!
+        # Ler body uma vez (necessário para HMAC e para o create)
+        @raw_body = request.body.read
+        request.body.rewind
+
         parts      = params[:instance_id].to_s.split('-')
         account_id = parts[1]&.to_i
 
-        # The channel belongs to whatever tenant account_id points to.
-        # Credentials (including webhook_token) always come from the primary account.
-        account  = Account.find_by(id: account_id)
-        creds    = WhatsappLite::AccountHelpers.credentials_for(account)
-        token    = creds['evolution_webhook_token']
-        provided = request.headers['X-Evolution-Token'].to_s
+        account = Account.find_by(id: account_id)
+        creds   = WhatsappLite::AccountHelpers.credentials_for(account)
+        token   = creds['evolution_webhook_token']
 
-        unless account && token.present? &&
-               ActiveSupport::SecurityUtils.secure_compare(token, provided)
-          return head :unauthorized
+        return head(:unauthorized) unless account && token.present?
+
+        # Tentar HMAC primeiro (mais seguro). Se headers não presentes, fallback para token estático.
+        signature = request.headers['X-Webhook-Signature'].to_s
+        timestamp = request.headers['X-Webhook-Timestamp'].to_s
+
+        if signature.present? && timestamp.present?
+          # HMAC mode: verifica assinatura + replay protection
+          authenticate_hmac!(token, signature, timestamp)
+        else
+          # Fallback: token estático (compatibilidade com Evolution sem HMAC configurado)
+          provided = request.headers['X-Evolution-Token'].to_s
+          unless ActiveSupport::SecurityUtils.secure_compare(token, provided)
+            return head(:unauthorized)
+          end
         end
 
         Current.account = account
         @webhook_account = account
+      end
+
+      def authenticate_hmac!(secret, signature, timestamp)
+        # Replay protection: timestamp não pode ser mais velho que REPLAY_WINDOW
+        request_time = Time.at(timestamp.to_i) rescue nil
+        if request_time.nil? || request_time < REPLAY_WINDOW.ago
+          Rails.logger.tagged('whatsapp_lite', 'webhook', 'hmac') do
+            Rails.logger.warn "replay rejected: timestamp=#{timestamp} age=#{request_time ? (Time.current - request_time).to_i : 'invalid'}s"
+          end
+          return head(:unauthorized)
+        end
+
+        # HMAC-SHA256: sign(secret, timestamp + body)
+        expected = OpenSSL::HMAC.hexdigest('SHA256', secret, "#{timestamp}#{@raw_body}")
+
+        unless ActiveSupport::SecurityUtils.secure_compare(expected, signature)
+          Rails.logger.tagged('whatsapp_lite', 'webhook', 'hmac') do
+            Rails.logger.warn "signature mismatch for instance=#{params[:instance_id]}"
+          end
+          return head(:unauthorized)
+        end
       end
 
       def handle_connection_update(payload)
@@ -68,9 +105,6 @@ module WhatsappLite
         return if msg_type.present? && !%w[conversation extendedTextMessage imageMessage audioMessage documentMessage].include?(msg_type)
 
         # Idempotência via source_id (key.id da Evolution).
-        # - fromMe=true + source_id já registrado: é eco de mensagem que o Chatwoot enviou → ignorar
-        # - fromMe=true + source_id NOVO: foi o celular físico ou n8n → registrar como outgoing
-        # - fromMe=false + source_id NOVO: foi o cliente externo → registrar como incoming
         evolution_id = msg_data.dig(:key, :id)
         return if evolution_id.blank?
 
@@ -83,8 +117,6 @@ module WhatsappLite
 
         from_me = msg_data.dig(:key, :fromMe) ? true : false
 
-        # remoteJid sempre identifica a "outra ponta" da conversa (o contato externo),
-        # tanto quando fromMe=true quanto fromMe=false.
         sender_jid    = msg_data.dig(:key, :remoteJid).to_s
         sender_digits = sender_jid.split('@').first.gsub(/\D/, '')
         contact_phone = "+#{sender_digits}"
