@@ -1,6 +1,7 @@
 module Auth
   class SessionsController < ApplicationController
     skip_before_action :authenticate_user!, only: [:create]
+    skip_before_action :resolve_current_workspace
 
     # POST /auth/login
     def create

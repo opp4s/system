@@ -1,6 +1,7 @@
 module Auth
   class PasswordsController < ApplicationController
     skip_before_action :authenticate_user!
+    skip_before_action :resolve_current_workspace
 
     # POST /auth/forgot_password
     def forgot
