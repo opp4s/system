@@ -1,22 +1,14 @@
 module Funnels
   module Api
-    class BaseController < ::Api::V1::BaseController
+    class BaseController < ::Api::V1::Accounts::BaseController
       before_action :set_account
-      before_action :check_authorization
 
       private
 
+      # current_account é resolvido pelo Chatwoot BaseController via params[:account_id]
+      # @account é o alias usado pelos controllers do plugin
       def set_account
-        @account = Account.find(params[:account_id])
-      end
-
-      def check_authorization
-        raise Pundit::NotAuthorizedError unless current_user&.account_users
-                                                              &.exists?(account: @account)
-      end
-
-      def pundit_user
-        current_user
+        @account = current_account
       end
     end
   end

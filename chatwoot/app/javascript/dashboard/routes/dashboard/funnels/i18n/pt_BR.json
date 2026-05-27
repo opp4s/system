@@ -6,6 +6,7 @@
   "create": "Criar",
   "cancel": "Cancelar",
   "close": "Fechar",
+  "save": "Salvar",
 
   "empty_state": {
     "select_title": "Selecione um funil",
@@ -60,6 +61,8 @@
   },
 
   "card_detail": {
+    "tab_data": "Dados",
+    "tab_fields": "Campos",
     "stage_label": "Etapa",
     "assignee_label": "Responsável",
     "value_label": "Valor",
@@ -73,7 +76,66 @@
     "days": "{n} dias",
     "system": "Sistema",
     "close_aria": "Fechar painel do card",
-    "open_conversation_aria": "Abrir conversa"
+    "open_conversation_aria": "Abrir conversa",
+    "link_conversation_btn": "Vincular",
+    "msg_incoming": "recebida",
+    "msg_outgoing": "enviada",
+    "msg_note": "nota interna"
+  },
+
+  "stage_switcher": {
+    "stage_label": "Etapa",
+    "transfer_toggle": "Transferir para outro funil",
+    "target_funnel": "Funil destino",
+    "target_funnel_placeholder": "Selecione o funil",
+    "target_stage": "Etapa destino",
+    "target_stage_placeholder": "Selecione a etapa",
+    "confirm_transfer": "Transferir card",
+    "cancel_transfer": "Cancelar",
+    "loading_stages": "Carregando etapas...",
+    "no_other_funnels": "Nenhum outro funil disponível",
+    "transfer_success": "Card transferido para {funnel}",
+    "transfer_error": "Erro ao transferir card"
+  },
+
+  "custom_fields": {
+    "no_fields": "Nenhum campo personalizado configurado",
+    "empty_hint": "Configure campos personalizados nas configurações do funil.",
+    "saving": "Salvando...",
+    "saved": "Salvo",
+    "error": "Erro ao salvar"
+  },
+
+  "composer": {
+    "mode_message": "WhatsApp",
+    "mode_note": "Nota interna",
+    "no_conversation": "Nenhuma conversa primária vinculada. Vincule uma conversa para enviar mensagens.",
+    "message_placeholder": "Enviar mensagem ao cliente…",
+    "note_placeholder": "Adicionar nota interna (não enviada ao cliente)…",
+    "send_hint": "Ctrl+Enter para enviar",
+    "send_aria": "Enviar mensagem",
+    "sent_success": "Mensagem enviada",
+    "sent_error": "Erro ao enviar mensagem"
+  },
+
+  "linker": {
+    "title": "Vincular conversa",
+    "search_placeholder": "Buscar por ID, contato ou número…",
+    "searching": "Buscando…",
+    "no_results": "Nenhuma conversa encontrada",
+    "link_btn": "Vincular",
+    "link_aria": "Vincular esta conversa ao card",
+    "unlink_btn": "Desvincular",
+    "unlink_aria": "Desvincular esta conversa",
+    "close_aria": "Fechar painel",
+    "link_success": "Conversa #{id} vinculada",
+    "link_error": "Erro ao vincular conversa",
+    "unlink_success": "Conversa desvinculada",
+    "unlink_error": "Erro ao desvincular conversa",
+    "contact": "Contato",
+    "status_open": "aberta",
+    "status_resolved": "resolvida",
+    "status_pending": "pendente"
   },
 
   "events": {

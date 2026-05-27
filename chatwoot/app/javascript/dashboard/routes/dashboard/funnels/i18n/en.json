@@ -6,6 +6,7 @@
   "create": "Create",
   "cancel": "Cancel",
   "close": "Close",
+  "save": "Save",
 
   "empty_state": {
     "select_title": "Select a funnel",
@@ -60,6 +61,8 @@
   },
 
   "card_detail": {
+    "tab_data": "Details",
+    "tab_fields": "Fields",
     "stage_label": "Stage",
     "assignee_label": "Assignee",
     "value_label": "Value",
@@ -73,7 +76,66 @@
     "days": "{n} days",
     "system": "System",
     "close_aria": "Close card panel",
-    "open_conversation_aria": "Open conversation"
+    "open_conversation_aria": "Open conversation",
+    "link_conversation_btn": "Link",
+    "msg_incoming": "received",
+    "msg_outgoing": "sent",
+    "msg_note": "internal note"
+  },
+
+  "stage_switcher": {
+    "stage_label": "Stage",
+    "transfer_toggle": "Transfer to another funnel",
+    "target_funnel": "Target funnel",
+    "target_funnel_placeholder": "Select funnel",
+    "target_stage": "Target stage",
+    "target_stage_placeholder": "Select stage",
+    "confirm_transfer": "Transfer card",
+    "cancel_transfer": "Cancel",
+    "loading_stages": "Loading stages...",
+    "no_other_funnels": "No other funnels available",
+    "transfer_success": "Card transferred to {funnel}",
+    "transfer_error": "Error transferring card"
+  },
+
+  "custom_fields": {
+    "no_fields": "No custom fields configured",
+    "empty_hint": "Configure custom fields in the funnel settings.",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "error": "Save error"
+  },
+
+  "composer": {
+    "mode_message": "WhatsApp",
+    "mode_note": "Internal note",
+    "no_conversation": "No primary conversation linked. Link a conversation to send messages.",
+    "message_placeholder": "Send a message to the client…",
+    "note_placeholder": "Add an internal note (not sent to the client)…",
+    "send_hint": "Ctrl+Enter to send",
+    "send_aria": "Send message",
+    "sent_success": "Message sent",
+    "sent_error": "Error sending message"
+  },
+
+  "linker": {
+    "title": "Link conversation",
+    "search_placeholder": "Search by ID, contact or number…",
+    "searching": "Searching…",
+    "no_results": "No conversations found",
+    "link_btn": "Link",
+    "link_aria": "Link this conversation to the card",
+    "unlink_btn": "Unlink",
+    "unlink_aria": "Unlink this conversation",
+    "close_aria": "Close panel",
+    "link_success": "Conversation #{id} linked",
+    "link_error": "Error linking conversation",
+    "unlink_success": "Conversation unlinked",
+    "unlink_error": "Error unlinking conversation",
+    "contact": "Contact",
+    "status_open": "open",
+    "status_resolved": "resolved",
+    "status_pending": "pending"
   },
 
   "events": {

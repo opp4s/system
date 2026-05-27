@@ -1,12 +1,15 @@
 require Rails.root.join('lib', 'funnels', 'engine')
 require Rails.root.join('lib', 'funnels', 'broadcaster')
 require Rails.root.join('lib', 'funnels', 'seeder')
+require Rails.root.join("lib", "funnels", "account_concern")
 
 # Adiciona migrations do plugin
 plugin_migrations = Rails.root.join('db', 'migrate_funnels')
 Rails.application.config.paths['db/migrate'] << plugin_migrations.to_s if plugin_migrations.exist?
 
 Rails.application.config.after_initialize do
+  # Associação Account -> Funnels
+  Account.include(Funnels::AccountConcern) unless Account.reflect_on_association(:funnels)
   Rails.application.routes.prepend do
     namespace :api, defaults: { format: :json } do
       namespace :v1 do

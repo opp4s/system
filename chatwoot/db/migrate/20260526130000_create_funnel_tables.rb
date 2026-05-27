@@ -64,7 +64,7 @@ class CreateFunnelTables < ActiveRecord::Migration[7.0]
 
     create_table :funnel_custom_field_values do |t|
       t.references :funnel_card,        null: false, foreign_key: true, index: true
-      t.references :custom_attribute,   null: false, foreign_key: true, index: true
+      t.references :custom_attribute_definition, null: false, foreign_key: true, index: { name: "idx_fcfv_custom_attr_def_id" }
       t.text    :value_text
       t.decimal :value_numeric,  precision: 15, scale: 2
       t.boolean :value_boolean
@@ -72,7 +72,7 @@ class CreateFunnelTables < ActiveRecord::Migration[7.0]
       t.timestamps
     end
 
-    add_index :funnel_custom_field_values, %i[funnel_card_id custom_attribute_id], unique: true,
+    add_index :funnel_custom_field_values, %i[funnel_card_id custom_attribute_definition_id], unique: true,
               name: 'idx_funnel_custom_field_values_unique'
   end
 end
