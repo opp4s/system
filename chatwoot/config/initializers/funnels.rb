@@ -36,6 +36,8 @@ Rails.application.config.after_initialize do
                 post  :transfer
                 post  :archive
                 get   :timeline
+                post  :link_conversation
+                delete :link_conversation, action: :unlink_conversation
                 get   :custom_fields,  controller: '/funnels/api/card_custom_fields', action: :index
                 patch :custom_fields,  controller: '/funnels/api/card_custom_fields', action: :update
               end

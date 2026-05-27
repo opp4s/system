@@ -2,7 +2,7 @@ module Funnels
   module Api
     class CardsController < BaseController
       before_action :set_funnel
-      before_action :set_card, only: %i[show update destroy move transfer archive timeline]
+      before_action :set_card, only: %i[show update destroy move transfer archive timeline link_conversation unlink_conversation]
 
       def index
         cards = @funnel.cards.active
@@ -129,6 +129,29 @@ module Funnels
 
         timeline = (messages + events).sort_by { |i| i[:created_at] }.reverse
         render json: { timeline: timeline }
+
+      def link_conversation
+        conversation = @account.conversations.find(params.require(:conversation_id))
+        cc = @card.card_conversations.find_or_initialize_by(conversation_id: conversation.id)
+        is_first = @card.card_conversations.count.zero?
+        cc.is_primary = is_first unless cc.persisted?
+        cc.save!
+        @card.record_event('conversation_linked', user: current_user, payload: { conversation_id: conversation.id })
+        Funnels::Broadcaster.card_event(@card, 'card_updated')
+        render json: { id: cc.id, conversation_id: cc.conversation_id, is_primary: cc.is_primary }
+      rescue ActiveRecord::RecordNotFound
+        render json: { error: 'Conversa não encontrada' }, status: :not_found
+      end
+
+      def unlink_conversation
+        cc = @card.card_conversations.find_by!(conversation_id: params.require(:conversation_id))
+        cc.destroy
+        @card.record_event('conversation_unlinked', user: current_user, payload: { conversation_id: params[:conversation_id].to_i })
+        Funnels::Broadcaster.card_event(@card, 'card_updated')
+        head :no_content
+      rescue ActiveRecord::RecordNotFound
+        render json: { error: 'Vínculo não encontrado' }, status: :not_found
+      end
       end
 
       private
