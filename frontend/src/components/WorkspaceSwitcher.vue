@@ -3,25 +3,27 @@
     <!-- Botão Seletor Principal -->
     <button 
       @click="isDropdownOpen = !isDropdownOpen"
-      class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-800/30 hover:bg-slate-800/60 border border-slate-850 transition-all duration-150 text-left focus:outline-none"
+      class="w-full flex items-center rounded-xl bg-slate-800/30 hover:bg-slate-800/60 border border-slate-850 transition-all duration-150 text-left focus:outline-none"
+      :class="isCollapsed ? 'justify-center p-2' : 'justify-between p-2.5'"
     >
-      <div class="flex items-center space-x-3 min-w-0">
+      <div class="flex items-center min-w-0" :class="isCollapsed ? '' : 'space-x-3'">
         <!-- Avatar Workspace Ativo (Iniciais) -->
         <div class="h-8 w-8 rounded-lg bg-zavy-600 text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase">
           {{ getInitials(workspaceStore.currentWorkspace.name) }}
         </div>
-        <div class="min-w-0">
+        <div v-if="!isCollapsed" class="min-w-0">
           <p class="text-xs font-semibold text-white truncate">{{ workspaceStore.currentWorkspace.name }}</p>
           <p class="text-[10px] text-slate-500 truncate">Plano {{ workspaceStore.currentWorkspace.plan }}</p>
         </div>
       </div>
-      <component :is="ChevronDown" class="h-4 w-4 text-slate-500 shrink-0 ml-1" />
+      <component :is="ChevronDown" v-if="!isCollapsed" class="h-4 w-4 text-slate-500 shrink-0 ml-1" />
     </button>
 
     <!-- Dropdown Menu -->
     <div 
       v-if="isDropdownOpen" 
-      class="absolute bottom-14 left-0 w-full bg-[#252538] border border-slate-800 rounded-xl shadow-2xl py-2 z-50 overflow-hidden"
+      class="absolute bg-[#252538] border border-slate-800 rounded-xl shadow-2xl py-2 z-50 overflow-hidden"
+      :class="isCollapsed ? 'bottom-0 left-16 w-48' : 'bottom-14 left-0 w-full'"
     >
       <div class="px-3 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
         Seus Workspaces
@@ -111,13 +113,26 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { useUiStore } from '@/stores/ui'
 import { useToast } from '@/composables/useToast'
 import { ChevronDown, Check, Plus } from 'lucide-vue-next'
 
+const props = defineProps({
+  forceExpand: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const workspaceStore = useWorkspaceStore()
+const uiStore = useUiStore()
 const toast = useToast()
+
+const isCollapsed = computed(() => {
+  return uiStore.sidebarCollapsed && !props.forceExpand
+})
 
 const isDropdownOpen = ref(false)
 const isModalOpen = ref(false)

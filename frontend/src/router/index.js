@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
+import { useAuthStore } from '@/stores/auth'
+import { useWorkspaceStore } from '@/stores/workspace'
+import { useToast } from '@/composables/useToast'
 
 const routes = [
   {
@@ -64,26 +67,39 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  let token = null
-  try {
-    const authPersisted = localStorage.getItem('auth')
-    if (authPersisted) {
-      const authState = JSON.parse(authPersisted)
-      token = authState?.token || null
-    }
-  } catch (error) {
-    console.error('Erro ao ler dados de autenticação no router guard:', error)
-  }
+  const authStore = useAuthStore()
+  const workspaceStore = useWorkspaceStore()
+  const toast = useToast()
 
-  const isAuthenticated = !!token
+  const isAuthenticated = !!authStore.token
 
+  // 1. requiresAuth Guard
   if (to.meta.requiresAuth && !isAuthenticated) {
     next({ name: 'login' })
-  } else if (to.meta.requiresGuest && isAuthenticated) {
-    next({ name: 'dashboard' })
-  } else {
-    next()
+    return
   }
+
+  // 2. requiresGuest Guard
+  if (to.meta.requiresGuest && isAuthenticated) {
+    next({ name: 'dashboard' })
+    return
+  }
+
+  // 3. requiresAdmin Guard
+  if (to.meta.requiresAdmin) {
+    if (!isAuthenticated) {
+      next({ name: 'login' })
+      return
+    }
+    const userRole = workspaceStore.currentWorkspace?.role || 'membro'
+    if (userRole !== 'admin') {
+      toast.error('Acesso negado. Apenas administradores do workspace podem acessar esta página.')
+      next({ name: 'dashboard' })
+      return
+    }
+  }
+
+  next()
 })
 
 export default router

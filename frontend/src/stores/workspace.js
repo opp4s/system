@@ -42,6 +42,12 @@ export const useWorkspaceStore = defineStore('workspace', {
       this.currentWorkspaceId = newId
 
       return newWorkspace
+    },
+
+    // Simulação de carregamento de workspaces do servidor
+    async fetchWorkspaces() {
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      return this.workspaces
     }
   },
   persist: true

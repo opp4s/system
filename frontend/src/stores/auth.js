@@ -80,6 +80,23 @@ export const useAuthStore = defineStore('auth', {
       }
       
       return true
+    },
+
+    // Simulação de carregamento do usuário atual (/me)
+    async fetchMe() {
+      if (!this.token) return null
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      
+      const mockUser = {
+        id: this.user?.id || 1,
+        name: this.user?.name || 'Carlos Zavy',
+        email: this.user?.email || 'carlos@zavycrm.com',
+        role: this.user?.role || 'admin',
+        avatar: null
+      }
+      
+      this.user = mockUser
+      return mockUser
     }
   },
   persist: true

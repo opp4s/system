@@ -2,7 +2,9 @@ import { defineStore } from 'pinia'
 
 export const useUiStore = defineStore('ui', {
   state: () => ({
-    toasts: []
+    toasts: [],
+    sidebarCollapsed: false,
+    theme: 'light'
   }),
   actions: {
     // Adiciona um toast e agenda a remoção automática
@@ -18,6 +20,19 @@ export const useUiStore = defineStore('ui', {
     // Remove o toast imediatamente pelo ID
     removeToast(id) {
       this.toasts = this.toasts.filter((toast) => toast.id !== id)
+    },
+
+    // Alterna o estado de colapso da sidebar
+    toggleSidebar() {
+      this.sidebarCollapsed = !this.sidebarCollapsed
+    },
+
+    // Altera o tema visual do CRM
+    setTheme(newTheme) {
+      if (newTheme === 'light' || newTheme === 'dark') {
+        this.theme = newTheme
+      }
     }
-  }
+  },
+  persist: true
 })

@@ -10,7 +10,7 @@
       
       <!-- Gaveta Lateral -->
       <div class="relative flex flex-col w-60 h-full bg-[#1E1E2E] shadow-2xl transition-transform duration-200">
-        <Sidebar class="h-full border-r-0" />
+        <Sidebar class="h-full border-r-0" :force-expand="true" />
       </div>
     </div>
 
@@ -85,6 +85,7 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Sidebar from '@/components/Sidebar.vue'
+import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
 import { 
   Menu, 
@@ -98,6 +99,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { currentUser } = useAuth()
 
 const mobileSidebarOpen = ref(false)
 const profileDropdownOpen = ref(false)
@@ -107,11 +109,11 @@ const currentRouteName = computed(() => {
 })
 
 const userName = computed(() => {
-  return authStore.user?.name || 'Usuário Zavy'
+  return currentUser.value?.name || 'Usuário Zavy'
 })
 
 const userInitials = computed(() => {
-  const name = authStore.user?.name || 'U'
+  const name = currentUser.value?.name || 'U'
   return name.substring(0, 1).toUpperCase()
 })
 
