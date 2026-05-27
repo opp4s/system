@@ -47,6 +47,12 @@ const routes = [
     ]
   },
   {
+    path: '/onboarding',
+    name: 'onboarding',
+    component: () => import('@/views/OnboardingPage.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/dashboard'
   }
