@@ -7,12 +7,19 @@
       role="button"
       tabindex="0"
       :aria-expanded="expanded"
-      @click="expanded = !expanded"
-      @keyup.enter="expanded = !expanded"
+      @click="toggle"
+      @keyup.enter="toggle"
     >
       <div class="flex items-center gap-1.5 text-sm font-medium text-n-slate-11">
         <i class="i-lucide-kanban size-4 text-woot-500" aria-hidden="true" />
         {{ $t('funnels.conversation_widget.section_title') }}
+        <span
+          v-if="linkedCards.length > 0"
+          class="size-4 rounded-full bg-woot-100 text-woot-700 text-[10px] font-bold
+                 flex items-center justify-center"
+        >
+          {{ linkedCards.length }}
+        </span>
       </div>
       <i
         :class="expanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
@@ -29,18 +36,70 @@
       leave-from-class="opacity-100 max-h-[600px]"
       leave-to-class="opacity-0 max-h-0"
     >
-      <div v-if="expanded" class="overflow-hidden pb-3">
+      <div v-if="expanded" class="overflow-hidden pb-3 flex flex-col gap-2">
 
-        <!-- Linked cards placeholder (pending backend endpoint) -->
-        <div class="text-xs text-n-slate-8 italic mb-2 flex items-center gap-1">
-          <i class="i-lucide-info size-3" aria-hidden="true" />
-          {{ $t('funnels.conversation_widget.linked_cards_pending') }}
+        <!-- ── Loading ─────────────────────────────────────────────────────── -->
+        <div
+          v-if="loadingCards"
+          class="flex items-center gap-1.5 text-xs text-n-slate-8 py-1"
+        >
+          <i class="i-lucide-loader-circle animate-spin size-3.5" aria-hidden="true" />
+          {{ $t('funnels.conversation_widget.loading') }}
         </div>
 
-        <!-- Create card form (hidden until button clicked) -->
+        <!-- ── Linked cards list ───────────────────────────────────────────── -->
+        <template v-else>
+          <div
+            v-for="card in linkedCards"
+            :key="card.id"
+            class="flex items-start gap-2 px-2 py-2 rounded-lg border border-n-weak
+                   hover:bg-n-alpha-1 transition-colors cursor-pointer group"
+            role="button"
+            tabindex="0"
+            :aria-label="`${$t('funnels.conversation_widget.open_board')} — ${card.title}`"
+            @click="openCard(card)"
+            @keyup.enter="openCard(card)"
+          >
+            <!-- Stage color dot -->
+            <span
+              class="mt-0.5 size-2 rounded-full flex-shrink-0"
+              :style="{ backgroundColor: card.stage_color || '#6B7280' }"
+              aria-hidden="true"
+            />
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium text-n-slate-12 truncate">{{ card.title }}</p>
+              <p class="text-[11px] text-n-slate-9 truncate">
+                {{ card.funnel_name }} · {{ card.stage_name }}
+              </p>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span v-if="card.value > 0" class="text-[11px] font-semibold text-woot-600">
+                  {{ formatCurrency(card.value) }}
+                </span>
+                <span class="text-[11px] text-n-slate-8">
+                  {{ card.days_in_stage }}d
+                </span>
+              </div>
+            </div>
+            <i
+              class="i-lucide-external-link size-3.5 text-n-slate-7
+                     opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
+          </div>
+
+          <!-- ── No cards empty state ──────────────────────────────────────── -->
+          <p
+            v-if="linkedCards.length === 0 && !showForm"
+            class="text-xs text-n-slate-8 py-1"
+          >
+            {{ $t('funnels.conversation_widget.no_cards') }}
+          </p>
+        </template>
+
+        <!-- ── Create card form ────────────────────────────────────────────── -->
         <div v-if="!showForm">
           <button
-            class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs
+            class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs
                    font-medium text-woot-600 border border-woot-200 rounded-lg
                    hover:bg-woot-50 hover:border-woot-400 transition-colors
                    dark:border-woot-800/30 dark:hover:bg-woot-900/10"
@@ -51,7 +110,6 @@
           </button>
         </div>
 
-        <!-- Inline create card form -->
         <div
           v-else
           class="border border-n-weak rounded-xl p-3 bg-n-alpha-1/50 flex flex-col gap-3"
@@ -89,11 +147,7 @@
                      bg-n-solid-1 text-n-slate-12 focus:outline-none focus:border-woot-400"
             >
               <option value="">{{ $t('funnels.conversation_widget.stage_placeholder') }}</option>
-              <option
-                v-for="s in availableStages"
-                :key="s.id"
-                :value="s.id"
-              >
+              <option v-for="s in availableStages" :key="s.id" :value="s.id">
                 {{ s.name }}
               </option>
             </select>
@@ -172,11 +226,13 @@ export default {
 
   data() {
     return {
-      expanded:      false,
-      showForm:      false,
-      loadingFunnels: false,
-      loadingStages:  false,
-      creating:       false,
+      expanded:        false,
+      showForm:        false,
+      loadingCards:    false,
+      loadingFunnels:  false,
+      loadingStages:   false,
+      creating:        false,
+      linkedCards:     [],
       availableStages: [],
       form: {
         funnelId: '',
@@ -188,24 +244,48 @@ export default {
 
   computed: {
     ...mapGetters('funnels', ['allFunnels']),
-    ...mapGetters({
-      currentConversation: 'getSelectedChat',
-    }),
+    ...mapGetters({ currentConversation: 'getSelectedChat' }),
 
-    funnels()     { return this.allFunnels; },
-    canCreate()   { return !!this.form.funnelId && !!this.form.stageId && !!this.form.title.trim(); },
+    funnels()    { return this.allFunnels; },
+    canCreate()  { return !!this.form.funnelId && !!this.form.stageId && !!this.form.title.trim(); },
     contactName() {
       return this.currentConversation?.meta?.sender?.name || '';
     },
   },
 
-  watch: {
-    expanded(val) {
-      if (val && !this.funnels.length) this.loadFunnels();
-    },
-  },
-
   methods: {
+    async toggle() {
+      this.expanded = !this.expanded;
+      if (this.expanded) await this.fetchLinkedCards();
+    },
+
+    // ── Linked cards ──────────────────────────────────────────────────────────
+
+    async fetchLinkedCards() {
+      this.loadingCards = true;
+      try {
+        const accountId = this.$store.getters['getCurrentAccountId'];
+        const { data }  = await axios.get(
+          `/api/v1/accounts/${accountId}/funnels/cards_by_conversation`,
+          { params: { conversation_id: this.conversationId } }
+        );
+        this.linkedCards = data || [];
+      } catch {
+        this.linkedCards = [];
+      } finally {
+        this.loadingCards = false;
+      }
+    },
+
+    openCard(card) {
+      const accountId = this.$store.getters['getCurrentAccountId'];
+      this.$router.push(
+        `/app/accounts/${accountId}/funnels/${card.funnel_id}/cards/${card.id}`
+      );
+    },
+
+    // ── Create card ───────────────────────────────────────────────────────────
+
     async loadFunnels() {
       if (this.funnels.length) return;
       this.loadingFunnels = true;
@@ -217,14 +297,10 @@ export default {
     },
 
     async openForm() {
-      this.showForm  = true;
-      this.form      = { funnelId: '', stageId: '', title: '' };
+      this.showForm = true;
+      this.form     = { funnelId: '', stageId: '', title: '' };
       await this.loadFunnels();
-      // Pre-fill title with contact name
-      if (this.contactName) {
-        this.form.title = this.contactName;
-      }
-      // Auto-select first funnel
+      if (this.contactName) this.form.title = this.contactName;
       if (this.funnels.length === 1) {
         this.form.funnelId = this.funnels[0].id;
         await this.onFunnelChange();
@@ -243,8 +319,7 @@ export default {
         const { data }  = await axios.get(
           `/api/v1/accounts/${accountId}/funnels/${this.form.funnelId}`
         );
-        this.availableStages = (data.stages || [])
-          .filter(s => s.stage_type === 'intermediate');
+        this.availableStages = (data.stages || []).filter(s => s.stage_type === 'intermediate');
         if (this.availableStages.length > 0) {
           this.form.stageId = this.availableStages[0].id;
         }
@@ -264,15 +339,10 @@ export default {
         // 1. Criar card
         const { data: card } = await axios.post(
           `/api/v1/accounts/${accountId}/funnels/${this.form.funnelId}/cards`,
-          {
-            card: {
-              title:    this.form.title.trim(),
-              stage_id: Number(this.form.stageId),
-            },
-          }
+          { card: { title: this.form.title.trim(), stage_id: Number(this.form.stageId) } }
         );
 
-        // 2. Vincular conversa ao card
+        // 2. Vincular conversa
         try {
           await axios.post(
             `/api/v1/accounts/${accountId}/funnels/${this.form.funnelId}/cards/${card.id}/link_conversation`,
@@ -280,19 +350,27 @@ export default {
           );
           this.toastSuccess(this.$t('funnels.conversation_widget.create_success'));
         } catch {
-          // Card created, link failed
           this.toastError(this.$t('funnels.conversation_widget.link_error'));
         }
 
-        // 3. Refresh funnels store (updates cards_count)
-        this.$store.dispatch('funnels/fetchFunnels');
         this.showForm = false;
+        // Re-fetch para mostrar o novo card na lista
+        await this.fetchLinkedCards();
+        this.$store.dispatch('funnels/fetchFunnels');
 
       } catch {
         this.toastError(this.$t('funnels.conversation_widget.create_error'));
       } finally {
         this.creating = false;
       }
+    },
+
+    // ── Formatters ────────────────────────────────────────────────────────────
+
+    formatCurrency(value, currency = 'BRL') {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency', currency, minimumFractionDigits: 0,
+      }).format(value);
     },
   },
 };

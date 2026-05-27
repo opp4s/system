@@ -9,7 +9,7 @@ Rails.application.config.paths['db/migrate'] << plugin_migrations.to_s if plugin
 
 Rails.application.config.after_initialize do
   # Associação Account -> Funnels
-  Account.include(Funnels::AccountConcern) unless Account.reflect_on_association(:funnels)
+  Account.include(Funnels::AccountConcern) unless Account.reflect_on_association(:funnels) rescue nil
   Rails.application.routes.prepend do
     namespace :api, defaults: { format: :json } do
       namespace :v1 do

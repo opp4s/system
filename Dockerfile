@@ -19,7 +19,7 @@ RUN apk add --no-cache nodejs npm \
 # Copiar plugin
 COPY chatwoot/ /funnels-plugin/
 
-# Instalar vue-draggable-next (dep do Kanban)
+# Instalar dependências JS + deps do Kanban
 WORKDIR /app
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm add vue-draggable-next vue-virtual-scroller --save 2>/dev/null || true
@@ -27,10 +27,9 @@ RUN pnpm add vue-draggable-next vue-virtual-scroller --save 2>/dev/null || true
 # Aplicar patches (frontend)
 RUN CHATWOOT_SRC=/app sh /funnels-plugin/patches/apply.sh
 
-# Recompilar assets
-RUN SECRET_KEY_BASE=precompile_placeholder \
-    RAILS_LOG_TO_STDOUT=enabled \
-    bundle exec rake assets:precompile
+# Recompilar assets frontend (Vite direto, sem Rails boot — evita necessidade de PG)
+RUN npx vite build --config vite.config.ts \
+ && cp -r /app/public/vite /app/public/vite-funnels-backup 2>/dev/null || true
 
 # Copiar backend Ruby
 RUN mkdir -p \
@@ -45,8 +44,9 @@ RUN mkdir -p \
  && cp -r /funnels-plugin/app/controllers/funnels    /app/app/controllers/ \
  && cp -r /funnels-plugin/app/channels/funnels       /app/app/channels/ \
  && cp -r /funnels-plugin/app/models/funnels         /app/app/models/ \
- && cp -r /funnels-plugin/app/jobs/funnels            /app/app/jobs/ \
- && cp    /funnels-plugin/db/migrate/*.rb             /app/db/migrate_funnels/ \
+ && cp -r /funnels-plugin/app/jobs/funnels           /app/app/jobs/ \
+ && cp -r /funnels-plugin/app/policies/funnels       /app/app/policies/ \
+ && cp    /funnels-plugin/db/migrate/*.rb            /app/db/migrate_funnels/ \
  && cp    /funnels-plugin/config/initializers/funnels.rb /app/config/initializers/
 
 # Locales
