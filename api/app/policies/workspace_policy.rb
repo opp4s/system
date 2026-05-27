@@ -2,20 +2,15 @@ class WorkspacePolicy < ApplicationPolicy
   # Qualquer usuário autenticado pode criar um workspace
   def create? = current_user.present?
 
-  # Apenas membros aceitos podem ver
-  def show?   = member?
+  # Para show/update/invite o membership é verificado no record (não no header)
+  def show?   = membership_on_record.present?
+  def update? = %w[owner admin].include?(membership_on_record&.role)
+  def invite? = %w[owner admin].include?(membership_on_record&.role)
 
-  # Apenas owner ou admin podem editar
-  def update? = owner_or_admin?
-
-  # Apenas owner ou admin podem convidar
-  def invite? = owner_or_admin?
-
-  # Qualquer membro com convite pendente pode aceitar
   def accept_invite?
     WorkspaceMembership.exists?(
-      workspace: record,
-      user:      current_user,
+      workspace:   record,
+      user:        current_user,
       accepted_at: nil
     )
   end
@@ -25,12 +20,17 @@ class WorkspacePolicy < ApplicationPolicy
     def resolve
       scope
         .joins(:workspace_memberships)
-        .where(
-          workspace_memberships: {
-            user_id:     current_user.id,
-            accepted_at: ..Time.current   # accepted_at IS NOT NULL e <= agora
-          }
-        )
+        .where(workspace_memberships: { user_id: current_user.id })
+        .where.not(workspace_memberships: { accepted_at: nil })
     end
+  end
+
+  private
+
+  def membership_on_record
+    @membership_on_record ||= WorkspaceMembership.find_by(
+      workspace: record,
+      user:      current_user
+    )
   end
 end
