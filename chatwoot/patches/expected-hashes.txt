@@ -1,0 +1,3 @@
+app/javascript/dashboard/routes/dashboard/dashboard.routes.js|e17a6142f727e39d91ba7f3788baec9b734bfde4efeff0533cec560748fc9457
+app/javascript/dashboard/components-next/sidebar/Sidebar.vue|5102cd7cb5bf5e1ef259bb549db798105dc9b4d6f12b57bd8f56b3f5e4d292a3
+app/javascript/dashboard/store/index.js|35f550b2c064b006b34d14b9e5de8f5e72e6741b1f8d4931e466398d5ef77ce9

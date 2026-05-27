@@ -265,7 +265,12 @@ export default {
           { conversation_id: conversationId }
         );
         this.toastSuccess(this.$t('funnels.linker.link_success', { id: conversationId }));
-        this.$emit('linked', data || { id: conversationId });
+        // POST retorna { id, conversation_id, is_primary }
+        // Emite no formato que CardDetail espera: { id: conversation_id, is_primary }
+        this.$emit('linked', {
+          id:         data?.conversation_id ?? conversationId,
+          is_primary: data?.is_primary      ?? false,
+        });
       } catch {
         this.toastError(this.$t('funnels.linker.link_error'));
       } finally {
@@ -278,9 +283,10 @@ export default {
       this.unlinkingId = conversationId;
       const accountId = this.$store.getters['getCurrentAccountId'];
       try {
+        // DELETE usa query param (não body)
         await axios.delete(
           `/api/v1/accounts/${accountId}/funnels/${this.funnelId}/cards/${this.cardId}/link_conversation`,
-          { data: { conversation_id: conversationId } }
+          { params: { conversation_id: conversationId } }
         );
         this.toastSuccess(this.$t('funnels.linker.unlink_success'));
         this.$emit('unlinked', conversationId);
