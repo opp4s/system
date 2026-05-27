@@ -97,15 +97,18 @@
 </template>
 
 <script>
-import { mapActions }       from 'vuex';
-import { useFunnelToast }   from '../composables/useFunnelToast';
+import axios             from 'axios';
+import { mapActions }    from 'vuex';
+import { useFunnelToast } from '../composables/useFunnelToast';
 
 export default {
   name: 'CreateCardModal',
   props: {
-    funnel:         { type: Object, required: true },
-    stages:         { type: Array,  default: () => [] },
-    initialStageId: { type: Number, default: null },
+    funnel:           { type: Object,           required: true },
+    stages:           { type: Array,            default: () => [] },
+    initialStageId:   { type: Number,           default: null },
+    /** Quando passado, a conversa é vinculada ao card automaticamente após criação */
+    conversationId:   { type: [Number, String], default: null },
   },
   emits: ['close', 'created'],
 
@@ -145,7 +148,7 @@ export default {
       if (!this.form.title.trim()) return;
       this.submitting = true;
       try {
-        await this.createCard({
+        const card = await this.createCard({
           funnelId: this.funnel.id,
           cardData: {
             title:    this.form.title.trim(),
@@ -153,6 +156,20 @@ export default {
             value:    this.form.value || 0,
           },
         });
+
+        // Auto-vincula conversa quando chamado do contexto de uma conversa
+        if (this.conversationId && card?.id) {
+          const accountId = this.$store.getters['getCurrentAccountId'];
+          try {
+            await axios.post(
+              `/api/v1/accounts/${accountId}/funnels/${this.funnel.id}/cards/${card.id}/link_conversation`,
+              { conversation_id: Number(this.conversationId) }
+            );
+          } catch {
+            // Card criado com sucesso; falha no link é secundária
+          }
+        }
+
         this.toastSuccess(this.$t('funnels.create_card_modal.success'));
         this.$emit('created');
       } catch (e) {

@@ -170,44 +170,69 @@
     </draggable>
 
     <!-- ── Adicionar etapa ────────────────────────────────────────────────── -->
-    <div
-      class="border-2 border-dashed border-n-weak rounded-xl p-3 flex items-center gap-2
-             hover:border-woot-300 transition-colors"
-    >
-      <i class="i-lucide-plus size-4 text-n-slate-8 flex-shrink-0" aria-hidden="true" />
-      <input
-        v-model="newStageName"
-        type="text"
-        class="flex-1 text-sm bg-transparent outline-none text-n-slate-12
-               placeholder:text-n-slate-7"
-        :placeholder="$t('funnels.settings.stages.name_placeholder')"
-        @keyup.enter="addStage"
-      />
-      <select
-        v-model="newStageType"
-        class="text-xs border border-n-weak rounded-md px-1.5 py-1 bg-n-solid-1
-               text-n-slate-11 focus:outline-none flex-shrink-0"
-      >
-        <option value="intermediate">{{ $t('funnels.settings.stages.type_intermediate') }}</option>
-        <option value="won">{{ $t('funnels.settings.stages.type_won') }}</option>
-        <option value="lost">{{ $t('funnels.settings.stages.type_lost') }}</option>
-      </select>
-      <button
-        :disabled="!newStageName.trim() || addingStage"
-        class="px-3 py-1.5 text-xs font-medium bg-woot-500 hover:bg-woot-600 text-white
-               rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
-        @click="addStage"
-      >
-        <i
-          v-if="addingStage"
-          class="i-lucide-loader-circle animate-spin size-3"
-          aria-hidden="true"
+    <div class="border-2 border-dashed border-n-weak rounded-xl overflow-hidden
+                hover:border-woot-300 transition-colors">
+      <div class="p-3 flex items-center gap-2">
+        <i class="i-lucide-plus size-4 text-n-slate-8 flex-shrink-0" aria-hidden="true" />
+
+        <!-- Color pick for new stage -->
+        <button
+          class="size-4 rounded-full border-2 border-white shadow-sm flex-shrink-0
+                 ring-1 ring-n-weak hover:ring-woot-400 transition-all"
+          :style="{ backgroundColor: newStageColor }"
+          aria-label="Cor da nova etapa"
+          @click="colorPickerId = colorPickerId === '__new__' ? null : '__new__'"
         />
-        <span>{{ addingStage
-          ? $t('funnels.settings.stages.adding')
-          : $t('funnels.settings.stages.add_btn')
-        }}</span>
-      </button>
+
+        <input
+          v-model="newStageName"
+          type="text"
+          class="flex-1 text-sm bg-transparent outline-none text-n-slate-12
+                 placeholder:text-n-slate-7"
+          :placeholder="$t('funnels.settings.stages.name_placeholder')"
+          @keyup.enter="addStage"
+        />
+        <select
+          v-model="newStageType"
+          class="text-xs border border-n-weak rounded-md px-1.5 py-1 bg-n-solid-1
+                 text-n-slate-11 focus:outline-none flex-shrink-0"
+        >
+          <option value="intermediate">{{ $t('funnels.settings.stages.type_intermediate') }}</option>
+          <option value="won">{{ $t('funnels.settings.stages.type_won') }}</option>
+          <option value="lost">{{ $t('funnels.settings.stages.type_lost') }}</option>
+        </select>
+        <button
+          :disabled="!newStageName.trim() || addingStage"
+          class="px-3 py-1.5 text-xs font-medium bg-woot-500 hover:bg-woot-600 text-white
+                 rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
+          @click="addStage"
+        >
+          <i
+            v-if="addingStage"
+            class="i-lucide-loader-circle animate-spin size-3"
+            aria-hidden="true"
+          />
+          <span>{{ addingStage
+            ? $t('funnels.settings.stages.adding')
+            : $t('funnels.settings.stages.add_btn')
+          }}</span>
+        </button>
+      </div>
+
+      <!-- Color picker for new stage -->
+      <div v-if="colorPickerId === '__new__'" class="px-3 pb-3 border-t border-n-weak pt-2 bg-n-alpha-1/50">
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="color in PRESET_COLORS"
+            :key="color"
+            class="size-5 rounded-full transition-transform hover:scale-110 border-2"
+            :style="{ backgroundColor: color }"
+            :class="newStageColor === color ? 'border-n-slate-12 scale-110' : 'border-transparent'"
+            :aria-label="color"
+            @click="newStageColor = color; colorPickerId = null"
+          />
+        </div>
+      </div>
     </div>
 
   </div>
@@ -255,6 +280,7 @@ export default {
       localStages:    [],
       newStageName:   '',
       newStageType:   'intermediate',
+      newStageColor:  '#6B7280',
       addingStage:    false,
       savingId:       null,
       savedId:        null,
@@ -288,11 +314,11 @@ export default {
 
     async onReorder() {
       const accountId = this.$store.getters['getCurrentAccountId'];
-      const positions = this.localStages.map((s, i) => ({ id: s.id, position: i + 1 }));
+      const stage_ids = this.localStages.map(s => s.id);
       try {
         await axios.post(
           `/api/v1/accounts/${accountId}/funnels/${this.funnelId}/stages/reorder`,
-          { stages: positions }
+          { stage_ids }
         );
         this.$emit('updated');
       } catch {
@@ -389,8 +415,8 @@ export default {
           {
             stage: {
               name,
+              color:      this.newStageColor,
               stage_type: this.newStageType,
-              position:   this.localStages.length + 1,
             },
           }
         );
@@ -399,8 +425,9 @@ export default {
           _editName:        data.name,
           _lossReasonsText: lossReasonsToText(data.loss_reasons),
         });
-        this.newStageName = '';
-        this.newStageType = 'intermediate';
+        this.newStageName  = '';
+        this.newStageType  = 'intermediate';
+        this.newStageColor = '#6B7280';
         this.toastSuccess(this.$t('funnels.settings.stages.save_success'));
         this.$emit('updated');
       } catch {

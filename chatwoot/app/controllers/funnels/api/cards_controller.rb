@@ -1,7 +1,7 @@
 module Funnels
   module Api
     class CardsController < BaseController
-      before_action :set_funnel
+      before_action :set_funnel, except: [:by_conversation]
       before_action :set_card, only: %i[show update destroy move transfer archive timeline link_conversation unlink_conversation]
 
       def index
@@ -131,6 +131,30 @@ module Funnels
         render json: { timeline: timeline }
 
       def link_conversation
+
+      def by_conversation
+        conversation_id = params.require(:conversation_id)
+        card_ids = Funnels::CardConversation
+                     .where(conversation_id: conversation_id)
+                     .pluck(:funnel_card_id)
+
+        cards = Funnels::Card.where(id: card_ids, account_id: @account.id)
+                             .includes(:stage, :funnel)
+
+        render json: cards.map { |c|
+          {
+            id:         c.id,
+            title:      c.title,
+            funnel_id:  c.funnel_id,
+            funnel_name: c.funnel.name,
+            stage_id:   c.funnel_stage_id,
+            stage_name: c.stage.name,
+            stage_color: c.stage.color,
+            value:      c.value.to_f,
+            days_in_stage: c.days_in_stage
+          }
+        }
+      end
         conversation = @account.conversations.find(params.require(:conversation_id))
         cc = @card.card_conversations.find_or_initialize_by(conversation_id: conversation.id)
         is_first = @card.card_conversations.count.zero?

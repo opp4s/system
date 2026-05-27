@@ -219,6 +219,25 @@
     "has_conversation": "With linked conversation only"
   },
 
+  "conversation_widget": {
+    "section_title": "Funnels",
+    "loading": "Loading…",
+    "no_cards": "No linked cards",
+    "linked_cards_pending": "Search cards by conversation coming soon",
+    "create_btn": "Create card",
+    "creating": "Creating…",
+    "funnel_label": "Funnel",
+    "funnel_placeholder": "Select funnel",
+    "stage_label": "Stage",
+    "stage_placeholder": "Select stage",
+    "title_label": "Title",
+    "title_placeholder": "E.g.: Lead - {contact}",
+    "create_success": "Card created and conversation linked",
+    "create_error": "Error creating card",
+    "link_error": "Card created, but error linking conversation",
+    "open_board": "View in funnel"
+  },
+
   "move_success": "Card moved to {stage}",
   "move_error": "Error moving card"
 }

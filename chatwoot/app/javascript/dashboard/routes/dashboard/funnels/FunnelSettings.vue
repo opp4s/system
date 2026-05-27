@@ -397,11 +397,11 @@ export default {
 
     async onReorderFunnels() {
       const accountId  = this.$store.getters['getCurrentAccountId'];
-      const positions  = this.localFunnels.map((f, i) => ({ id: f.id, position: i + 1 }));
+      const funnel_ids = this.localFunnels.map(f => f.id);
       try {
         await axios.post(
           `/api/v1/accounts/${accountId}/funnels/reorder`,
-          { funnels: positions }
+          { funnel_ids }
         );
         await this.$store.dispatch('funnels/fetchFunnels');
       } catch {

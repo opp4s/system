@@ -15,6 +15,7 @@ Rails.application.config.after_initialize do
       namespace :v1 do
         resources :accounts, only: [] do
           post "funnels/reorder", controller: "/funnels/api/funnels", action: :reorder
+          get "funnels/cards_by_conversation", controller: "/funnels/api/cards", action: :by_conversation
           resources :funnels,
                     controller: '/funnels/api/funnels',
                     only: %i[index show create update destroy] do

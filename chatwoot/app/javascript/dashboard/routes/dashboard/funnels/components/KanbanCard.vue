@@ -28,20 +28,26 @@
       {{ formatCurrency(card.value, card.currency) }}
     </div>
 
-    <!-- Labels da conversa -->
-    <div v-if="card.labels && card.labels.length > 0" class="flex flex-wrap gap-1 mb-2">
+    <!-- Labels — cores do store Chatwoot (reutiliza LabelBox style) -->
+    <div v-if="resolvedLabels.length > 0" class="flex flex-wrap gap-1 mb-2">
       <span
-        v-for="label in card.labels.slice(0, 3)"
-        :key="label"
-        class="text-[10px] px-1.5 py-0.5 rounded-full bg-woot-50 text-woot-700 leading-tight"
+        v-for="label in resolvedLabels.slice(0, 3)"
+        :key="label.title"
+        class="text-[10px] px-1.5 py-0.5 rounded-full leading-tight font-medium"
+        :style="{
+          backgroundColor: label.color ? label.color + '22' : '',
+          color:           label.color || '#4B5563',
+          borderColor:     label.color ? label.color + '55' : '',
+          border:          '1px solid',
+        }"
       >
-        {{ label }}
+        {{ label.title }}
       </span>
       <span
-        v-if="card.labels.length > 3"
+        v-if="resolvedLabels.length > 3"
         class="text-[10px] px-1.5 py-0.5 rounded-full bg-n-alpha-2 text-n-slate-9 leading-tight"
       >
-        +{{ card.labels.length - 3 }}
+        +{{ resolvedLabels.length - 3 }}
       </span>
     </div>
 
@@ -83,6 +89,8 @@
 </template>
 
 <script>
+import { mapGetters } from 'vuex';
+
 export default {
   name: 'KanbanCard',
   props: {
@@ -91,6 +99,24 @@ export default {
   emits: ['click'],
 
   computed: {
+    // Getter do Chatwoot: retorna [{ id, title, color, description, ... }]
+    ...mapGetters({ chatwootLabels: 'labels/getLabels' }),
+
+    /** Mapeia label_list (array de títulos) para objetos com cor do Chatwoot */
+    resolvedLabels() {
+      const labelList = this.card.labels || this.card.label_list || [];
+      if (!labelList.length) return [];
+
+      const labelMap = {};
+      (this.chatwootLabels || []).forEach(l => {
+        labelMap[l.title] = l;
+      });
+
+      return labelList.map(title =>
+        labelMap[title] || { title, color: null }
+      );
+    },
+
     daysClass() {
       const d = this.card.days_in_stage || 0;
       if (d <= 3)  return 'bg-n-alpha-1 text-n-slate-9';

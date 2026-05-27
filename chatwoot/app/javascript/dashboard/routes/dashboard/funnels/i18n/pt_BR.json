@@ -219,6 +219,25 @@
     "has_conversation": "Apenas com conversa vinculada"
   },
 
+  "conversation_widget": {
+    "section_title": "Funis",
+    "loading": "Carregando…",
+    "no_cards": "Nenhum card vinculado",
+    "linked_cards_pending": "Busca de cards por conversa disponível em breve",
+    "create_btn": "Criar card",
+    "creating": "Criando…",
+    "funnel_label": "Funil",
+    "funnel_placeholder": "Selecione um funil",
+    "stage_label": "Etapa",
+    "stage_placeholder": "Selecione uma etapa",
+    "title_label": "Título",
+    "title_placeholder": "Ex: Lead - {contact}",
+    "create_success": "Card criado e conversa vinculada",
+    "create_error": "Erro ao criar card",
+    "link_error": "Card criado, mas erro ao vincular conversa",
+    "open_board": "Ver no funil"
+  },
+
   "move_success": "Card movido para {stage}",
   "move_error": "Erro ao mover card"
 }

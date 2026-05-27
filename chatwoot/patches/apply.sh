@@ -33,4 +33,7 @@ fi
 # 5. Patch i18n locale files
 node "$PLUGIN_DIR/patches/patch-i18n.js" "$CW_SRC" "$PLUGIN_DIR"
 
+# 6. Patch ConversationAction.vue (adiciona botão Funnels na sidebar de conversa)
+node "$PLUGIN_DIR/patches/patch-conversation-detail.js" "$CW_SRC"
+
 echo "✅ Funnels Plugin aplicado em $CW_SRC"
