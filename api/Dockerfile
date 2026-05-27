@@ -22,6 +22,9 @@ RUN bundle install --jobs 4 --retry 3
 
 COPY . .
 
+# Garante diretórios de runtime que o Puma e o Rails precisam
+RUN mkdir -p tmp/pids tmp/cache tmp/sockets log storage
+
 EXPOSE 3000
 
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]

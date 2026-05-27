@@ -14,6 +14,10 @@ Rails.application.routes.draw do
 
   namespace :api do
     namespace :v1 do
+      # Perfil do usuário autenticado
+      get   "me", to: "users#me"
+      patch "me", to: "users#update_me"
+
       resources :workspaces, only: [:index, :show, :create, :update] do
         member do
           post :invite

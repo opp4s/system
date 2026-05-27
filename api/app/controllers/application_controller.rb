@@ -10,6 +10,16 @@ class ApplicationController < ActionController::API
 
   private
 
+  # Pundit recebe UserContext em vez do User bruto para que as policies
+  # tenham acesso ao workspace e ao membership sem queries extras.
+  def pundit_user
+    ApplicationPolicy::UserContext.new(
+      user:       current_user,
+      workspace:  current_workspace,
+      membership: current_membership
+    )
+  end
+
   def render_forbidden
     render json: { error: "Acesso não autorizado" }, status: :forbidden
   end

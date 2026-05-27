@@ -5,11 +5,9 @@ module Api
 
       # GET /api/v1/workspaces
       def index
-        workspaces = current_user.workspace_memberships
-                                 .accepted
-                                 .includes(:workspace)
-                                 .map do |m|
-          workspace_payload(m.workspace, m)
+        workspaces = policy_scope(Workspace).map do |ws|
+          membership = ws.workspace_memberships.find_by(user: current_user)
+          workspace_payload(ws, membership)
         end
 
         render json: { data: workspaces }, status: :ok
@@ -17,6 +15,7 @@ module Api
 
       # GET /api/v1/workspaces/:id
       def show
+        authorize @workspace
         membership = WorkspaceMembership.find_by!(workspace: @workspace, user: current_user)
         render json: { data: workspace_payload(@workspace, membership) }, status: :ok
       end
@@ -24,6 +23,7 @@ module Api
       # POST /api/v1/workspaces
       def create
         workspace = Workspace.new(workspace_params.merge(owner: current_user))
+        authorize workspace
 
         if workspace.save
           membership = WorkspaceMembership.create!(
@@ -41,13 +41,9 @@ module Api
 
       # PATCH /api/v1/workspaces/:id
       def update
-        membership = WorkspaceMembership.find_by!(workspace: @workspace, user: current_user)
-
-        unless %w[owner admin].include?(membership.role)
-          return render json: { error: "Acesso não autorizado" }, status: :forbidden
-        end
-
+        authorize @workspace
         if @workspace.update(workspace_params)
+          membership = WorkspaceMembership.find_by!(workspace: @workspace, user: current_user)
           render json: { data: workspace_payload(@workspace, membership) }, status: :ok
         else
           render_unprocessable(@workspace)
@@ -56,11 +52,7 @@ module Api
 
       # POST /api/v1/workspaces/:id/invite
       def invite
-        membership = WorkspaceMembership.find_by!(workspace: @workspace, user: current_user)
-
-        unless %w[owner admin].include?(membership.role)
-          return render json: { error: "Acesso não autorizado" }, status: :forbidden
-        end
+        authorize @workspace, :invite?
 
         invitee = User.find_by(email: invite_params[:email]&.downcase)
         return render json: { error: "Usuário não encontrado" }, status: :not_found unless invitee
@@ -89,9 +81,9 @@ module Api
 
       # POST /api/v1/workspaces/:id/accept_invite
       def accept_invite
-        membership = WorkspaceMembership.find_by(workspace: @workspace, user: current_user)
+        authorize @workspace, :accept_invite?
 
-        return render json: { error: "Convite não encontrado" }, status: :not_found unless membership
+        membership = WorkspaceMembership.find_by!(workspace: @workspace, user: current_user)
         return render json: { error: "Convite já aceito" }, status: :unprocessable_entity if membership.accepted_at?
 
         membership.update!(accepted_at: Time.current)
@@ -102,10 +94,6 @@ module Api
 
       def set_workspace
         @workspace = Workspace.find(params[:id])
-
-        unless WorkspaceMembership.exists?(workspace: @workspace, user: current_user)
-          render json: { error: "Workspace não encontrado ou acesso negado" }, status: :forbidden
-        end
       end
 
       def workspace_params
@@ -123,7 +111,7 @@ module Api
           slug:       workspace.slug,
           plan:       workspace.plan,
           settings:   workspace.settings,
-          role:       membership.role,
+          role:       membership&.role,
           owner_id:   workspace.owner_id,
           created_at: workspace.created_at,
           updated_at: workspace.updated_at
