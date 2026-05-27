@@ -48,14 +48,22 @@
       </nav>
 
       <!-- Rodapé da sidebar -->
-      <div class="px-3 py-2 border-t border-n-weak">
+      <div class="px-3 py-2 border-t border-n-weak flex items-center gap-1">
         <button
-          class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-n-slate-11
+          class="flex-1 flex items-center gap-2 px-3 py-1.5 text-sm text-n-slate-11
                  hover:text-n-slate-12 hover:bg-n-alpha-1 rounded-md transition-colors"
           @click="openCreateFunnelModal"
         >
           <i class="i-lucide-plus size-4" aria-hidden="true" />
           <span>{{ $t('funnels.new_funnel') }}</span>
+        </button>
+        <button
+          class="flex items-center justify-center p-1.5 text-n-slate-8
+                 hover:text-n-slate-12 hover:bg-n-alpha-1 rounded-md transition-colors"
+          :aria-label="$t('funnels.settings.page_title')"
+          @click="$router.push({ name: 'funnels_settings' })"
+        >
+          <i class="i-lucide-settings size-4" aria-hidden="true" />
         </button>
       </div>
     </aside>
@@ -75,6 +83,26 @@
           </span>
         </div>
         <div class="flex items-center gap-2">
+          <!-- Filtros toggle -->
+          <button
+            class="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md
+                   transition-colors"
+            :class="showFilters || activeFilterCount > 0
+              ? 'border-woot-400 text-woot-600 bg-woot-50/50 dark:bg-woot-900/10'
+              : 'border-n-weak text-n-slate-11 hover:bg-n-alpha-1'"
+            @click="showFilters = !showFilters"
+          >
+            <i class="i-lucide-sliders-horizontal size-4" aria-hidden="true" />
+            <span>{{ $t('funnels.filters.title') }}</span>
+            <span
+              v-if="activeFilterCount > 0"
+              class="size-4 rounded-full bg-woot-500 text-white text-[10px] font-bold
+                     flex items-center justify-center"
+            >
+              {{ activeFilterCount }}
+            </span>
+          </button>
+
           <button
             class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-n-slate-11
                    border border-n-weak rounded-md hover:bg-n-alpha-1 transition-colors"
@@ -100,6 +128,12 @@
         </div>
       </header>
 
+      <!-- Painel de filtros -->
+      <KanbanFilters
+        :show="showFilters"
+        @apply="onApplyFilters"
+      />
+
       <!-- Skeleton do Kanban durante carregamento de funil -->
       <KanbanSkeleton
         v-if="isLoading && currentFunnel"
@@ -111,7 +145,7 @@
         v-else-if="currentFunnel"
         :funnel="currentFunnel"
         :stages="visibleStages"
-        :cards-by-stage="cardsByStage"
+        :cards-by-stage="filteredCardsByStage"
         :loading-cards="isLoadingCards"
         @card-moved="onCardMoved"
         @card-click="onCardClick"
@@ -194,6 +228,7 @@
 import { mapGetters, mapActions } from 'vuex';
 import KanbanBoard      from './components/KanbanBoard.vue';
 import KanbanSkeleton   from './components/KanbanSkeleton.vue';
+import KanbanFilters    from './components/KanbanFilters.vue';
 import CreateCardModal  from './components/CreateCardModal.vue';
 import FunnelEmptyState from './components/FunnelEmptyState.vue';
 import FunnelToast      from './components/FunnelToast.vue';
@@ -202,7 +237,7 @@ import { useFunnelToast } from './composables/useFunnelToast';
 export default {
   name: 'FunnelsIndex',
   components: {
-    KanbanBoard, KanbanSkeleton, CreateCardModal, FunnelEmptyState, FunnelToast,
+    KanbanBoard, KanbanSkeleton, KanbanFilters, CreateCardModal, FunnelEmptyState, FunnelToast,
   },
 
   setup() {
@@ -218,6 +253,8 @@ export default {
       showCreateFunnelModal: false,
       newFunnelName:         '',
       creatingFunnel:        false,
+      showFilters:           false,
+      activeFilters:         null,   // null = no filters applied
     };
   },
 
@@ -243,9 +280,51 @@ export default {
       return result;
     },
 
+    /** cardsByStage com filtros aplicados */
+    filteredCardsByStage() {
+      const f = this.activeFilters;
+      if (!f) return this.cardsByStage;
+
+      const result = {};
+      const stageMap = Object.fromEntries(this.stages.map(s => [s.id, s]));
+
+      Object.entries(this.cardsByStage).forEach(([stageId, cards]) => {
+        const stage = stageMap[stageId];
+        // Stage type filter
+        if (f.stageType && stage?.stage_type !== f.stageType) {
+          result[stageId] = [];
+          return;
+        }
+        result[stageId] = cards.filter(card => {
+          if (f.assigneeId && card.assigned_agent?.id !== f.assigneeId) return false;
+          if (f.valueMin !== null && f.valueMin !== '' && (card.value || 0) < Number(f.valueMin)) return false;
+          if (f.valueMax !== null && f.valueMax !== '' && (card.value || 0) > Number(f.valueMax)) return false;
+          if (f.daysMin  !== null && f.daysMin  !== '' && (card.days_in_stage || 0) < Number(f.daysMin)) return false;
+          if (f.daysMax  !== null && f.daysMax  !== '' && (card.days_in_stage || 0) > Number(f.daysMax)) return false;
+          if (f.hasConversation && !card.conversations?.length) return false;
+          return true;
+        });
+      });
+      return result;
+    },
+
+    activeFilterCount() {
+      const f = this.activeFilters;
+      if (!f) return 0;
+      return [
+        !!f.assigneeId,
+        !!f.stageType,
+        f.valueMin !== null && f.valueMin !== '',
+        f.valueMax !== null && f.valueMax !== '',
+        f.daysMin  !== null && f.daysMin  !== '',
+        f.daysMax  !== null && f.daysMax  !== '',
+        f.hasConversation,
+      ].filter(Boolean).length;
+    },
+
     totalActiveCards() {
       return this.visibleStages.reduce(
-        (sum, s) => sum + (this.cardsByStage[s.id]?.length || 0), 0
+        (sum, s) => sum + (this.filteredCardsByStage[s.id]?.length || 0), 0
       );
     },
   },
@@ -336,6 +415,16 @@ export default {
       if (this.currentFunnel) {
         this.$store.dispatch('funnels/fetchAllCards', { funnelId: this.currentFunnel.id });
       }
+    },
+
+    onApplyFilters(filters) {
+      const isEmpty = !filters.assigneeId && !filters.stageType
+        && (filters.valueMin === null || filters.valueMin === '')
+        && (filters.valueMax === null || filters.valueMax === '')
+        && (filters.daysMin  === null || filters.daysMin  === '')
+        && (filters.daysMax  === null || filters.daysMax  === '')
+        && !filters.hasConversation;
+      this.activeFilters = isEmpty ? null : filters;
     },
 
     onCardCreated() {

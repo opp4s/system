@@ -1,8 +1,19 @@
-import FunnelsIndex from './Index.vue';
+import FunnelsIndex    from './Index.vue';
+import FunnelSettings  from './FunnelSettings.vue';
 import CardDetailModal from './components/CardDetail.vue';
 
 export default {
   routes: [
+    // Settings — must come before the parent funnels route so Vue Router
+    // matches /funnels/settings before trying children of /funnels
+    {
+      path: 'funnels/settings',
+      name: 'funnels_settings',
+      component: FunnelSettings,
+      meta: {
+        permissions: ['administrator'],
+      },
+    },
     {
       path: 'funnels',
       component: FunnelsIndex,

@@ -60,7 +60,7 @@ module Funnels
       end
 
       def stage_params
-        params.require(:stage).permit(:name, :color, :position, :stage_type, :win_probability)
+        params.require(:stage).permit(:name, :color, :position, :stage_type, :win_probability, loss_reasons: [])
       end
 
       def stage_json(stage)

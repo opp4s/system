@@ -35,6 +35,14 @@ module Funnels
       end
 
       def analytics
+
+      def reorder
+        ids = params.require(:funnel_ids)
+        ids.each_with_index do |id, index|
+          @account.funnels.where(id: id).update_all(position: index)
+        end
+        render json: @account.funnels.ordered.map { |f| funnel_json(f) }
+      end
         cache_key = "funnels:analytics:#{@funnel.id}:#{Date.today}"
         data = Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
           build_analytics(@funnel)

@@ -148,6 +148,77 @@
     "conversation_unlinked": "Conversation unlinked"
   },
 
+  "settings": {
+    "page_title": "Funnel Settings",
+    "back_to_board": "Back to board",
+    "funnel_list_title": "Funnels",
+    "select_hint": "Select a funnel to edit",
+    "tab_funnel": "Funnel",
+    "tab_stages": "Stages",
+    "funnel_form": {
+      "name_label": "Name",
+      "name_placeholder": "Funnel name",
+      "description_label": "Description",
+      "description_placeholder": "Optional description",
+      "color_label": "Color",
+      "default_label": "Default funnel",
+      "default_hint": "Shown when opening the funnels section",
+      "save_btn": "Save changes",
+      "saving": "Saving…",
+      "save_success": "Funnel updated",
+      "save_error": "Error saving funnel",
+      "delete_btn": "Delete funnel",
+      "delete_confirm": "Are you sure? This action is irreversible and removes all cards.",
+      "delete_success": "Funnel deleted",
+      "delete_error": "Error deleting funnel"
+    },
+    "stages": {
+      "title": "Stages",
+      "drag_hint": "Drag to reorder",
+      "add_btn": "Add stage",
+      "adding": "Adding…",
+      "name_placeholder": "Stage name",
+      "type_label": "Type",
+      "type_intermediate": "Intermediate",
+      "type_won": "Won",
+      "type_lost": "Lost",
+      "delete_btn": "Delete",
+      "delete_confirm": "Delete stage \"{name}\"? Cards will be kept.",
+      "save_success": "Stage saved",
+      "save_error": "Error saving stage",
+      "delete_success": "Stage deleted",
+      "delete_error": "Error deleting stage",
+      "reorder_error": "Error reordering stages",
+      "loss_reasons_title": "Loss reasons",
+      "loss_reasons_hint": "One reason per line (shown when moving to Lost)",
+      "loss_reasons_placeholder": "E.g.:\nPrice\nNo response\nCompetitor",
+      "loss_reasons_save": "Save reasons",
+      "loss_reasons_success": "Reasons saved",
+      "loss_reasons_error": "Error saving reasons"
+    }
+  },
+
+  "filters": {
+    "title": "Filters",
+    "clear": "Clear",
+    "active_one": "{n} active filter",
+    "active_many": "{n} active filters",
+    "assignee_label": "Assignee",
+    "assignee_all": "All",
+    "stage_type_label": "Stage type",
+    "stage_type_all": "All",
+    "stage_type_intermediate": "Intermediate",
+    "stage_type_won": "Won",
+    "stage_type_lost": "Lost",
+    "value_label": "Value",
+    "value_min": "Min",
+    "value_max": "Max",
+    "days_label": "Days in stage",
+    "days_min": "Min",
+    "days_max": "Max",
+    "has_conversation": "With linked conversation only"
+  },
+
   "move_success": "Card moved to {stage}",
   "move_error": "Error moving card"
 }

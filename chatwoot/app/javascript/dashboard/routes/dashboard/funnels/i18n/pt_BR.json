@@ -148,6 +148,77 @@
     "conversation_unlinked": "Conversa desvinculada"
   },
 
+  "settings": {
+    "page_title": "Configurações de Funis",
+    "back_to_board": "Voltar ao quadro",
+    "funnel_list_title": "Funis",
+    "select_hint": "Selecione um funil para editar",
+    "tab_funnel": "Funil",
+    "tab_stages": "Etapas",
+    "funnel_form": {
+      "name_label": "Nome",
+      "name_placeholder": "Nome do funil",
+      "description_label": "Descrição",
+      "description_placeholder": "Descrição opcional",
+      "color_label": "Cor",
+      "default_label": "Funil padrão",
+      "default_hint": "Exibido ao abrir a seção de funis",
+      "save_btn": "Salvar alterações",
+      "saving": "Salvando…",
+      "save_success": "Funil atualizado",
+      "save_error": "Erro ao salvar",
+      "delete_btn": "Excluir funil",
+      "delete_confirm": "Tem certeza? Esta ação é irreversível e remove todos os cards.",
+      "delete_success": "Funil excluído",
+      "delete_error": "Erro ao excluir funil"
+    },
+    "stages": {
+      "title": "Etapas",
+      "drag_hint": "Arraste para reordenar",
+      "add_btn": "Adicionar etapa",
+      "adding": "Adicionando…",
+      "name_placeholder": "Nome da etapa",
+      "type_label": "Tipo",
+      "type_intermediate": "Intermediária",
+      "type_won": "Ganho",
+      "type_lost": "Perdido",
+      "delete_btn": "Excluir",
+      "delete_confirm": "Excluir etapa \"{name}\"? Os cards serão mantidos.",
+      "save_success": "Etapa salva",
+      "save_error": "Erro ao salvar etapa",
+      "delete_success": "Etapa excluída",
+      "delete_error": "Erro ao excluir etapa",
+      "reorder_error": "Erro ao reordenar etapas",
+      "loss_reasons_title": "Motivos de perda",
+      "loss_reasons_hint": "Um motivo por linha (exibido ao mover para Perdido)",
+      "loss_reasons_placeholder": "Ex:\nPreço\nSem resposta\nConcorrência",
+      "loss_reasons_save": "Salvar motivos",
+      "loss_reasons_success": "Motivos salvos",
+      "loss_reasons_error": "Erro ao salvar motivos"
+    }
+  },
+
+  "filters": {
+    "title": "Filtros",
+    "clear": "Limpar",
+    "active_one": "{n} filtro ativo",
+    "active_many": "{n} filtros ativos",
+    "assignee_label": "Responsável",
+    "assignee_all": "Todos",
+    "stage_type_label": "Tipo de etapa",
+    "stage_type_all": "Todos",
+    "stage_type_intermediate": "Intermediária",
+    "stage_type_won": "Ganho",
+    "stage_type_lost": "Perdido",
+    "value_label": "Valor (R$)",
+    "value_min": "Mín",
+    "value_max": "Máx",
+    "days_label": "Dias na etapa",
+    "days_min": "Mín",
+    "days_max": "Máx",
+    "has_conversation": "Apenas com conversa vinculada"
+  },
+
   "move_success": "Card movido para {stage}",
   "move_error": "Erro ao mover card"
 }
