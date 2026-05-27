@@ -26,20 +26,9 @@
       </router-link>
     </nav>
 
-    <!-- Workspace Switcher no Rodapé (Placeholder) -->
+    <!-- Workspace Switcher no Rodapé -->
     <div class="p-3 border-t border-slate-800/80 bg-slate-900/20">
-      <button class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-800/30 hover:bg-slate-800/60 border border-slate-850 transition-all duration-150 text-left">
-        <div class="flex items-center space-x-3 min-w-0">
-          <div class="h-8 w-8 rounded-lg bg-zavy-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
-            ZW
-          </div>
-          <div class="min-w-0">
-            <p class="text-xs font-semibold text-white truncate">Workspace Principal</p>
-            <p class="text-[10px] text-slate-500 truncate">Plano Pro</p>
-          </div>
-        </div>
-        <component :is="ChevronDown" class="h-4 w-4 text-slate-500 shrink-0 ml-1" />
-      </button>
+      <WorkspaceSwitcher />
     </div>
   </aside>
 </template>
@@ -47,14 +36,14 @@
 <script setup>
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher.vue'
 import { 
   LayoutDashboard, 
   GitFork, 
   Users, 
   Radio, 
   Zap, 
-  Settings, 
-  ChevronDown 
+  Settings
 } from 'lucide-vue-next'
 
 const route = useRoute()
