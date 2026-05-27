@@ -1,0 +1,20 @@
+# docker-compose.override.yml — modo desenvolvimento
+# Monta o plugin ao vivo sem rebuild (exceto assets Vue — precisa rebuild para isso)
+services:
+  chatwoot-web:
+    volumes:
+      - /opt/apps/chatwoot-funnels/chatwoot/lib/funnels:/app/lib/funnels
+      - /opt/apps/chatwoot-funnels/chatwoot/app/controllers/funnels:/app/app/controllers/funnels
+      - /opt/apps/chatwoot-funnels/chatwoot/app/channels/funnels:/app/app/channels/funnels
+      - /opt/apps/chatwoot-funnels/chatwoot/app/models/funnels:/app/app/models/funnels
+      - /opt/apps/chatwoot-funnels/chatwoot/app/jobs/funnels:/app/app/jobs/funnels
+      - /opt/apps/chatwoot-funnels/chatwoot/db/migrate:/app/db/migrate_funnels
+      - /opt/apps/chatwoot-funnels/chatwoot/config/initializers/funnels.rb:/app/config/initializers/funnels.rb
+      - /opt/apps/chatwoot-funnels/chatwoot/config/locales/funnels.en.yml:/app/config/locales/funnels.en.yml
+      - /opt/apps/chatwoot-funnels/chatwoot/config/locales/funnels.pt_BR.yml:/app/config/locales/funnels.pt_BR.yml
+  chatwoot-sidekiq:
+    volumes:
+      - /opt/apps/chatwoot-funnels/chatwoot/lib/funnels:/app/lib/funnels
+      - /opt/apps/chatwoot-funnels/chatwoot/app/models/funnels:/app/app/models/funnels
+      - /opt/apps/chatwoot-funnels/chatwoot/app/jobs/funnels:/app/app/jobs/funnels
+      - /opt/apps/chatwoot-funnels/chatwoot/config/initializers/funnels.rb:/app/config/initializers/funnels.rb

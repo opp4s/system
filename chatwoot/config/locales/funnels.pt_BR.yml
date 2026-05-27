@@ -1,0 +1,12 @@
+pt-BR:
+  funnels:
+    errors:
+      not_found: "Não encontrado"
+      unauthorized: "Sem permissão"
+    funnel:
+      default_name: "Pipeline de Vendas"
+    stage:
+      types:
+        intermediate: "Intermediária"
+        won: "Ganho"
+        lost: "Perdido"

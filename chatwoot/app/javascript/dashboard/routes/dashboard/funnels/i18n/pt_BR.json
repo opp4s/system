@@ -1,0 +1,91 @@
+{
+  "sidebar_title": "Funis",
+  "no_funnels_yet": "Nenhum funil criado ainda",
+  "new_funnel": "Novo funil",
+  "creating": "Criando...",
+  "create": "Criar",
+  "cancel": "Cancelar",
+  "close": "Fechar",
+
+  "empty_state": {
+    "select_title": "Selecione um funil",
+    "select_desc": "Clique em um funil no painel lateral para abrir o Kanban.",
+    "no_funnels_title": "Nenhum funil criado",
+    "no_funnels_desc": "Crie seu primeiro funil para começar a gerenciar leads e oportunidades.",
+    "cta": "Criar primeiro funil"
+  },
+
+  "create_funnel_modal": {
+    "title": "Novo Funil",
+    "name_placeholder": "Nome do funil",
+    "success": "Funil criado com sucesso",
+    "error": "Erro ao criar funil"
+  },
+
+  "board": {
+    "cards_count": "{n} cards",
+    "show_final": "Mostrar etapas finais",
+    "hide_final": "Ocultar etapas finais",
+    "new_card": "Novo card",
+    "no_stages": "Nenhuma etapa configurada neste funil"
+  },
+
+  "column": {
+    "add_card_aria": "Adicionar card na etapa {stage}"
+  },
+
+  "card": {
+    "days_in_stage": "{n}d nesta etapa",
+    "linked_conversation_aria": "Conversa vinculada"
+  },
+
+  "create_card_modal": {
+    "title": "Novo Card",
+    "title_label": "Título",
+    "title_required": "Título *",
+    "title_placeholder": "Ex: Lead - Empresa ABC",
+    "stage_label": "Etapa",
+    "value_label": "Valor",
+    "submitting": "Criando...",
+    "submit": "Criar Card",
+    "success": "Card criado com sucesso",
+    "error": "Erro ao criar card"
+  },
+
+  "lost_modal": {
+    "title": "Mover para Perdido",
+    "hint": "Informe o motivo da perda (opcional).",
+    "placeholder": "Ex: Preço, sem resposta, concorrência...",
+    "confirm": "Confirmar perda"
+  },
+
+  "card_detail": {
+    "stage_label": "Etapa",
+    "assignee_label": "Responsável",
+    "value_label": "Valor",
+    "days_in_stage_label": "Dias na etapa",
+    "conversations_label": "Conversas",
+    "conversation": "Conversa",
+    "primary_badge": "principal",
+    "no_conversations": "Nenhuma",
+    "unassigned": "Não atribuído",
+    "no_history": "Nenhum histórico ainda",
+    "days": "{n} dias",
+    "system": "Sistema",
+    "close_aria": "Fechar painel do card",
+    "open_conversation_aria": "Abrir conversa"
+  },
+
+  "events": {
+    "card_created": "Card criado",
+    "card_moved": "Movido de \"{from}\" para \"{to}\"",
+    "card_archived": "Card arquivado",
+    "card_updated": "Card atualizado",
+    "funnel_transferred": "Transferido para outro funil",
+    "conversation_linked": "Conversa vinculada",
+    "conversation_unlinked": "Conversa desvinculada"
+  },
+
+  "move_success": "Card movido para {stage}",
+  "move_error": "Erro ao mover card"
+}

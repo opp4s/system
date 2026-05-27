@@ -1,0 +1,12 @@
+en:
+  funnels:
+    errors:
+      not_found: "Not found"
+      unauthorized: "Not authorized"
+    funnel:
+      default_name: "Sales Pipeline"
+    stage:
+      types:
+        intermediate: "Intermediate"
+        won: "Won"
+        lost: "Lost"

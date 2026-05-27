@@ -1,0 +1,91 @@
+{
+  "sidebar_title": "Funnels",
+  "no_funnels_yet": "No funnels created yet",
+  "new_funnel": "New funnel",
+  "creating": "Creating...",
+  "create": "Create",
+  "cancel": "Cancel",
+  "close": "Close",
+
+  "empty_state": {
+    "select_title": "Select a funnel",
+    "select_desc": "Click a funnel in the sidebar to open the Kanban board.",
+    "no_funnels_title": "No funnels created",
+    "no_funnels_desc": "Create your first funnel to start managing leads and opportunities.",
+    "cta": "Create first funnel"
+  },
+
+  "create_funnel_modal": {
+    "title": "New Funnel",
+    "name_placeholder": "Funnel name",
+    "success": "Funnel created successfully",
+    "error": "Error creating funnel"
+  },
+
+  "board": {
+    "cards_count": "{n} cards",
+    "show_final": "Show final stages",
+    "hide_final": "Hide final stages",
+    "new_card": "New card",
+    "no_stages": "No stages configured for this funnel"
+  },
+
+  "column": {
+    "add_card_aria": "Add card to stage {stage}"
+  },
+
+  "card": {
+    "days_in_stage": "{n}d in stage",
+    "linked_conversation_aria": "Linked conversation"
+  },
+
+  "create_card_modal": {
+    "title": "New Card",
+    "title_label": "Title",
+    "title_required": "Title *",
+    "title_placeholder": "E.g.: Lead - Company ABC",
+    "stage_label": "Stage",
+    "value_label": "Value",
+    "submitting": "Creating...",
+    "submit": "Create Card",
+    "success": "Card created successfully",
+    "error": "Error creating card"
+  },
+
+  "lost_modal": {
+    "title": "Move to Lost",
+    "hint": "Enter the reason for the loss (optional).",
+    "placeholder": "E.g.: Price, no response, competition...",
+    "confirm": "Confirm loss"
+  },
+
+  "card_detail": {
+    "stage_label": "Stage",
+    "assignee_label": "Assignee",
+    "value_label": "Value",
+    "days_in_stage_label": "Days in stage",
+    "conversations_label": "Conversations",
+    "conversation": "Conversation",
+    "primary_badge": "primary",
+    "no_conversations": "None",
+    "unassigned": "Unassigned",
+    "no_history": "No history yet",
+    "days": "{n} days",
+    "system": "System",
+    "close_aria": "Close card panel",
+    "open_conversation_aria": "Open conversation"
+  },
+
+  "events": {
+    "card_created": "Card created",
+    "card_moved": "Moved from \"{from}\" to \"{to}\"",
+    "card_archived": "Card archived",
+    "card_updated": "Card updated",
+    "funnel_transferred": "Transferred to another funnel",
+    "conversation_linked": "Conversation linked",
+    "conversation_unlinked": "Conversation unlinked"
+  },
+
+  "move_success": "Card moved to {stage}",
+  "move_error": "Error moving card"
+}
