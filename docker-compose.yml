@@ -92,6 +92,17 @@ services:
     networks:
       - zavy-net
 
+  zavy-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: zavy-frontend
+    restart: unless-stopped
+    ports:
+      - "3101:80"
+    networks:
+      - zavy-net
+
 volumes:
   zavy-postgres-data:
   zavy-redis-data:

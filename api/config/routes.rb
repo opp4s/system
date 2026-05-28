@@ -24,6 +24,24 @@ Rails.application.routes.draw do
           post :accept_invite
         end
       end
+
+      # Pipelines Kanban
+      resources :pipelines, only: [:index, :show, :create, :update, :destroy] do
+        collection { post :reorder }
+
+        resources :stages, only: [:index, :create, :update, :destroy],
+                           controller: "pipelines/stages" do
+          collection { post :reorder }
+        end
+
+        resources :cards, only: [:index, :show, :create, :update, :destroy],
+                          controller: "pipelines/cards" do
+          member do
+            post :move
+            post :archive
+          end
+        end
+      end
     end
   end
 end
