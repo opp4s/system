@@ -9,7 +9,6 @@ module Automations
     end
 
     def run!
-      # Circuit breaker: evita loops infinitos
       if exceeds_execution_limit?
         Rails.logger.warn "Automation circuit breaker triggered for card #{@card.id}"
         return
@@ -57,20 +56,24 @@ module Automations
       target = cond["value"]
 
       case operator
-      when "eq"        then field_value.to_s == target.to_s
-      when "neq"       then field_value.to_s != target.to_s
-      when "gt"        then field_value.to_f > target.to_f
-      when "gte"       then field_value.to_f >= target.to_f
-      when "lt"        then field_value.to_f < target.to_f
-      when "lte"       then field_value.to_f <= target.to_f
-      when "contains"  then field_value.to_s.include?(target.to_s)
-      when "not_contains" then !field_value.to_s.include?(target.to_s)
-      when "present"   then field_value.present?
-      when "blank"     then field_value.blank?
-      when "in"        then Array(target).include?(field_value.to_s)
-      when "not_in"    then !Array(target).include?(field_value.to_s)
+      when "eq"           then safe_equals(field_value, target)
+      when "neq"          then !safe_equals(field_value, target)
+      when "gt"           then safe_numeric_compare(field_value, target, :>)
+      when "gte"          then safe_numeric_compare(field_value, target, :>=)
+      when "lt"           then safe_numeric_compare(field_value, target, :<)
+      when "lte"          then safe_numeric_compare(field_value, target, :<=)
+      when "contains"     then safe_string_op(field_value, :include?, target)
+      when "not_contains" then !safe_string_op(field_value, :include?, target)
+      when "starts_with"  then safe_string_op(field_value, :start_with?, target)
+      when "present"      then field_value.present?
+      when "blank"        then field_value.blank?
+      when "in"           then Array(target).map(&:to_s).include?(field_value.to_s)
+      when "not_in"       then !Array(target).map(&:to_s).include?(field_value.to_s)
       else false
       end
+    rescue => e
+      Rails.logger.warn "Error evaluating condition: #{e.message}"
+      false
     end
 
     def resolve_field(field)
@@ -80,10 +83,33 @@ module Automations
       when "assigned_agent_id"  then @card.assigned_agent_id
       when "contact_name"       then @card.contact_name
       when "contact_phone"      then @card.contact_phone
-      when "stage_type"         then @card.stage.stage_type
+      when "contact_email"      then @card.contact_email
+      when "stage_type"         then @card.stage&.stage_type
+      when "title"              then @card.title
+      when "archived_at"        then @card.archived_at
       else
-        @card.custom_fields[field]
+        @card.custom_fields&.fetch(field, nil)
       end
+    end
+
+    def safe_equals(a, b)
+      a.to_s == b.to_s
+    end
+
+    def safe_numeric_compare(a, b, operator)
+      return false if a.nil? || b.nil?
+      a_num = a.is_a?(Numeric) ? a : a.to_s.to_f
+      b_num = b.is_a?(Numeric) ? b : b.to_s.to_f
+      a_num.send(operator, b_num)
+    rescue
+      false
+    end
+
+    def safe_string_op(a, method, b)
+      return false if a.nil? || b.nil?
+      a.to_s.send(method, b.to_s)
+    rescue
+      false
     end
 
     def execute_automation(automation)
