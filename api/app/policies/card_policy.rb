@@ -4,6 +4,7 @@ class CardPolicy < ApplicationPolicy
   def create?  = member?
   def update?  = member?
   def destroy? = owner_or_admin?
-  def move?    = member?
-  def archive? = member?
+  def move?         = member?
+  def archive?      = member?
+  def send_message? = member?
 end
