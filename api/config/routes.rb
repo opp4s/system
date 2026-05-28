@@ -61,9 +61,13 @@ Rails.application.routes.draw do
               to:  "pipelines/card_custom_fields#update"
       end
 
-      # Envio de mensagens via card (busca conversa vinculada)
+      # Envio de mensagens + link/unlink conversation via card
       resources :cards, only: [] do
         resources :messages, only: [:create], controller: "cards/messages"
+        member do
+          post   :link_conversation,   to: "cards/conversations#link"
+          delete :unlink_conversation, to: "cards/conversations#unlink"
+        end
       end
 
       # Envio de mensagens via conversa Chatwoot diretamente
@@ -81,8 +85,9 @@ Rails.application.routes.draw do
 
       # Integração Chatwoot
       namespace :chatwoot do
-        get  "status",    to: "configs#status"
-        post "configure", to: "configs#configure"
+        get   "status",    to: "configs#status"
+        post  "configure", to: "configs#configure"
+        patch "settings",  to: "configs#update_settings"
       end
     end
   end

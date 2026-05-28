@@ -8,6 +8,8 @@ class CardEvent < ApplicationRecord
     note_added
     chatwoot_message
     message_sent
+    conversation_linked
+    conversation_unlinked
   ].freeze
 
   belongs_to :card

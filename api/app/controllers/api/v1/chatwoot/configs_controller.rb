@@ -81,11 +81,32 @@ module Api
           }, status: config.previously_new_record? ? :created : :ok
         end
 
+        # PATCH /api/v1/chatwoot/settings
+        def update_settings
+          config = current_workspace.chatwoot_config
+          return render json: { error: "Chatwoot não configurado" }, status: :unprocessable_entity unless config
+
+          authorize config, :configure?, policy_class: ChatwootConfigPolicy
+
+          allowed = %w[auto_create_card auto_create_pipeline_id auto_create_stage_id]
+          new_settings = settings_params.to_h.slice(*allowed)
+          config.settings = (config.settings || {}).merge(new_settings)
+          config.save!
+
+          render json: { data: config.settings }
+        end
+
         private
 
         def configure_params
           params.require(:chatwoot).permit(
             :chatwoot_url, :account_id, :api_token, :inbox_id
+          )
+        end
+
+        def settings_params
+          params.require(:settings).permit(
+            :auto_create_card, :auto_create_pipeline_id, :auto_create_stage_id
           )
         end
       end
