@@ -84,7 +84,7 @@ import {
   LayoutDashboard, 
   Columns3, 
   Users, 
-  Radio, 
+  Megaphone, 
   Zap, 
   Settings
 } from 'lucide-vue-next'
@@ -107,8 +107,8 @@ const menuItems = ref([
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Pipelines', path: '/pipelines', icon: Columns3 },
   { name: 'Contatos', path: '/contacts', icon: Users },
-  { name: 'Broadcast', path: '/broadcast', icon: Radio },
   { name: 'Automações', path: '/automations', icon: Zap },
+  { name: 'Broadcast', path: '/broadcasts', icon: Megaphone },
   { 
     name: 'Configurações', 
     path: '/settings', 

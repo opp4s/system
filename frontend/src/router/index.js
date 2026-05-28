@@ -58,6 +58,11 @@ const routes = [
         component: () => import('@/views/AutomationsPage.vue')
       },
       {
+        path: 'broadcasts',
+        name: 'broadcasts',
+        component: () => import('@/views/BroadcastsPage.vue')
+      },
+      {
         path: 'pipelines',
         name: 'pipelines',
         component: () => import('@/views/pipelines/PipelinesPage.vue'),
