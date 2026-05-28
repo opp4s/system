@@ -70,35 +70,9 @@
               <TriggerSelector v-model="localAutomation" />
             </section>
 
-            <!-- STEP 2: CONDIÇÕES (CONDITIONS) - Placeholder Estruturado para o Dia 17 -->
+            <!-- STEP 2: CONDIÇÕES (CONDITIONS) -->
             <section v-else-if="currentStepIndex === 1" class="animate-fade-in-up space-y-6">
-              <div class="space-y-1.5">
-                <h3 class="text-xs font-bold text-gray-900">2. Definir regras adicionais (Condições)</h3>
-                <p class="text-[11px] text-gray-400">Opcional. Defina regras para filtrar quais leads devem rodar esta automação (ex: "apenas se o valor for maior que R$ 5.000").</p>
-              </div>
-
-              <!-- Construtor Visual de Condições (Placeholder Premium) -->
-              <div class="bg-white border border-gray-150 rounded-2xl p-5 shadow-sm space-y-4">
-                <div class="flex items-center justify-between text-xs pb-3 border-b border-gray-100">
-                  <span class="font-bold text-gray-800">Condições de Filtragem</span>
-                  <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-[9px] font-bold uppercase tracking-wider">Breve (Dia 19)</span>
-                </div>
-
-                <div class="space-y-3">
-                  <div class="p-4 bg-slate-50 border border-gray-150 rounded-xl flex items-center justify-between text-xs text-gray-500 font-semibold italic">
-                    Nenhuma regra adicional configurada. O fluxo rodará para todos os leads que dispararem o gatilho.
-                  </div>
-
-                  <!-- Botão de simulação -->
-                  <button
-                    type="button"
-                    class="px-4 py-2 border border-dashed border-gray-300 hover:border-slate-800 hover:bg-slate-50/50 text-gray-500 hover:text-slate-900 rounded-xl text-[11px] font-bold transition-all w-full flex items-center justify-center space-x-1.5"
-                  >
-                    <component :is="Plus" class="h-3.5 w-3.5" />
-                    <span>Adicionar Condição</span>
-                  </button>
-                </div>
-              </div>
+              <ConditionBuilder v-model="localAutomation.conditions" :pipeline-id="pipelineId" />
             </section>
 
             <!-- STEP 3: AÇÕES (ACTIONS) - Placeholder Estruturado para o Dia 17 -->
@@ -113,80 +87,7 @@
 
             <!-- STEP 4: REVISÃO & SALVAMENTO (REVIEW) -->
             <section v-else-if="currentStepIndex === 3" class="animate-fade-in-up space-y-6">
-              <div class="space-y-1.5">
-                <h3 class="text-xs font-bold text-gray-900">4. Revisar e Ativar Automação</h3>
-                <p class="text-[11px] text-gray-400">Dê um nome amigável e revise o resumo em linguagem natural do fluxo antes de finalizar.</p>
-              </div>
-
-              <div class="bg-white border border-gray-150 rounded-2xl p-6 shadow-sm space-y-5">
-                <!-- Nome da Automação -->
-                <div class="space-y-1.5">
-                  <label class="block text-[11px] font-bold text-gray-700">Nome da Regra de Automação</label>
-                  <input
-                    v-model="localAutomation.name"
-                    type="text"
-                    placeholder="Ex: Mensagem de Boas-vindas no WhatsApp"
-                    class="block w-full px-4 py-2.5 rounded-xl border border-gray-250 bg-white focus:outline-none focus:border-slate-800 text-xs font-bold text-gray-800 transition-all shadow-sm"
-                    :class="{ 'border-rose-350 focus:border-rose-500': showValidationErrors && !localAutomation.name }"
-                  />
-                  <p v-if="showValidationErrors && !localAutomation.name" class="text-[9px] text-rose-500 font-bold">O nome da automação é obrigatório.</p>
-                </div>
-
-                <!-- Resumo Linguagem Natural -->
-                <div class="space-y-2 pt-2 border-t border-gray-100">
-                  <span class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resumo do Fluxo</span>
-                  <div class="bg-slate-50 border border-gray-150 rounded-2xl p-4.5 space-y-3 text-xs leading-relaxed text-slate-700">
-                    <!-- Resumo Gatilho -->
-                    <div class="flex items-start space-x-2.5">
-                      <span class="text-emerald-550 shrink-0 font-bold">QUANDO</span>
-                      <span class="font-semibold text-slate-800">{{ getNaturalTriggerText() }}</span>
-                    </div>
-
-                    <!-- Resumo Condição -->
-                    <div class="flex items-start space-x-2.5 pt-2 border-t border-dashed border-gray-200">
-                      <span class="text-blue-550 shrink-0 font-bold">E SE</span>
-                      <span class="font-semibold text-slate-800">
-                        {{ localAutomation.conditions && localAutomation.conditions.length > 0 ? 'Múltiplas regras adicionais coincidirem.' : 'Não houver regras adicionais (rodar sempre).' }}
-                      </span>
-                    </div>
-
-                    <!-- Resumo Ações -->
-                    <div class="flex items-start space-x-2.5 pt-2 border-t border-dashed border-gray-200">
-                      <span class="text-violet-550 shrink-0 font-bold">ENTÃO</span>
-                      <div class="min-w-0">
-                        <span v-if="localAutomation.actions && localAutomation.actions.length > 0" class="font-semibold text-slate-800">
-                          Executar sequencialmente {{ localAutomation.actions.length }} ação(ões):
-                          <ul class="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-gray-500">
-                            <li v-for="(act, idx) in localAutomation.actions" :key="idx">
-                              <strong>{{ getActionTypeLabel(act.action_type) }}</strong>: {{ getNaturalActionText(act) }}
-                            </li>
-                          </ul>
-                        </span>
-                        <span v-else class="font-semibold text-rose-500 italic block">Nenhuma ação configurada no Passo 3.</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Status de Ativação Toggle -->
-                <div class="flex items-center justify-between p-4 bg-slate-50 border border-gray-150 rounded-xl pt-2">
-                  <div>
-                    <span class="text-xs font-bold text-gray-800 block">Ativar automação imediatamente?</span>
-                    <span class="text-[10px] text-gray-400 block font-medium mt-0.5">Se ativa, ela monitorará os eventos a partir de agora.</span>
-                  </div>
-                  <button
-                    @click="localAutomation.active = !localAutomation.active"
-                    type="button"
-                    class="relative inline-flex h-5.5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none"
-                    :class="localAutomation.active ? 'bg-slate-950' : 'bg-gray-200'"
-                  >
-                    <span
-                      class="pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow ring-0 transition duration-150 ease-in-out"
-                      :class="localAutomation.active ? 'translate-x-4.5' : 'translate-x-0'"
-                    ></span>
-                  </button>
-                </div>
-              </div>
+              <AutomationPreview v-model="localAutomation" :show-errors="showValidationErrors" />
             </section>
 
           </div>
@@ -248,11 +149,12 @@ import { usePipelineStore } from '@/stores/pipeline'
 import { useToast } from '@/composables/useToast'
 import TriggerSelector from './TriggerSelector.vue'
 import ActionConfigurator from './ActionConfigurator.vue'
+import ConditionBuilder from './ConditionBuilder.vue'
+import AutomationPreview from './AutomationPreview.vue'
 import { 
   Zap, 
   X, 
-  Loader2, 
-  Plus 
+  Loader2 
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -334,16 +236,15 @@ const handleClose = () => {
   emit('close')
 }
 
-// Navegação de passos
+// Navegação de passos com validações completas por etapa (polish)
 const nextStep = () => {
   if (currentStepIndex.value === 0) {
-    // Validação Passo 1: Deve selecionar um gatilho e configurá-lo
+    // Validação Passo 1: Gatilho
     if (!localAutomation.value.trigger_type) {
       toast.error('Escolha um gatilho para avançar.')
       return
     }
     
-    // Validações adicionais específicas
     const cfg = localAutomation.value.trigger_config
     if (localAutomation.value.trigger_type === 'card_enters_stage' && !cfg.stage_id) {
       toast.error('Selecione uma etapa para o gatilho.')
@@ -356,6 +257,85 @@ const nextStep = () => {
     if (localAutomation.value.trigger_type === 'card_updated' && !cfg.field) {
       toast.error('Selecione o campo a ser monitorado.')
       return
+    }
+  } else if (currentStepIndex.value === 1) {
+    // Validação Passo 2: Condições
+    const conditions = localAutomation.value.conditions || []
+    for (let i = 0; i < conditions.length; i++) {
+      const cond = conditions[i]
+      if (!cond.field) {
+        toast.error(`Condição #${i + 1}: Selecione o campo.`)
+        return
+      }
+      if (!cond.operator) {
+        toast.error(`Condição #${i + 1}: Selecione o operador.`)
+        return
+      }
+      const showVal = cond.operator !== 'present' && cond.operator !== 'blank'
+      if (showVal && (cond.value === null || cond.value === undefined || cond.value === '')) {
+        toast.error(`Condição #${i + 1}: Digite um valor de comparação.`)
+        return
+      }
+    }
+  } else if (currentStepIndex.value === 2) {
+    // Validação Passo 3: Ações
+    const actions = localAutomation.value.actions || []
+    if (actions.length === 0) {
+      toast.error('Adicione pelo menos uma ação para prosseguir.')
+      return
+    }
+    for (let i = 0; i < actions.length; i++) {
+      const act = actions[i]
+      const cfg = act.action_config || {}
+      
+      if (act.action_type === 'send_whatsapp' && !cfg.template) {
+        toast.error(`Ação #${i + 1} (WhatsApp): O template da mensagem não pode ficar vazio.`)
+        return
+      }
+      if (act.action_type === 'move_card' && !cfg.stage_id) {
+        toast.error(`Ação #${i + 1} (Mover Negócio): Selecione a etapa de destino.`)
+        return
+      }
+      if (act.action_type === 'assign_agent') {
+        if (!cfg.assignment_type) {
+          toast.error(`Ação #${i + 1} (Atribuir Agente): Escolha a regra de atribuição.`)
+          return
+        }
+        if (cfg.assignment_type === 'specific' && !cfg.agent_id) {
+          toast.error(`Ação #${i + 1} (Atribuir Agente): Selecione o agente específico.`)
+          return
+        }
+      }
+      if (act.action_type === 'create_task') {
+        if (!cfg.title) {
+          toast.error(`Ação #${i + 1} (Criar Tarefa): Digite o título da tarefa.`)
+          return
+        }
+        if (cfg.due_in_days === undefined || cfg.due_in_days === null || cfg.due_in_days < 0) {
+          toast.error(`Ação #${i + 1} (Criar Tarefa): Insira um prazo de vencimento válido.`)
+          return
+        }
+      }
+      if (act.action_type === 'webhook') {
+        if (!cfg.url) {
+          toast.error(`Ação #${i + 1} (Webhook): Digite a URL do webhook.`)
+          return
+        }
+        if (!cfg.url.startsWith('http://') && !cfg.url.startsWith('https://')) {
+          toast.error(`Ação #${i + 1} (Webhook): A URL deve iniciar com http:// ou https://`)
+          return
+        }
+      }
+      if (act.action_type === 'update_field') {
+        if (!cfg.field) {
+          toast.error(`Ação #${i + 1} (Atualizar Campo): Escolha o campo para atualização.`)
+          return
+        }
+        if (cfg.value === undefined || cfg.value === null || cfg.value === '') {
+          toast.error(`Ação #${i + 1} (Atualizar Campo): Digite o novo valor para o campo.`)
+          return
+        }
+      }
     }
   }
   
@@ -370,11 +350,21 @@ const prevStep = () => {
   }
 }
 
-// Salva a automação na store
+// Salva a automação na store com validação completa (polish)
 const handleSave = async () => {
   showValidationErrors.value = true
   if (!localAutomation.value.name) {
     toast.error('Nomeie sua automação para salvá-la.')
+    return
+  }
+
+  // Validação final de integridade de gatilho e ações
+  if (!localAutomation.value.trigger_type) {
+    toast.error('O gatilho da automação não foi selecionado.')
+    return
+  }
+  if (!localAutomation.value.actions || localAutomation.value.actions.length === 0) {
+    toast.error('Adicione pelo menos uma ação para poder salvar.')
     return
   }
 

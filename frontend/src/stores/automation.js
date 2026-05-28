@@ -132,16 +132,42 @@ export const useAutomationStore = defineStore('automation', {
   state: () => ({
     automations: [],
     logs: [],
+    availableFields: {},
     currentAutomation: null,
     loading: {
       list: false,
       detail: false,
       mutation: false,
-      logs: false
+      logs: false,
+      fields: false
     }
   }),
 
   actions: {
+    // Carrega campos disponíveis para condições
+    async fetchAvailableFields(pipelineId) {
+      this.loading.fields = true
+      try {
+        const response = await api.get(`/api/v1/pipelines/${pipelineId}/automations/available_fields`)
+        this.availableFields = response.data.data || response.data
+      } catch (error) {
+        console.warn(`GET /api/v1/pipelines/${pipelineId}/automations/available_fields falhou. Usando fallback mockado.`, error)
+        // TODO: replace mock
+        this.availableFields = {
+          value: { type: "number", label: "Valor do Card" },
+          days_in_stage: { type: "number", label: "Dias na Etapa" },
+          assigned_agent_id: { type: "select", label: "Agente Atribuído" },
+          contact_name: { type: "text", label: "Nome do Contato" },
+          contact_phone: { type: "text", label: "Telefone do Contato" },
+          contact_email: { type: "text", label: "Email do Contato" },
+          stage_type: { type: "select", label: "Tipo de Etapa", values: ["won", "lost", "intermediate"] },
+          title: { type: "text", label: "Título do Card" }
+        }
+      } finally {
+        this.loading.fields = false
+      }
+    },
+
     // Carrega a lista de automações do pipeline ativo
     async fetchAutomations(pipelineId) {
       this.loading.list = true
