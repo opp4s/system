@@ -167,53 +167,107 @@
           </div>
         </aside>
 
-        <!-- Coluna Direita / Centro: Timeline de Atividades -->
-        <section class="flex-1 flex flex-col bg-white overflow-hidden">
-          <!-- Timeline Area -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-6">
-            <div class="flex items-center justify-between">
-              <h3 class="text-sm font-bold text-gray-800 uppercase tracking-wider">Histórico de Atividades</h3>
-            </div>
-
+        <!-- Coluna Direita / Centro: Timeline de Atividades (Sprint 3) -->
+        <section class="flex-1 flex flex-col bg-slate-50/50 overflow-hidden">
+          <!-- Area de Mensagens / Chat -->
+          <div 
+            ref="timelineContainer" 
+            class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth"
+          >
             <!-- Loader da Timeline -->
             <div v-if="pipelineStore.loading.timeline" class="space-y-4">
-              <div v-for="i in 3" :key="i" class="h-20 bg-gray-50 border border-gray-100 rounded-2xl animate-pulse"></div>
+              <div v-for="i in 3" :key="i" class="h-20 bg-white border border-gray-150 rounded-2xl animate-pulse"></div>
             </div>
 
-            <!-- Lista de Atividades do Negócio -->
-            <div v-else class="relative pl-6 border-l-2 border-slate-100 space-y-6">
+            <!-- Se a timeline estiver vazia -->
+            <div v-else-if="pipelineStore.cardTimeline.length === 0" class="h-full flex flex-col items-center justify-center text-center text-sm text-gray-400 py-12">
+              <component :is="MessageSquare" class="h-10 w-10 text-gray-300 mb-2" />
+              <span>Nenhuma atividade ou mensagem registrada.</span>
+            </div>
+
+            <!-- Lista Agrupada por Data -->
+            <div v-else class="space-y-6">
               <div 
-                v-for="event in pipelineStore.cardTimeline"
-                :key="event.id"
-                class="relative"
+                v-for="(events, dateGroup) in groupedTimeline" 
+                :key="dateGroup"
+                class="space-y-4"
               >
-                <!-- Ícone correspondente ao evento -->
-                <span 
-                  class="absolute -left-[31px] top-1 text-white rounded-full p-1 border-2 border-white"
-                  :class="getEventIconBg(event.event_type)"
-                >
-                  <component :is="getEventIcon(event.event_type)" class="h-3 w-3" />
-                </span>
-
-                <!-- Caixa do Evento -->
-                <div class="bg-gray-50 border border-gray-100 rounded-2xl p-4 hover:shadow-sm transition-shadow duration-150">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-gray-900">{{ event.title }}</span>
-                    <span class="text-[10px] text-gray-400 font-medium">{{ formatEventDate(event.created_at) }}</span>
-                  </div>
-                  <p class="text-xs text-gray-600 mt-1">{{ event.description }}</p>
-                  
-                  <!-- Usuário que realizou a ação -->
-                  <div v-if="event.user" class="text-[10px] text-gray-400 font-semibold mt-2 flex items-center space-x-1">
-                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                    <span>Realizado por: {{ event.user.name }}</span>
-                  </div>
+                <!-- Separador de data do chat -->
+                <div class="flex justify-center my-4">
+                  <span class="px-3 py-1 bg-gray-200/80 text-gray-600 rounded-full text-[10px] font-bold tracking-wide shadow-sm">
+                    {{ dateGroup }}
+                  </span>
                 </div>
-              </div>
 
-              <!-- Se a timeline estiver vazia -->
-              <div v-if="pipelineStore.cardTimeline.length === 0" class="text-center py-8 text-sm text-gray-400">
-                Nenhuma atividade registrada para este negócio.
+                <!-- Feed do Chat/Eventos -->
+                <div class="space-y-3">
+                  <template v-for="event in events" :key="event.id">
+                    <!-- 1. Renderização de Mensagens (Tipo = message) -->
+                    <div 
+                      v-if="event.event_type === 'message'"
+                      class="flex w-full"
+                      :class="[
+                        event.message_type === 'outgoing' 
+                          ? 'justify-end' 
+                          : (event.message_type === 'private' ? 'justify-center' : 'justify-start')
+                      ]"
+                    >
+                      <!-- Bolha de Mensagem Outgoing (Enviada pelo Agente Zavy) -->
+                      <div 
+                        v-if="event.message_type === 'outgoing'"
+                        class="max-w-[70%] bg-slate-900 text-white rounded-2xl rounded-tr-none px-4 py-2.5 shadow-sm space-y-1 relative"
+                      >
+                        <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
+                        <div class="flex items-center justify-end space-x-1 text-[9px] text-slate-350">
+                          <span>{{ formatTimeOnly(event.created_at) }}</span>
+                          <span class="text-emerald-400">✓✓</span>
+                        </div>
+                      </div>
+
+                      <!-- Bolha de Mensagem Incoming (Recebida do Cliente) -->
+                      <div 
+                        v-else-if="event.message_type === 'incoming'"
+                        class="max-w-[70%] bg-white border border-gray-200 text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 shadow-sm space-y-1.5"
+                      >
+                        <div class="flex items-center justify-between text-[9px] font-bold text-zavy-600">
+                          <span>{{ event.sender_name || card?.contact_name || 'Cliente' }}</span>
+                        </div>
+                        <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
+                        <div class="text-right text-[9px] text-gray-400">
+                          {{ formatTimeOnly(event.created_at) }}
+                        </div>
+                      </div>
+
+                      <!-- Bolha de Nota Interna (Privada) -->
+                      <div 
+                        v-else-if="event.message_type === 'private'"
+                        class="max-w-[85%] bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl px-4 py-3 shadow-inner space-y-1.5 text-left w-full mx-6"
+                      >
+                        <div class="flex items-center justify-between">
+                          <span class="text-[9px] font-bold uppercase tracking-wider text-amber-700 flex items-center space-x-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                            <span>Nota Interna</span>
+                          </span>
+                          <span class="text-[9px] text-amber-600 font-medium">{{ formatTimeOnly(event.created_at) }}</span>
+                        </div>
+                        <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
+                        <div class="text-[9px] text-amber-600 font-semibold flex items-center space-x-1">
+                          <span>Por: {{ event.user?.name || 'Agente' }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 2. Renderização de Eventos de Sistema (Criado, Movido, Atualizado) -->
+                    <div v-else class="flex justify-center my-2.5">
+                      <span class="px-3.5 py-1 bg-gray-200/50 text-gray-500 rounded-full text-[10px] font-semibold flex items-center space-x-1.5 border border-gray-150/40">
+                        <component :is="getEventIcon(event.event_type)" class="h-3 w-3 shrink-0 text-gray-400" />
+                        <span>{{ event.description }}</span>
+                        <span v-if="event.user" class="text-gray-400 font-medium">• por {{ event.user.name }}</span>
+                        <span class="text-gray-400 font-medium">• {{ formatTimeOnly(event.created_at) }}</span>
+                      </span>
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
           </div>
@@ -258,12 +312,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePipelineStore } from '@/stores/pipeline'
+import { usePipelineSocket } from '@/composables/usePipelineSocket'
 import StageSwitcher from './StageSwitcher.vue'
 import LossReasonModal from './LossReasonModal.vue'
-import { X, Plus, MoveRight, HelpCircle, FileText, Send } from 'lucide-vue-next'
+import { X, Plus, MoveRight, HelpCircle, FileText, Send, MessageSquare } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -388,9 +443,14 @@ const handleCancelLoss = () => {
   pendingStageChange.value = null
 }
 
+// Instancia o socket para tempo real
+const socket = usePipelineSocket()
+const timelineContainer = ref(null)
+
 const loadTimeline = async () => {
   if (route.params.id && cardId.value) {
     await pipelineStore.fetchCardTimeline(route.params.id, cardId.value)
+    scrollToBottom()
   }
 }
 
@@ -401,9 +461,77 @@ const handleKeyDown = (e) => {
   }
 }
 
+const onNewMessageReceived = () => {
+  scrollToBottom()
+}
+
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
   loadTimeline()
+  
+  // Conecta ao ActionCable via WebSocket para updates em tempo real
+  if (route.params.id) {
+    socket.connect(route.params.id, cardId.value)
+  }
+
+  // Escuta evento customizado de nova mensagem para fazer scroll
+  window.addEventListener('zavy-new-message', onNewMessageReceived)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('zavy-new-message', onNewMessageReceived)
+  socket.disconnect()
+})
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (timelineContainer.value) {
+      timelineContainer.value.scrollTop = timelineContainer.value.scrollHeight
+    }
+  })
+}
+
+// Rola para baixo sempre que a timeline mudar
+watch(() => pipelineStore.cardTimeline, () => {
+  scrollToBottom()
+}, { deep: true })
+
+// Extrai apenas a hora e minuto formatados
+const formatTimeOnly = (isoString) => {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+// Agrupador e formatador de datas da timeline
+const getFriendlyDateKey = (dateStr) => {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  
+  if (date.toDateString() === today.toDateString()) {
+    return 'Hoje'
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    return 'Ontem'
+  } else {
+    return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
+  }
+}
+
+const groupedTimeline = computed(() => {
+  const groups = {}
+  pipelineStore.cardTimeline.forEach(event => {
+    const dateKey = getFriendlyDateKey(event.created_at)
+    if (!groups[dateKey]) {
+      groups[dateKey] = []
+    }
+    groups[dateKey].push(event)
+  })
+  return groups
 })
 
 // --- LÓGICA DE CAMPOS PERSONALIZADOS (DIA 9) ---

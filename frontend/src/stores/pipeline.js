@@ -349,12 +349,44 @@ export const usePipelineStore = defineStore('pipeline', {
             user: { name: 'Ana Souza' }
           },
           {
+            id: 10,
+            event_type: 'message',
+            message_type: 'incoming',
+            content: 'Olá! Gostaria de agendar uma demonstração da ferramenta para nosso time.',
+            created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+            sender_name: 'Carlos Souza'
+          },
+          {
+            id: 11,
+            event_type: 'message',
+            message_type: 'outgoing',
+            content: 'Com certeza, Carlos! Temos horários disponíveis amanhã às 14h ou 16h. Qual fica melhor?',
+            created_at: new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString(),
+            user: { name: 'João Agente' }
+          },
+          {
+            id: 12,
+            event_type: 'message',
+            message_type: 'private',
+            content: 'Cliente muito receptivo. Interessado no plano Enterprise (20 licenças).',
+            created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+            user: { name: 'João Agente' }
+          },
+          {
             id: 3,
             event_type: 'card_updated',
             title: 'Campos Atualizados',
             description: 'Informações do contato principal foram atualizadas.',
-            created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
             user: { name: 'João Agente' }
+          },
+          {
+            id: 13,
+            event_type: 'message',
+            message_type: 'incoming',
+            content: 'Perfeito, amanhã às 14h está ótimo para nós. Pode enviar o link do convite?',
+            created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+            sender_name: 'Carlos Souza'
           }
         ]
       } finally {
