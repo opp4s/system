@@ -96,6 +96,14 @@ export const usePipelineStore = defineStore('pipeline', {
     cards: [],
     cardTimeline: [],
     showFinalStages: true,
+    filters: {
+      user: '',
+      valueMin: null,
+      valueMax: null,
+      daysMin: null,
+      daysMax: null,
+      stageType: ''
+    },
     loading: {
       pipelines: false,
       stages: false,
@@ -110,20 +118,63 @@ export const usePipelineStore = defineStore('pipeline', {
       return state.pipelines.find(p => p.id === state.currentPipelineId) || null
     },
 
-    // Agrupa os cards em um objeto reativo cujas chaves são os IDs das etapas e os valores são arrays de cards correspondentes
+    // Retorna a lista de cartões filtrados baseado nas regras de negócio de filtros
+    filteredCards: (state) => {
+      return state.cards.filter(card => {
+        // Filtro por Responsável (Agente)
+        if (state.filters.user) {
+          const cardUser = card.user?.name || ''
+          if (!cardUser.toLowerCase().includes(state.filters.user.toLowerCase())) {
+            return false
+          }
+        }
+        // Filtro por Valor Mínimo
+        if (state.filters.valueMin !== null && state.filters.valueMin !== '') {
+          if (card.value < Number(state.filters.valueMin)) {
+            return false
+          }
+        }
+        // Filtro por Valor Máximo
+        if (state.filters.valueMax !== null && state.filters.valueMax !== '') {
+          if (card.value > Number(state.filters.valueMax)) {
+            return false
+          }
+        }
+        // Filtro por Dias na Etapa Mínimo
+        if (state.filters.daysMin !== null && state.filters.daysMin !== '') {
+          if (card.days_in_stage < Number(state.filters.daysMin)) {
+            return false
+          }
+        }
+        // Filtro por Dias na Etapa Máximo
+        if (state.filters.daysMax !== null && state.filters.daysMax !== '') {
+          if (card.days_in_stage > Number(state.filters.daysMax)) {
+            return false
+          }
+        }
+        // Filtro por Tipo de Etapa
+        if (state.filters.stageType) {
+          const stage = state.stages.find(s => s.id === card.stage_id)
+          if (!stage || stage.stage_type !== state.filters.stageType) {
+            return false
+          }
+        }
+        return true
+      })
+    },
+
+    // Agrupa os cards filtrados em um objeto reativo cujas chaves são os IDs das etapas
     cardsByStage: (state) => {
       const grouped = {}
       // Inicializa todas as etapas com array vazio para garantir reatividade
       state.stages.forEach(stage => {
         grouped[stage.id] = []
       })
-      // Distribui os cards nas suas etapas correspondentes
-      state.cards.forEach(card => {
+      // Distribui os cards filtrados nas suas etapas correspondentes
+      state.filteredCards.forEach(card => {
         if (grouped[card.stage_id] !== undefined) {
           grouped[card.stage_id].push(card)
         } else {
-          // Se por acaso o card pertencer a um stage_id que não está na lista de stages,
-          // inicializa o array dinamicamente
           grouped[card.stage_id] = [card]
         }
       })
@@ -135,6 +186,17 @@ export const usePipelineStore = defineStore('pipeline', {
         return state.stages.filter(s => s.stage_type === 'intermediate')
       }
       return state.stages
+    },
+
+    activeFiltersCount: (state) => {
+      let count = 0
+      if (state.filters.user) count++
+      if (state.filters.valueMin !== null && state.filters.valueMin !== '') count++
+      if (state.filters.valueMax !== null && state.filters.valueMax !== '') count++
+      if (state.filters.daysMin !== null && state.filters.daysMin !== '') count++
+      if (state.filters.daysMax !== null && state.filters.daysMax !== '') count++
+      if (state.filters.stageType) count++
+      return count
     }
   },
 
@@ -169,7 +231,12 @@ export const usePipelineStore = defineStore('pipeline', {
       this.loading.stages = true
       try {
         const response = await api.get(`/api/v1/pipelines/${pipelineId}/stages`)
-        this.stages = response.data.data || response.data
+        const fetched = response.data.data || response.data
+        // Normaliza stage_type para o front-end (lost -> lose, won -> win)
+        this.stages = fetched.map(stage => ({
+          ...stage,
+          stage_type: stage.stage_type === 'lost' ? 'lose' : (stage.stage_type === 'won' ? 'win' : stage.stage_type)
+        }))
       } catch (error) {
         console.warn(`Erro ao carregar etapas do pipeline ${pipelineId} da API. Usando dados mockados.`, error)
         this.stages = MOCK_STAGES[pipelineId] || []
@@ -318,6 +385,168 @@ export const usePipelineStore = defineStore('pipeline', {
         return this.cards[index]
       } finally {
         this.loading.mutation = false
+      }
+    },
+
+    // Ações de Filtros
+    setFilters(filters) {
+      this.filters = { ...this.filters, ...filters }
+    },
+
+    clearFilters() {
+      this.filters = {
+        user: '',
+        valueMin: null,
+        valueMax: null,
+        daysMin: null,
+        daysMax: null,
+        stageType: ''
+      }
+    },
+
+    // CRUD e Reordenação de Pipelines/Estágios
+    async reorderPipelines(ids) {
+      try {
+        await api.post('/api/v1/pipelines/reorder', { pipeline_ids: ids })
+        // Atualiza a ordenação local também
+        const reordered = []
+        ids.forEach(id => {
+          const pipeline = this.pipelines.find(p => p.id === id)
+          if (pipeline) reordered.push(pipeline)
+        })
+        this.pipelines = reordered
+      } catch (error) {
+        console.error('Erro ao reordenar pipelines', error)
+        throw error
+      }
+    },
+
+    async reorderStages(pipelineId, ids) {
+      try {
+        await api.post(`/api/v1/pipelines/${pipelineId}/stages/reorder`, { stage_ids: ids })
+        // Atualiza a ordenação local
+        const reordered = []
+        ids.forEach(id => {
+          const stage = this.stages.find(s => s.id === id)
+          if (stage) reordered.push(stage)
+        })
+        this.stages = reordered
+      } catch (error) {
+        console.error('Erro ao reordenar etapas', error)
+        throw error
+      }
+    },
+
+    async updateStage(pipelineId, stageId, stageData) {
+      const apiData = { ...stageData }
+      if (apiData.stage_type) {
+        apiData.stage_type = apiData.stage_type === 'lose' ? 'lost' : (apiData.stage_type === 'win' ? 'won' : apiData.stage_type)
+      }
+      try {
+        const response = await api.patch(`/api/v1/pipelines/${pipelineId}/stages/${stageId}`, { stage: apiData })
+        const updatedStage = response.data.data || response.data
+        const mappedStage = {
+          ...updatedStage,
+          stage_type: updatedStage.stage_type === 'lost' ? 'lose' : (updatedStage.stage_type === 'won' ? 'win' : updatedStage.stage_type)
+        }
+        const index = this.stages.findIndex(s => s.id === stageId)
+        if (index !== -1) {
+          this.stages[index] = mappedStage
+        }
+        return mappedStage
+      } catch (error) {
+        console.error('Erro ao atualizar etapa', error)
+        // Fallback local
+        const index = this.stages.findIndex(s => s.id === stageId)
+        if (index !== -1) {
+          this.stages[index] = { ...this.stages[index], ...stageData }
+        }
+        throw error
+      }
+    },
+
+    async createPipeline(pipelineData) {
+      try {
+        const response = await api.post('/api/v1/pipelines', { pipeline: pipelineData })
+        const newPipeline = response.data.data || response.data
+        this.pipelines.push(newPipeline)
+        return newPipeline
+      } catch (error) {
+        console.error('Erro ao criar pipeline', error)
+        const mockNew = {
+          id: Date.now(),
+          ...pipelineData,
+          stages: []
+        }
+        this.pipelines.push(mockNew)
+        return mockNew
+      }
+    },
+
+    async updatePipeline(pipelineId, pipelineData) {
+      try {
+        const response = await api.patch(`/api/v1/pipelines/${pipelineId}`, { pipeline: pipelineData })
+        const updated = response.data.data || response.data
+        const index = this.pipelines.findIndex(p => p.id === pipelineId)
+        if (index !== -1) {
+          this.pipelines[index] = { ...this.pipelines[index], ...updated }
+        }
+        return updated
+      } catch (error) {
+        console.error('Erro ao atualizar pipeline', error)
+        const index = this.pipelines.findIndex(p => p.id === pipelineId)
+        if (index !== -1) {
+          this.pipelines[index] = { ...this.pipelines[index], ...pipelineData }
+        }
+        throw error
+      }
+    },
+
+    async deletePipeline(pipelineId) {
+      try {
+        await api.delete(`/api/v1/pipelines/${pipelineId}`)
+        this.pipelines = this.pipelines.filter(p => p.id !== pipelineId)
+      } catch (error) {
+        console.error('Erro ao deletar pipeline', error)
+        this.pipelines = this.pipelines.filter(p => p.id !== pipelineId)
+        throw error
+      }
+    },
+
+    async createStage(pipelineId, stageData) {
+      const apiData = { ...stageData }
+      if (apiData.stage_type) {
+        apiData.stage_type = apiData.stage_type === 'lose' ? 'lost' : (apiData.stage_type === 'win' ? 'won' : apiData.stage_type)
+      }
+      try {
+        const response = await api.post(`/api/v1/pipelines/${pipelineId}/stages`, { stage: apiData })
+        const newStage = response.data.data || response.data
+        const mappedStage = {
+          ...newStage,
+          stage_type: newStage.stage_type === 'lost' ? 'lose' : (newStage.stage_type === 'won' ? 'win' : newStage.stage_type)
+        }
+        this.stages.push(mappedStage)
+        return mappedStage
+      } catch (error) {
+        console.error('Erro ao criar etapa', error)
+        const mockNew = {
+          id: Date.now(),
+          pipeline_id: pipelineId,
+          ...stageData
+        }
+        this.stages.push(mockNew)
+        return mockNew
+      }
+    },
+
+    async deleteStage(pipelineId, stageId) {
+      try {
+        await api.delete(`/api/v1/pipelines/${pipelineId}/stages/${stageId}`)
+        this.stages = this.stages.filter(s => s.id !== stageId)
+      } catch (error) {
+        console.error('Erro ao deletar etapa', error)
+        this.stages = this.stages.filter(s => s.id !== stageId)
+        throw error
       }
     }
   }

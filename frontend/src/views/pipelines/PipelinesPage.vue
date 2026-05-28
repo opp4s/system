@@ -101,13 +101,18 @@
           <!-- Botão de Filtros -->
           <button 
             @click="toggleFilters"
-            class="flex items-center space-x-2 px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-all duration-150"
-            :class="{'bg-gray-100 border-gray-300 text-gray-900': filtersOpen}"
+            class="flex items-center space-x-2 px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-650 hover:text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-all duration-150 relative"
+            :class="{'bg-slate-100 border-slate-350 text-slate-900': filtersOpen || pipelineStore.activeFiltersCount > 0}"
           >
             <component :is="Filter" class="h-4 w-4" />
             <span>Filtros</span>
-            <!-- Badge contador de filtros ativos (placeholder por enquanto) -->
-            <span class="w-2 h-2 rounded-full bg-zavy-500"></span>
+            <!-- Badge contador de filtros ativos -->
+            <span 
+              v-if="pipelineStore.activeFiltersCount > 0"
+              class="ml-1 flex items-center justify-center px-1.5 py-0.5 rounded-full bg-slate-900 text-[10px] font-bold text-white min-w-[18px]"
+            >
+              {{ pipelineStore.activeFiltersCount }}
+            </span>
           </button>
 
           <!-- Botão Criar Card -->
@@ -121,10 +126,17 @@
         </div>
       </header>
 
-      <!-- Espaço para Relação de Filtros (Dia 10) -->
-      <div v-if="filtersOpen" class="bg-white border-b border-gray-200 px-6 py-4 shrink-0 transition-all duration-200">
-        <p class="text-xs text-gray-400">Filtros avançados do Kanban estarão disponíveis no Dia 10.</p>
-      </div>
+      <!-- Painel de Filtros Deslizante -->
+      <transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="transform -translate-y-2 opacity-0"
+        enter-to-class="transform translate-y-0 opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="transform translate-y-0 opacity-100"
+        leave-to-class="transform -translate-y-2 opacity-0"
+      >
+        <KanbanFilters v-if="filtersOpen" />
+      </transition>
 
       <!-- Conteúdo do Board (Renderiza o KanbanBoard.vue via rotas) -->
       <div class="flex-1 overflow-hidden relative">
@@ -155,6 +167,7 @@ import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePipelineStore } from '@/stores/pipeline'
 import CreateCardModal from './CreateCardModal.vue'
+import KanbanFilters from './KanbanFilters.vue'
 import { 
   ChevronRight, 
   Settings, 
