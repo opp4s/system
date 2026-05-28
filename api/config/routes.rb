@@ -101,6 +101,22 @@ Rails.application.routes.draw do
         post  "configure", to: "configs#configure"
         patch "settings",  to: "configs#update_settings"
       end
+
+      # Broadcasts (disparo em massa)
+      resources :broadcasts, only: [:index, :show, :create, :update, :destroy] do
+        member do
+          post :schedule
+          post :send_now
+          post :cancel
+          get  :report
+          get  :preview
+        end
+      end
+
+      # Dashboard KPIs
+      get  "dashboard",        to: "dashboard#index"
+      get  "dashboard/funnel", to: "dashboard#funnel"
+      get  "dashboard/agents", to: "dashboard#agents" 
     end
   end
 end
