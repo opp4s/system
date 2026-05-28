@@ -265,26 +265,14 @@
       </div>
     </transition>
 
-    <!-- Modal Provisório para Indicação do Editor -->
-    <div v-if="showEditorPlaceholder" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div @click="showEditorPlaceholder = false" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-      <div class="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 z-10 animate-scale-up border border-gray-100 text-center space-y-4">
-        <div class="h-12 w-12 rounded-full bg-violet-50 text-violet-650 flex items-center justify-center mx-auto">
-          <component :is="Zap" class="h-6 w-6 animate-bounce" />
-        </div>
-        <div>
-          <h3 class="text-base font-extrabold text-gray-900">Editor de Automação</h3>
-          <p class="text-xs text-gray-400 mt-1">O Construtor Visual de Automações em Etapas (Triggers, Conditions, Actions) será totalmente implementado a partir do Dia 17.</p>
-        </div>
-        <button 
-          @click="showEditorPlaceholder = false" 
-          type="button"
-          class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors"
-        >
-          Entendido
-        </button>
-      </div>
-    </div>
+    <!-- Construtor Visual de Automações (Slide-in) -->
+    <AutomationEditor
+      v-if="showEditor"
+      :automation="selectedAutomation"
+      :pipeline-id="selectedPipelineId"
+      @close="closeEditor"
+      @saved="onAutomationSaved"
+    />
   </div>
 </template>
 
@@ -294,6 +282,7 @@ import { useRouter } from 'vue-router'
 import { useAutomationStore } from '@/stores/automation'
 import { usePipelineStore } from '@/stores/pipeline'
 import { useToast } from '@/composables/useToast'
+import AutomationEditor from '@/views/automations/AutomationEditor.vue'
 import { 
   Zap, 
   Plus, 
@@ -313,7 +302,8 @@ const toast = useToast()
 
 const selectedPipelineId = ref(null)
 const selectedAutoForLogs = ref(null)
-const showEditorPlaceholder = ref(false)
+const selectedAutomation = ref(null)
+const showEditor = ref(false)
 
 onMounted(async () => {
   // Sincroniza pipelines e etapas se a store de pipelines estiver vazia
@@ -402,13 +392,25 @@ const goToCard = (cardId) => {
   })
 }
 
-// Nova Automação / Editar (Placeholders provisórios para o Dia 16)
+// Nova Automação / Editar
 const openNewAutomation = () => {
-  showEditorPlaceholder.value = true
+  selectedAutomation.value = null
+  showEditor.value = true
 }
 
 const editAuto = (auto) => {
-  showEditorPlaceholder.value = true
+  selectedAutomation.value = auto
+  showEditor.value = true
+}
+
+const closeEditor = () => {
+  showEditor.value = false
+  selectedAutomation.value = null
+}
+
+const onAutomationSaved = async () => {
+  closeEditor()
+  await loadAutomations()
 }
 
 // Helpers Formatação & UI
