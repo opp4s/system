@@ -21,13 +21,33 @@
         <!-- Header da Coluna -->
         <header class="p-4 border-b border-gray-100 flex flex-col shrink-0">
           <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-2 truncate">
+            <div class="flex items-center space-x-2 truncate flex-1 mr-2">
               <!-- Indicador de cor do estágio -->
               <span 
                 class="w-3 h-3 rounded-full shrink-0" 
                 :style="{ backgroundColor: stage.color || '#CBD5E1' }"
               ></span>
-              <h3 class="text-sm font-bold text-gray-800 truncate">{{ stage.name }}</h3>
+              
+              <!-- Modo de Edição -->
+              <input
+                v-if="editingStageId === stage.id"
+                :id="`stage-input-${stage.id}`"
+                v-model="editingStageName"
+                @blur="saveStageName(stage)"
+                @keyup.enter="saveStageName(stage)"
+                @keyup.esc="editingStageId = null"
+                type="text"
+                class="text-sm font-bold text-gray-800 border-b border-slate-900 focus:outline-none bg-transparent w-full py-0.5"
+              />
+              <!-- Modo de Leitura -->
+              <h3 
+                v-else
+                @click="startEditingStage(stage)"
+                class="text-sm font-bold text-gray-800 truncate cursor-pointer hover:bg-gray-200/50 rounded px-1 flex-1 transition-colors"
+                title="Clique para editar etapa"
+              >
+                {{ stage.name }}
+              </h3>
             </div>
             
             <span class="px-2 py-0.5 text-xs font-bold bg-gray-200/60 text-gray-600 rounded-full shrink-0">
@@ -156,7 +176,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePipelineStore } from '@/stores/pipeline'
 import draggable from 'vuedraggable'
@@ -165,6 +185,33 @@ import LossReasonModal from './LossReasonModal.vue'
 const route = useRoute()
 const router = useRouter()
 const pipelineStore = usePipelineStore()
+
+// Edição inline da etapa
+const editingStageId = ref(null)
+const editingStageName = ref("")
+
+const startEditingStage = (stage) => {
+  editingStageId.value = stage.id
+  editingStageName.value = stage.name
+  nextTick(() => {
+    const input = document.getElementById(`stage-input-${stage.id}`)
+    input?.focus()
+  })
+}
+
+const saveStageName = async (stage) => {
+  if (editingStageId.value !== stage.id) return
+  editingStageId.value = null
+  
+  const trimmed = editingStageName.value.trim()
+  if (!trimmed || trimmed === stage.name) return
+  
+  try {
+    await pipelineStore.updateStage(pipelineStore.currentPipelineId, stage.id, { name: trimmed })
+  } catch (error) {
+    console.error("Erro ao salvar nome da etapa:", error)
+  }
+}
 
 // Cartões agrupados locais editáveis pelo draggable
 const localCards = ref({})

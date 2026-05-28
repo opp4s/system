@@ -1,6 +1,6 @@
 <template>
   <aside 
-    class="bg-[#1E1E2E] text-slate-300 flex flex-col h-full border-r border-slate-800 shrink-0 transition-all duration-300"
+    class="bg-[#1E1E2E] text-slate-300 flex flex-col h-full border-r border-slate-800 shrink-0 transition-all duration-300 relative z-30"
     :class="isCollapsed ? 'w-20' : 'w-60'"
   >
     <!-- Header / Logo -->
@@ -29,7 +29,7 @@
     </div>
 
     <!-- Navegação -->
-    <nav class="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
+    <nav class="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto relative z-10">
       <div v-for="item in menuItems" :key="item.path" class="space-y-1">
         <router-link
           :to="item.path"
@@ -59,7 +59,7 @@
             :class="[
               isActive(subItem.path)
                 ? 'text-zavy-400 font-bold bg-slate-800/30 border-l-2 border-zavy-500 pl-2'
-                : 'text-slate-500 hover:text-slate-350 hover:bg-slate-800/10'
+                : 'text-slate-500 hover:text-slate-355 hover:bg-slate-800/10'
             ]"
           >
             {{ subItem.name }}
@@ -69,7 +69,7 @@
     </nav>
 
     <!-- Workspace Switcher no Rodapé -->
-    <div class="p-3 border-t border-slate-800/80 bg-slate-900/20">
+    <div class="p-3 border-t border-slate-800/80 bg-slate-900/20 relative z-40">
       <WorkspaceSwitcher :force-expand="forceExpand" />
     </div>
   </aside>
@@ -84,7 +84,7 @@ import {
   LayoutDashboard, 
   Columns3, 
   Users, 
-  Radio, 
+  Megaphone, 
   Zap, 
   Settings
 } from 'lucide-vue-next'
@@ -107,8 +107,8 @@ const menuItems = ref([
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Pipelines', path: '/pipelines', icon: Columns3 },
   { name: 'Contatos', path: '/contacts', icon: Users },
-  { name: 'Broadcast', path: '/broadcast', icon: Radio },
   { name: 'Automações', path: '/automations', icon: Zap },
+  { name: 'Broadcast', path: '/broadcasts', icon: Megaphone },
   { 
     name: 'Configurações', 
     path: '/settings', 

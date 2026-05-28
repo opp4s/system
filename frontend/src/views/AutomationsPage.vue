@@ -181,12 +181,12 @@
         ></div>
 
         <!-- Painel lateral (Logs) -->
-        <div class="relative w-full max-w-lg h-full bg-white shadow-2xl flex flex-col z-10 animate-slide-in-right">
+        <div class="relative w-full max-w-2xl h-full bg-white shadow-2xl flex flex-col z-10 animate-slide-in-right">
           <!-- Header do Painel -->
           <header class="h-16 px-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50/50">
             <div>
               <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Histórico de Disparos</span>
-              <h2 class="text-xs font-bold text-gray-800 truncate max-w-[280px] mt-0.5">{{ selectedAutoForLogs.name }}</h2>
+              <h2 class="text-xs font-bold text-gray-800 truncate max-w-[450px] mt-0.5">{{ selectedAutoForLogs.name }}</h2>
             </div>
             <button 
               @click="closeLogs"
@@ -197,58 +197,12 @@
           </header>
 
           <!-- Corpo dos Logs -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-4">
-            <div v-if="automationStore.loading.logs" class="space-y-3">
-              <div v-for="i in 3" :key="i" class="h-20 bg-gray-50 rounded-2xl animate-pulse"></div>
-            </div>
-
-            <div v-else-if="automationStore.logs.length === 0" class="text-center py-12 text-xs text-gray-400 italic">
-              Nenhum disparo registrado para esta automação.
-            </div>
-
-            <div v-else class="space-y-3">
-              <div 
-                v-for="log in automationStore.logs" 
-                :key="log.id"
-                class="p-4 rounded-2xl border flex flex-col space-y-2 shadow-sm transition-all"
-                :class="log.status === 'success' ? 'bg-white border-gray-150' : 'bg-rose-50/10 border-rose-100'"
-              >
-                <!-- Topo Log -->
-                <div class="flex items-center justify-between text-[9px] font-bold">
-                  <span class="text-gray-400">{{ formatFriendlyTime(log.created_at) }}</span>
-                  <span 
-                    class="px-2 py-0.5 rounded-full font-bold uppercase tracking-wider"
-                    :class="log.status === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-550/15 text-rose-700'"
-                  >
-                    {{ log.status === 'success' ? 'Sucesso' : 'Falha' }}
-                  </span>
-                </div>
-
-                <!-- Card Relacionado -->
-                <div class="text-xs font-semibold text-gray-850 flex items-center space-x-1.5">
-                  <component :is="Briefcase" class="h-3.5 w-3.5 text-gray-400" />
-                  <span>Negócio:</span>
-                  <a 
-                    @click.prevent="goToCard(log.card_id)"
-                    href="#" 
-                    class="text-violet-650 hover:underline font-bold"
-                  >
-                    {{ log.card_title || `Lead #${log.card_id}` }}
-                  </a>
-                </div>
-
-                <!-- Detalhe das Ações -->
-                <div class="pt-1.5 border-t border-dashed border-gray-100 space-y-1.5">
-                  <div 
-                    v-for="(summary, idx) in log.actions_summary" 
-                    :key="idx"
-                    class="text-[10px] leading-relaxed text-gray-600 font-medium"
-                  >
-                    {{ summary }}
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div class="flex-1 overflow-y-auto p-6">
+            <AutomationLogs 
+              :logs="automationStore.logs"
+              :loading="automationStore.loading.logs"
+              @go-to-card="goToCard"
+            />
           </div>
 
           <!-- Footer da Drawer -->
@@ -283,6 +237,7 @@ import { useAutomationStore } from '@/stores/automation'
 import { usePipelineStore } from '@/stores/pipeline'
 import { useToast } from '@/composables/useToast'
 import AutomationEditor from '@/views/automations/AutomationEditor.vue'
+import AutomationLogs from '@/views/automations/AutomationLogs.vue'
 import { 
   Zap, 
   Plus, 

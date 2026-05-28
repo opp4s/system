@@ -61,12 +61,14 @@
 
           <!-- Etapa Inicial -->
           <div>
-            <label for="card-stage" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Etapa Inicial</label>
+            <label for="card-stage" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Etapa Inicial *</label>
             <select
               id="card-stage"
               v-model="form.stage_id"
               class="block w-full px-4 py-3 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 focus:ring-1 focus:ring-slate-800 bg-gray-50/30 text-sm text-gray-950 transition-all font-semibold"
+              :class="{'border-rose-300 focus:border-rose-500 focus:ring-rose-500': errors.stage_id}"
             >
+              <option :value="null" disabled>Selecione uma etapa</option>
               <option 
                 v-for="stage in pipelineStore.stages" 
                 :key="stage.id" 
@@ -75,6 +77,7 @@
                 {{ stage.name }}
               </option>
             </select>
+            <p v-if="errors.stage_id" class="text-xs text-rose-600 mt-1">{{ errors.stage_id }}</p>
           </div>
         </div>
 
@@ -189,14 +192,20 @@ const form = reactive({
 
 const errors = reactive({
   title: '',
-  email: ''
+  email: '',
+  stage_id: ''
 })
 
 const resetForm = () => {
   form.title = ''
   form.value = null
-  // Pré-seleciona a etapa default ou a primeira do funil
-  form.stage_id = props.defaultStageId || (pipelineStore.stages[0]?.id || null)
+  
+  // Acha a primeira etapa intermediária (não ganha e não perdida)
+  const firstActiveStage = pipelineStore.stages.find(
+    s => s.stage_type !== 'win' && s.stage_type !== 'lost' && s.stage_type !== 'lose'
+  ) || pipelineStore.stages[0]
+  
+  form.stage_id = props.defaultStageId || (firstActiveStage?.id || null)
   
   if (props.initialContactData) {
     form.contact_name = props.initialContactData.contact_name || ''
@@ -210,15 +219,22 @@ const resetForm = () => {
   
   errors.title = ''
   errors.email = ''
+  errors.stage_id = ''
 }
 
 const validate = () => {
   let isValid = true
   errors.title = ''
   errors.email = ''
+  errors.stage_id = ''
 
   if (!form.title.trim()) {
     errors.title = 'O título do negócio é obrigatório.'
+    isValid = false
+  }
+
+  if (!form.stage_id) {
+    errors.stage_id = 'A etapa inicial é obrigatória.'
     isValid = false
   }
 
@@ -245,6 +261,17 @@ const handleSubmit = async () => {
       contact_phone: form.contact_phone,
       contact_email: form.contact_email
     })
+    
+    // Recarrega a store de contatos para incluir o contato criado/vinculado automaticamente
+    if (form.contact_name) {
+      try {
+        const { useContactStore } = await import('@/stores/contact')
+        const contactStore = useContactStore()
+        await contactStore.fetchContacts()
+      } catch (err) {
+        console.warn('Erro ao atualizar store de contatos:', err)
+      }
+    }
     
     toast.success('Negócio cadastrado com sucesso!')
     emits('created', newCard)

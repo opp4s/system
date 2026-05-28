@@ -211,7 +211,7 @@ export const usePipelineStore = defineStore('pipeline', {
         this.pipelines = response.data.data || response.data
       } catch (error) {
         console.warn('Erro ao carregar pipelines da API. Usando dados mockados.', error)
-        this.pipelines = MOCK_PIPELINES
+        this.pipelines = []; console.error("Erro ao carregar pipelines:", error)
       } finally {
         this.loading.pipelines = false
       }
@@ -240,7 +240,7 @@ export const usePipelineStore = defineStore('pipeline', {
         }))
       } catch (error) {
         console.warn(`Erro ao carregar etapas do pipeline ${pipelineId} da API. Usando dados mockados.`, error)
-        this.stages = MOCK_STAGES[pipelineId] || []
+        this.stages = []; console.error("Erro ao carregar stages:", error)
       } finally {
         this.loading.stages = false
       }
@@ -254,7 +254,7 @@ export const usePipelineStore = defineStore('pipeline', {
         this.cards = response.data.data || response.data
       } catch (error) {
         console.warn(`Erro ao carregar cards do pipeline ${pipelineId} da API. Usando dados mockados.`, error)
-        this.cards = MOCK_CARDS[pipelineId] || []
+        this.cards = []; console.error("Erro ao carregar cards:", error)
       } finally {
         this.loading.cards = false
       }
