@@ -3,7 +3,7 @@ module Api
     class BroadcastsController < ApplicationController
       before_action :require_workspace!
       before_action :set_broadcast, only: [:show, :update, :destroy, :schedule,
-                                           :send_now, :cancel, :report, :preview]
+                                           :send_now, :cancel, :report]
 
       # GET /api/v1/broadcasts
       def index
@@ -142,21 +142,40 @@ module Api
         }
       end
 
-      # GET /api/v1/broadcasts/:id/preview
+      # GET /api/v1/broadcasts/preview?pipeline_id=X&stage_ids[]=Y&message=Olá {nome}
       def preview
-        authorize @broadcast, :preview?
-        contacts = Broadcasts::AudienceResolver.new(@broadcast).resolve.limit(5)
+        authorize Broadcast.new(workspace: current_workspace), :preview?
+
+        message         = params[:message].to_s
+        audience_filters = {}
+        audience_filters["pipeline_id"]  = params[:pipeline_id].to_i  if params[:pipeline_id].present?
+        audience_filters["stage_ids"]    = params[:stage_ids]           if params[:stage_ids].present?
+
+        dummy_broadcast = Broadcast.new(
+          workspace:        current_workspace,
+          message:          message.presence || "Olá {nome}",
+          audience_filters: audience_filters
+        )
+
+        resolver  = Broadcasts::AudienceResolver.new(dummy_broadcast)
+        contacts  = resolver.resolve.limit(5)
+        total     = resolver.count
+
         examples = contacts.map do |c|
+          interpolated = message.present? ?
+            message.gsub("{nome}", c.name.to_s).gsub("{telefone}", c.phone_number.to_s).gsub("{email}", c.email.to_s) :
+            nil
           {
-            contact_name:  c.name,
-            phone:         c.phone_number,
-            message_preview: Broadcasts::ExecuteJob.new.send(:interpolate, @broadcast.message, c)
+            contact_name:    c.name,
+            phone:           c.phone_number,
+            message_preview: interpolated
           }
         end
+
         render json: {
           data: {
-            audience_count: Broadcasts::AudienceResolver.new(@broadcast).count,
-            examples: examples
+            audience_count: total,
+            examples:       examples
           }
         }
       end

@@ -1,8 +1,7 @@
 class Contact < ApplicationRecord
   belongs_to :workspace
 
-  validates :chatwoot_contact_id, presence: true,
-            uniqueness: { scope: :workspace_id }
+  validates :chatwoot_contact_id, uniqueness: { scope: :workspace_id, allow_nil: true }, allow_nil: true
   validates :name, presence: true
 
   scope :ordered,     -> { order(name: :asc) }

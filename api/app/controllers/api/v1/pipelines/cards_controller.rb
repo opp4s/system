@@ -55,7 +55,8 @@ module Api
               trigger_type: "card_created",
               context: { pipeline_id: @pipeline.id }
             )
-            render json: { data: card_payload(card) }, status: :created
+            upsert_contact_from_card(card)
+          render json: { data: card_payload(card) }, status: :created
           else
             render_unprocessable(card)
           end
@@ -132,6 +133,17 @@ module Api
           @card = @pipeline.cards.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render json: { error: "Card não encontrado" }, status: :not_found
+        end
+
+        def upsert_contact_from_card(card)
+          return if card.contact_phone.blank?
+
+          current_workspace.contacts.find_or_create_by(phone_number: card.contact_phone) do |c|
+            c.name  = card.contact_name.presence || card.contact_phone
+            c.email = card.contact_email
+          end
+        rescue => e
+          Rails.logger.warn "[CardsController] upsert_contact_from_card failed: #{e.message}"
         end
 
         def card_params

@@ -110,7 +110,9 @@ Rails.application.routes.draw do
           post :send_now
           post :cancel
           get  :report
-          get  :preview
+        end
+        collection do
+          get :preview
         end
       end
 

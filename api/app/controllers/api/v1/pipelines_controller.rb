@@ -7,7 +7,7 @@ module Api
       # GET /api/v1/pipelines
       def index
         pipelines = policy_scope(Pipeline).ordered.includes(:stages, :cards)
-        render json: { data: pipelines.map { |p| pipeline_payload(p) } }
+        render json: { data: pipelines.map { |p| pipeline_payload(p, include_stages: true) } }
       end
 
       # GET /api/v1/pipelines/:id
