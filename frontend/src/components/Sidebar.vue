@@ -29,23 +29,43 @@
     </div>
 
     <!-- Navegação -->
-    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-      <router-link
-        v-for="item in menuItems"
-        :key="item.path"
-        :to="item.path"
-        class="flex items-center rounded-xl text-sm font-medium transition-all duration-150"
-        :class="[
-          isActive(item.path) 
-            ? 'bg-zavy-500/10 text-zavy-400 font-semibold' 
-            : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200',
-          isCollapsed ? 'justify-center p-3' : 'space-x-3 px-4 py-3'
-        ]"
-        :title="isCollapsed ? item.name : ''"
-      >
-        <component :is="item.icon" class="h-5 w-5 shrink-0" />
-        <span v-if="!isCollapsed" class="truncate">{{ item.name }}</span>
-      </router-link>
+    <nav class="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
+      <div v-for="item in menuItems" :key="item.path" class="space-y-1">
+        <router-link
+          :to="item.path"
+          class="flex items-center rounded-xl text-sm font-medium transition-all duration-150"
+          :class="[
+            isActive(item.path) || hasActiveChild(item)
+              ? 'bg-zavy-500/10 text-zavy-400 font-semibold' 
+              : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200',
+            isCollapsed ? 'justify-center p-3' : 'space-x-3 px-4 py-3'
+          ]"
+          :title="isCollapsed ? item.name : ''"
+        >
+          <component :is="item.icon" class="h-5 w-5 shrink-0" />
+          <span v-if="!isCollapsed" class="truncate">{{ item.name }}</span>
+        </router-link>
+
+        <!-- Sub-itens se a sidebar estiver expandida e o pai estiver ativo ou com filho ativo -->
+        <div 
+          v-if="item.children && !isCollapsed && (isActive(item.path) || hasActiveChild(item))"
+          class="pl-9 space-y-1.5 mt-1"
+        >
+          <router-link
+            v-for="subItem in item.children"
+            :key="subItem.path"
+            :to="subItem.path"
+            class="block px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150"
+            :class="[
+              isActive(subItem.path)
+                ? 'text-zavy-400 font-bold bg-slate-800/30 border-l-2 border-zavy-500 pl-2'
+                : 'text-slate-500 hover:text-slate-350 hover:bg-slate-800/10'
+            ]"
+          >
+            {{ subItem.name }}
+          </router-link>
+        </div>
+      </div>
     </nav>
 
     <!-- Workspace Switcher no Rodapé -->
@@ -89,10 +109,25 @@ const menuItems = ref([
   { name: 'Contatos', path: '/contacts', icon: Users },
   { name: 'Broadcast', path: '/broadcast', icon: Radio },
   { name: 'Automações', path: '/automations', icon: Zap },
-  { name: 'Configurações', path: '/settings', icon: Settings },
+  { 
+    name: 'Configurações', 
+    path: '/settings', 
+    icon: Settings,
+    children: [
+      { name: 'WhatsApp', path: '/settings/whatsapp' }
+    ]
+  },
 ])
 
 const isActive = (path) => {
+  if (path === '/settings') {
+    return route.path === '/settings' || route.path.startsWith('/settings/')
+  }
   return route.path === path
+}
+
+const hasActiveChild = (item) => {
+  if (!item.children) return false
+  return item.children.some(child => route.path.startsWith(child.path))
 }
 </script>

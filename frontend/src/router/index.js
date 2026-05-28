@@ -70,6 +70,15 @@ const routes = [
         path: 'pipelines/settings',
         name: 'pipeline-settings',
         component: () => import('@/views/pipelines/PipelineSettings.vue')
+      },
+      {
+        path: 'settings',
+        redirect: '/settings/whatsapp'
+      },
+      {
+        path: 'settings/whatsapp',
+        name: 'settings-whatsapp',
+        component: () => import('@/views/settings/WhatsAppSetup.vue')
       }
     ]
   },
