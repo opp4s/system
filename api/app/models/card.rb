@@ -6,6 +6,7 @@ class Card < ApplicationRecord
 
   has_many :card_events,   dependent: :destroy
   has_many :conversations, dependent: :nullify
+  has_many :automation_logs, dependent: :destroy
 
   validates :title, presence: true, length: { maximum: 255 }
   validates :value, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
@@ -55,6 +56,13 @@ class Card < ApplicationRecord
         }
       )
     end
+
+    # Disparar automações após move
+    Automations::TriggerJob.perform_later(
+      card_id: id,
+      trigger_type: "card_enters_stage",
+      context: { from_stage_id: old_stage.id, to_stage_id: new_stage.id }
+    )
   end
 
   def archive!(user: nil)
