@@ -71,8 +71,38 @@ puts "  [Membership] admin → zavy-demo (owner)"
   puts "  [Membership] #{attrs[:email]} → zavy-demo (#{attrs[:role]})"
 end
 
+# ---------------------------------------------------------------------------
+# Pipeline de demonstração
+# ---------------------------------------------------------------------------
+pipeline = Pipeline.find_or_initialize_by(workspace: demo_ws, name: "Pipeline de Vendas")
+pipeline.assign_attributes(
+  description: "Pipeline padrão de vendas do workspace demo",
+  color:       "#6366F1",
+  position:    0,
+  is_default:  true
+)
+pipeline.save!
+puts "  [Pipeline] #{pipeline.name} #{pipeline.previously_new_record? ? "criado" : "já existe"}"
+
+stages_config = [
+  { name: "Novo Lead",        color: "#6C757D", stage_type: "intermediate", win_probability: 10, position: 0 },
+  { name: "Qualificado",      color: "#0D6EFD", stage_type: "intermediate", win_probability: 30, position: 1 },
+  { name: "Proposta Enviada", color: "#FFC107", stage_type: "intermediate", win_probability: 60, position: 2 },
+  { name: "Negociação",       color: "#FD7E14", stage_type: "intermediate", win_probability: 80, position: 3 },
+  { name: "Ganho",            color: "#198754", stage_type: "won",          win_probability: 100, position: 4 },
+  { name: "Perdido",          color: "#DC3545", stage_type: "lost",         win_probability: 0,   position: 5 }
+]
+
+stages_config.each do |attrs|
+  stage = Stage.find_or_initialize_by(pipeline: pipeline, name: attrs[:name])
+  stage.assign_attributes(attrs)
+  stage.save!
+  puts "  [Stage] #{stage.name} (#{stage.stage_type})"
+end
+
 puts ""
 puts "==> Seeds concluídos!"
 puts "    Admin:   admin@zavycrm.com   / Admin123!"
 puts "    Manager: manager@zavycrm.com / Demo123!"
 puts "    Agent:   agent@zavycrm.com   / Demo123!"
+puts "    Pipeline: #{pipeline.name} (#{pipeline.stages.count} stages)"

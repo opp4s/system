@@ -4,6 +4,8 @@ class Workspace < ApplicationRecord
   belongs_to :owner, class_name: "User"
   has_many :workspace_memberships, dependent: :destroy
   has_many :members, through: :workspace_memberships, source: :user
+  has_many :pipelines, dependent: :destroy
+  has_many :cards,     dependent: :destroy
 
   validates :name, presence: true, length: { maximum: 100 }
   validates :slug, presence: true,
