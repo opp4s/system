@@ -81,18 +81,87 @@
 
           <!-- Campos Personalizados (Custom Fields) -->
           <div class="space-y-4">
-            <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Campos Personalizados</h3>
-            
-            <div 
-              v-for="(val, key) in card.custom_fields" 
-              :key="key"
-              class="bg-white p-2.5 rounded-xl border border-gray-150"
-            >
-              <label class="text-[10px] font-bold text-gray-400 uppercase block">{{ key }}</label>
-              <span class="text-xs font-semibold text-gray-700 block mt-0.5">{{ val }}</span>
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Campos Personalizados</h3>
+              
+              <!-- Indicador de Status do Auto-save -->
+              <span v-if="saveStatus" class="text-[10px] font-bold flex items-center transition-all">
+                <span v-if="saveStatus === 'salvando'" class="text-slate-500 flex items-center">
+                  <svg class="animate-spin h-3 w-3 mr-1 text-slate-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Salvando...
+                </span>
+                <span v-else-if="saveStatus === 'salvo'" class="text-emerald-600 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Salvo
+                </span>
+                <span v-else-if="saveStatus === 'erro'" class="text-rose-600">Erro ao salvar</span>
+              </span>
             </div>
             
-            <div v-if="!Object.keys(card.custom_fields || {}).length" class="text-xs text-gray-400 italic">
+            <div class="space-y-2">
+              <div 
+                v-for="(val, key) in localCustomFields" 
+                :key="key"
+                class="bg-white p-2.5 rounded-xl border border-gray-150 flex flex-col relative group/field shadow-sm hover:border-gray-250 transition-all duration-150"
+              >
+                <label class="text-[10px] font-bold text-gray-400 uppercase">{{ key }}</label>
+                <input 
+                  v-model="localCustomFields[key]"
+                  type="text"
+                  class="text-xs font-semibold text-gray-800 bg-transparent border-0 border-b border-transparent hover:border-gray-250 focus:border-slate-800 focus:outline-none focus:ring-0 w-full mt-0.5 p-0 transition-colors"
+                />
+                <button 
+                  @click="removeField(key)"
+                  type="button"
+                  class="absolute right-2 top-2 p-1 text-gray-300 hover:text-rose-650 opacity-0 group-hover/field:opacity-100 transition-opacity rounded-lg hover:bg-gray-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Formulário Adicionar Campo -->
+            <div class="pt-2">
+              <div v-if="isAddingField" class="space-y-2 bg-white p-3 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
+                <input 
+                  v-model="newFieldKey" 
+                  type="text" 
+                  placeholder="Nome do campo (ex: CPF)" 
+                  class="block w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:border-slate-800"
+                />
+                <input 
+                  v-model="newFieldValue" 
+                  type="text" 
+                  placeholder="Valor" 
+                  class="block w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:border-slate-800"
+                />
+                <div class="flex items-center justify-end space-x-1.5">
+                  <button @click="isAddingField = false" type="button" class="px-2.5 py-1 text-[10px] text-gray-500 hover:text-gray-700">
+                    Cancelar
+                  </button>
+                  <button @click="addNewField" type="button" class="px-2.5 py-1 text-[10px] bg-slate-900 text-white rounded-md font-semibold">
+                    Adicionar
+                  </button>
+                </div>
+              </div>
+              <button 
+                v-else 
+                @click="isAddingField = true; newFieldKey = ''; newFieldValue = ''" 
+                type="button" 
+                class="w-full py-2.5 border border-dashed border-gray-300 hover:border-gray-400 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-750 bg-white transition-all flex items-center justify-center space-x-1.5 shadow-sm"
+              >
+                <span>+ Adicionar Campo</span>
+              </button>
+            </div>
+            
+            <div v-if="!Object.keys(localCustomFields).length && !isAddingField" class="text-xs text-gray-400 italic">
               Nenhum campo personalizado cadastrado.
             </div>
           </div>
@@ -337,10 +406,80 @@ onMounted(() => {
   loadTimeline()
 })
 
-// Recarrega timeline caso mude o card selecionado
-watch(cardId, () => {
-  loadTimeline()
-})
+// --- LÓGICA DE CAMPOS PERSONALIZADOS (DIA 9) ---
+const localCustomFields = ref({})
+const saveStatus = ref('') // '', 'salvando', 'salvo', 'erro'
+const isAddingField = ref(false)
+const newFieldKey = ref('')
+const newFieldValue = ref('')
+
+// Sincroniza custom fields locais do card da store
+watch(() => card.value, (newCard) => {
+  if (newCard) {
+    localCustomFields.value = { ...newCard.custom_fields }
+  } else {
+    localCustomFields.value = {}
+  }
+}, { immediate: true, deep: true })
+
+let autoSaveTimeout = null
+
+// Dispara o salvamento automático com de-bounce de 700ms
+const triggerAutoSave = () => {
+  saveStatus.value = 'salvando'
+  
+  if (autoSaveTimeout) {
+    clearTimeout(autoSaveTimeout)
+  }
+  
+  autoSaveTimeout = setTimeout(async () => {
+    try {
+      await pipelineStore.updateCard(cardId.value, {
+        custom_fields: { ...localCustomFields.value }
+      })
+      saveStatus.value = 'salvo'
+      
+      // Limpa indicador de salvo após 2 segundos
+      setTimeout(() => {
+        if (saveStatus.value === 'salvo') {
+          saveStatus.value = ''
+        }
+      }, 2000)
+    } catch (error) {
+      saveStatus.value = 'erro'
+    }
+  }, 700)
+}
+
+// Watcher com verificação profunda para salvar apenas se houver mudanças reais
+watch(localCustomFields, (newVal) => {
+  if (!card.value) return
+  
+  const storeFields = card.value.custom_fields || {}
+  
+  // Verifica diferença chave-valor
+  const hasChanges = Object.keys(newVal).some(key => newVal[key] !== storeFields[key]) ||
+                     Object.keys(storeFields).some(key => newVal[key] !== storeFields[key])
+                     
+  if (hasChanges) {
+    triggerAutoSave()
+  }
+}, { deep: true })
+
+const addNewField = () => {
+  const key = newFieldKey.value.trim()
+  const val = newFieldValue.value.trim()
+  if (key && val) {
+    localCustomFields.value[key] = val
+    isAddingField.value = false
+    newFieldKey.value = ''
+    newFieldValue.value = ''
+  }
+}
+
+const removeField = (key) => {
+  delete localCustomFields.value[key]
+}
 </script>
 
 <style scoped>

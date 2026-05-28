@@ -140,6 +140,13 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de Criação de Card -->
+    <CreateCardModal
+      :show="showCreateModal"
+      :default-stage-id="pipelineStore.stages[0]?.id"
+      @close="showCreateModal = false"
+    />
   </div>
 </template>
 
@@ -147,6 +154,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePipelineStore } from '@/stores/pipeline'
+import CreateCardModal from './CreateCardModal.vue'
 import { 
   ChevronRight, 
   Settings, 
@@ -161,6 +169,7 @@ const router = useRouter()
 const pipelineStore = usePipelineStore()
 
 const filtersOpen = ref(false)
+const showCreateModal = ref(false)
 
 const navigateToPipeline = (id) => {
   router.push({ name: 'pipelines-detail', params: { id } })
@@ -175,8 +184,7 @@ const toggleFilters = () => {
 }
 
 const openCreateCardModal = () => {
-  // Dispara modal de criação de card (Dia 9)
-  alert('Modal de criação de card disponível no Dia 9.')
+  showCreateModal.value = true
 }
 
 // Inicialização e sincronismo de rotas com a store

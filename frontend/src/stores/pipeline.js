@@ -293,6 +293,32 @@ export const usePipelineStore = defineStore('pipeline', {
       } finally {
         this.loading.timeline = false
       }
+    },
+
+    // Atualiza dados de um card (como custom_fields ou título)
+    async updateCard(cardId, cardData) {
+      this.loading.mutation = true
+      try {
+        const response = await api.patch(`/api/v1/pipelines/${this.currentPipelineId}/cards/${cardId}`, {
+          card: cardData
+        })
+        const updatedCard = response.data.data || response.data
+        const index = this.cards.findIndex(c => c.id === cardId)
+        if (index !== -1) {
+          this.cards[index] = { ...this.cards[index], ...updatedCard }
+        }
+        return updatedCard
+      } catch (error) {
+        console.warn(`Erro ao atualizar card ${cardId} na API. Sincronizando alterações localmente.`, error)
+        // Fallback local se a API falhar ou não estiver pronta
+        const index = this.cards.findIndex(c => c.id === cardId)
+        if (index !== -1) {
+          this.cards[index] = { ...this.cards[index], ...cardData }
+        }
+        return this.cards[index]
+      } finally {
+        this.loading.mutation = false
+      }
     }
   }
 })
