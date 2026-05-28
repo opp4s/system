@@ -4,7 +4,8 @@ class Card < ApplicationRecord
   belongs_to :workspace
   belongs_to :assigned_agent, class_name: "User", foreign_key: :assigned_agent_id, optional: true
 
-  has_many :card_events, dependent: :destroy
+  has_many :card_events,   dependent: :destroy
+  has_many :conversations, dependent: :nullify
 
   validates :title, presence: true, length: { maximum: 255 }
   validates :value, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true

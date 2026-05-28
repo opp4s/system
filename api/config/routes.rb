@@ -15,6 +15,11 @@ Rails.application.routes.draw do
 
   namespace :api do
     namespace :v1 do
+      # Webhooks — sem autenticação JWT (identificação via account_id no payload)
+      namespace :webhooks do
+        post "chatwoot", to: "chatwoot#receive"
+      end
+
       # Perfil do usuário autenticado
       get   "me", to: "users#me"
       patch "me", to: "users#update_me"

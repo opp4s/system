@@ -6,6 +6,7 @@ class CardEvent < ApplicationRecord
     card_archived
     stage_changed
     note_added
+    chatwoot_message
   ].freeze
 
   belongs_to :card

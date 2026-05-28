@@ -75,6 +75,22 @@ module Chatwoot
       get("/api/v1/accounts/#{@account_id}/inboxes")
     end
 
+    # ── Webhooks ──────────────────────────────────────────────────────────────
+
+    def webhooks
+      get("/api/v1/accounts/#{@account_id}/webhooks")
+    end
+
+    def create_webhook(url, subscriptions: %w[message_created conversation_created conversation_status_changed])
+      post("/api/v1/accounts/#{@account_id}/webhooks", {
+        webhook: { url: url, subscriptions: subscriptions }
+      })
+    end
+
+    def delete_webhook(webhook_id)
+      conn.delete("/api/v1/accounts/#{@account_id}/webhooks/#{webhook_id}")
+    end
+
     private
 
     def conn
