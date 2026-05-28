@@ -55,6 +55,12 @@ Rails.application.routes.draw do
         patch "cards/:card_id/custom_fields",
               to:  "pipelines/card_custom_fields#update"
       end
+
+      # Integração Chatwoot
+      namespace :chatwoot do
+        get  "status",    to: "configs#status"
+        post "configure", to: "configs#configure"
+      end
     end
   end
 end

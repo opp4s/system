@@ -100,6 +100,20 @@ stages_config.each do |attrs|
   puts "  [Stage] #{stage.name} (#{stage.stage_type})"
 end
 
+# ---------------------------------------------------------------------------
+# Chatwoot config para o workspace demo
+# ---------------------------------------------------------------------------
+if ENV["CHATWOOT_URL"].present? && ENV["CHATWOOT_API_TOKEN"].present?
+  cw_cfg = ChatwootConfig.find_or_initialize_by(workspace: demo_ws)
+  cw_cfg.chatwoot_url        = ENV["CHATWOOT_URL"]
+  cw_cfg.chatwoot_account_id = "1"
+  cw_cfg.chatwoot_api_token  = ENV["CHATWOOT_API_TOKEN"]
+  cw_cfg.save!
+  puts "  [ChatwootConfig] workspace demo → account 1 (#{cw_cfg.previously_new_record? ? "criado" : "atualizado"})"
+else
+  puts "  [ChatwootConfig] SKIPPED (CHATWOOT_URL ou CHATWOOT_API_TOKEN não definidos)"
+end
+
 puts ""
 puts "==> Seeds concluídos!"
 puts "    Admin:   admin@zavycrm.com   / Admin123!"
