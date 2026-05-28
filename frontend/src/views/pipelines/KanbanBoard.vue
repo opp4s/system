@@ -14,7 +14,7 @@
     <!-- Quadro Kanban -->
     <div v-else class="flex-1 overflow-x-auto overflow-y-hidden flex p-6 space-x-4 select-none">
       <div
-        v-for="stage in pipelineStore.stages"
+        v-for="stage in pipelineStore.visibleStages"
         :key="stage.id"
         class="w-80 flex flex-col h-full bg-slate-50 border border-gray-200/80 rounded-2xl shrink-0"
       >
@@ -31,7 +31,7 @@
             </div>
             
             <span class="px-2 py-0.5 text-xs font-bold bg-gray-200/60 text-gray-600 rounded-full shrink-0">
-              {{ (pipelineStore.cardsByStage[stage.id] || []).length }}
+              {{ (localCards[stage.id] || []).length }}
             </span>
           </div>
 
@@ -44,69 +44,83 @@
           </div>
         </header>
 
-        <!-- Lista de Cards da Etapa -->
-        <div class="flex-1 overflow-y-auto p-3 space-y-3">
-          <div
-            v-for="card in (pipelineStore.cardsByStage[stage.id] || [])"
-            :key="card.id"
-            @click="openCardDetail(card.id)"
-            class="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-4 shadow-sm hover:shadow transition-all duration-200 cursor-pointer flex flex-col space-y-3 group"
+        <!-- Lista de Cards da Etapa (Drag-and-Drop integrado) -->
+        <div class="flex-1 flex flex-col overflow-hidden relative">
+          <draggable
+            v-model="localCards[stage.id]"
+            group="cards"
+            item-key="id"
+            @change="onDragChange($event, stage.id)"
+            class="flex-1 overflow-y-auto p-3 space-y-3 min-h-[150px] custom-scrollbar"
+            ghost-class="opacity-30"
+            drag-class="rotate-1"
+            animation="200"
+            :scroll="true"
+            :scroll-sensitivity="100"
+            :scroll-speed="20"
           >
-            <!-- Título e Tags -->
-            <div>
-              <div class="flex flex-wrap gap-1 mb-2">
-                <span 
-                  v-for="tag in card.labels" 
-                  :key="tag"
-                  class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-600 uppercase tracking-wider"
-                >
-                  {{ tag }}
-                </span>
-              </div>
-              <h4 class="text-sm font-bold text-gray-900 group-hover:text-zavy-600 transition-colors duration-150">
-                {{ card.title }}
-              </h4>
-            </div>
-
-            <!-- Contato -->
-            <div v-if="card.contact_name" class="flex items-center space-x-1.5 text-xs text-gray-500">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <span class="truncate font-medium">{{ card.contact_name }}</span>
-            </div>
-
-            <!-- Rodapé do Card (Valor, Dias, Agente) -->
-            <footer class="flex items-center justify-between pt-2 border-t border-gray-100">
-              <!-- Valor -->
-              <span class="text-xs font-extrabold text-gray-900">
-                {{ formatCurrency(card.value, card.currency) }}
-              </span>
-
-              <div class="flex items-center space-x-2 shrink-0">
-                <!-- Dias na Etapa -->
-                <span 
-                  class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500"
-                  :title="`${card.days_in_stage} dias nesta etapa`"
-                >
-                  {{ card.days_in_stage }}d
-                </span>
-                
-                <!-- Avatar do Agente -->
-                <div 
-                  class="h-6 w-6 rounded-full bg-slate-100 border border-gray-200 text-slate-700 flex items-center justify-center text-[10px] font-bold uppercase shrink-0"
-                  :title="card.user?.name || 'Sem responsável'"
-                >
-                  {{ getInitials(card.user?.name || 'SR') }}
+            <template #item="{ element: card }">
+              <div
+                @click="openCardDetail(card.id)"
+                class="bg-white border border-gray-200 hover:border-slate-350 rounded-xl p-4 shadow-sm hover:shadow transition-all duration-200 cursor-pointer flex flex-col space-y-3 group select-none active:cursor-grabbing"
+              >
+                <!-- Título e Tags -->
+                <div>
+                  <div class="flex flex-wrap gap-1 mb-2">
+                    <span 
+                      v-for="tag in card.labels" 
+                      :key="tag"
+                      class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-600 uppercase tracking-wider"
+                    >
+                      {{ tag }}
+                    </span>
+                  </div>
+                  <h4 class="text-sm font-bold text-gray-900 group-hover:text-slate-700 transition-colors duration-150">
+                    {{ card.title }}
+                  </h4>
                 </div>
+
+                <!-- Contato -->
+                <div v-if="card.contact_name" class="flex items-center space-x-1.5 text-xs text-gray-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span class="truncate font-medium">{{ card.contact_name }}</span>
+                </div>
+
+                <!-- Rodapé do Card (Valor, Dias, Agente) -->
+                <footer class="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <!-- Valor -->
+                  <span class="text-xs font-extrabold text-gray-900">
+                    {{ formatCurrency(card.value, card.currency) }}
+                  </span>
+
+                  <div class="flex items-center space-x-2 shrink-0">
+                    <!-- Dias na Etapa -->
+                    <span 
+                      class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500"
+                      :title="`${card.days_in_stage} dias nesta etapa`"
+                    >
+                      {{ card.days_in_stage }}d
+                    </span>
+                    
+                    <!-- Avatar do Agente -->
+                    <div 
+                      class="h-6 w-6 rounded-full bg-slate-100 border border-gray-200 text-slate-700 flex items-center justify-center text-[10px] font-bold uppercase shrink-0"
+                      :title="card.user?.name || 'Sem responsável'"
+                    >
+                      {{ getInitials(card.user?.name || 'SR') }}
+                    </div>
+                  </div>
+                </footer>
               </div>
-            </footer>
-          </div>
+            </template>
+          </draggable>
 
           <!-- Coluna Vazia Placeholder -->
           <div 
-            v-if="(pipelineStore.cardsByStage[stage.id] || []).length === 0" 
-            class="h-24 border border-dashed border-gray-300 rounded-xl flex items-center justify-center text-xs text-gray-400"
+            v-if="!localCards[stage.id] || localCards[stage.id].length === 0" 
+            class="absolute inset-x-3 top-3 pointer-events-none border border-dashed border-gray-300 rounded-xl flex items-center justify-center text-xs text-gray-400 h-24"
           >
             Nenhum card nesta etapa
           </div>
@@ -114,18 +128,36 @@
       </div>
     </div>
 
-    <!-- Rota aninhada para Slide-in de Detalhes do Card (Dia 8) -->
+    <!-- Modal de Motivo de Perda -->
+    <LossReasonModal
+      :show="showLossModal"
+      :card-title="pendingMove?.cardTitle"
+      @confirm="handleConfirmLoss"
+      @cancel="handleCancelLoss"
+    />
+
+    <!-- Rota aninhada para Slide-in de Detalhes do Card -->
     <router-view />
   </div>
 </template>
 
 <script setup>
+import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePipelineStore } from '@/stores/pipeline'
+import draggable from 'vuedraggable'
+import LossReasonModal from './LossReasonModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const pipelineStore = usePipelineStore()
+
+// Cartões agrupados locais editáveis pelo draggable
+const localCards = ref({})
+
+// Modal de perda e movimentação pendente
+const showLossModal = ref(false)
+const pendingMove = ref(null)
 
 const formatCurrency = (value, currency = 'BRL') => {
   if (value === undefined || value === null) return 'R$ 0,00'
@@ -136,7 +168,7 @@ const formatCurrency = (value, currency = 'BRL') => {
 }
 
 const getStageTotal = (stageId) => {
-  const cards = pipelineStore.cardsByStage[stageId] || []
+  const cards = localCards.value[stageId] || []
   return cards.reduce((sum, card) => sum + (card.value || 0), 0)
 }
 
@@ -154,6 +186,90 @@ const openCardDetail = (cardId) => {
     }
   })
 }
+
+// Sincroniza dados locais com a store do Pinia
+const syncLocalCards = () => {
+  pipelineStore.stages.forEach(stage => {
+    localCards.value[stage.id] = pipelineStore.cards.filter(c => c.stage_id === stage.id)
+  })
+}
+
+// Escuta mudanças nos cards da store
+watch(() => pipelineStore.cards, () => {
+  syncLocalCards()
+}, { deep: true })
+
+// Escuta mudanças nas etapas (ex: ao trocar de pipeline)
+watch(() => pipelineStore.stages, () => {
+  syncLocalCards()
+}, { deep: true, immediate: true })
+
+// Handler para manipulação de drag-and-drop
+const onDragChange = async (event, targetStageId) => {
+  if (event.added) {
+    const card = event.added.element
+    const newIndex = event.added.newIndex
+    const fromStageId = card.stage_id
+
+    const targetStage = pipelineStore.stages.find(s => s.id === targetStageId)
+
+    if (targetStage && targetStage.stage_type === 'lose') {
+      // Se for dropado em coluna "lost" (Perdido), abre o modal
+      pendingMove.value = {
+        cardId: card.id,
+        cardTitle: card.title,
+        fromStageId,
+        toStageId: targetStageId,
+        newIndex
+      }
+      showLossModal.value = true
+    } else {
+      // Se for etapa padrão ou ganha, envia direto
+      try {
+        await pipelineStore.moveCard(card.id, fromStageId, targetStageId, newIndex)
+      } catch (error) {
+        // Rollback automático disparado pela reatividade da store + watch
+      }
+    }
+  }
+}
+
+// Confirma perda do lead e salva a justificativa nos custom fields
+const handleConfirmLoss = async (reason) => {
+  if (!pendingMove.value) return
+  const { cardId, fromStageId, toStageId, newIndex } = pendingMove.value
+  
+  showLossModal.value = false
+
+  try {
+    // 1. Move o card no backend
+    await pipelineStore.moveCard(cardId, fromStageId, toStageId, newIndex)
+    
+    // 2. Registra o motivo de perda nos custom fields do card
+    const cardIdx = pipelineStore.cards.findIndex(c => c.id === cardId)
+    if (cardIdx !== -1) {
+      if (!pipelineStore.cards[cardIdx].custom_fields) {
+        pipelineStore.cards[cardIdx].custom_fields = {}
+      }
+      pipelineStore.cards[cardIdx].custom_fields['Motivo da Perda'] = reason
+    }
+  } catch (error) {
+    // Rollback feito na store
+  } finally {
+    pendingMove.value = null
+  }
+}
+
+// Cancela o modal de perda e reverte a movimentação visual
+const handleCancelLoss = () => {
+  syncLocalCards()
+  showLossModal.value = false
+  pendingMove.value = null
+}
+
+onMounted(() => {
+  syncLocalCards()
+})
 </script>
 
 <style scoped>
@@ -171,5 +287,11 @@ const openCardDetail = (cardId) => {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Otimização da velocidade de rolagem interna das colunas */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
 }
 </style>

@@ -94,6 +94,7 @@ export const usePipelineStore = defineStore('pipeline', {
     currentPipelineId: null,
     stages: [],
     cards: [],
+    showFinalStages: true,
     loading: {
       pipelines: false,
       stages: false,
@@ -128,6 +129,9 @@ export const usePipelineStore = defineStore('pipeline', {
     },
 
     visibleStages: (state) => {
+      if (!state.showFinalStages) {
+        return state.stages.filter(s => s.stage_type === 'intermediate')
+      }
       return state.stages
     }
   },
@@ -151,6 +155,7 @@ export const usePipelineStore = defineStore('pipeline', {
     // Seleciona um pipeline e dispara o carregamento de etapas e cards
     async selectPipeline(pipelineId) {
       this.currentPipelineId = pipelineId
+      this.showFinalStages = true
       await Promise.all([
         this.fetchStages(pipelineId),
         this.fetchCards(pipelineId)
