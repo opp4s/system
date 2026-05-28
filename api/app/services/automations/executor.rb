@@ -1,5 +1,7 @@
 module Automations
   class Executor
+    MAX_EXECUTIONS_PER_HOUR = 10
+
     def initialize(card, trigger_type, context = {})
       @card = card
       @trigger_type = trigger_type
@@ -7,11 +9,25 @@ module Automations
     end
 
     def run!
+      # Circuit breaker: evita loops infinitos
+      if exceeds_execution_limit?
+        Rails.logger.warn "Automation circuit breaker triggered for card #{@card.id}"
+        return
+      end
+
       automations = find_matching_automations
       automations.each { |auto| execute_automation(auto) }
     end
 
     private
+
+    def exceeds_execution_limit?
+      hour_ago = 1.hour.ago
+      AutomationLog.where(
+        card_id: @card.id,
+        created_at: hour_ago..
+      ).count >= MAX_EXECUTIONS_PER_HOUR
+    end
 
     def find_matching_automations
       Automation.active.where(
@@ -85,12 +101,12 @@ module Automations
 
     def execute_action(action)
       case action["type"]
-      when "send_whatsapp"   then { success: false, error: "Action not yet implemented" }
-      when "move_card"       then { success: false, error: "Action not yet implemented" }
-      when "assign_agent"    then { success: false, error: "Action not yet implemented" }
-      when "create_task"     then { success: false, error: "Action not yet implemented" }
-      when "webhook"         then { success: false, error: "Action not yet implemented" }
-      when "update_field"    then { success: false, error: "Action not yet implemented" }
+      when "send_whatsapp"   then Automations::Actions::SendWhatsapp.run(@card, action["config"])
+      when "move_card"       then Automations::Actions::MoveCard.run(@card, action["config"])
+      when "assign_agent"    then Automations::Actions::AssignAgent.run(@card, action["config"])
+      when "create_task"     then Automations::Actions::CreateTask.run(@card, action["config"])
+      when "webhook"         then Automations::Actions::Webhook.run(@card, action["config"])
+      when "update_field"    then Automations::Actions::UpdateField.run(@card, action["config"])
       else { success: false, error: "Unknown action: #{action["type"]}" }
       end
     rescue => e

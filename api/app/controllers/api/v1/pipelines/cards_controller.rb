@@ -48,6 +48,13 @@ module Api
             )
             invalidate_stage_cache(card.stage_id)
             broadcast_pipeline_event("card_created", card)
+            
+            # Trigger automations for card_created
+            Automations::TriggerJob.perform_later(
+              card_id: card.id,
+              trigger_type: "card_created",
+              context: { pipeline_id: @pipeline.id }
+            )
             render json: { data: card_payload(card) }, status: :created
           else
             render_unprocessable(card)
@@ -67,6 +74,13 @@ module Api
               payload: { changes: @card.previous_changes.except("updated_at") }
             )
             broadcast_pipeline_event("card_updated", @card)
+            
+            # Trigger automations for card_updated
+            Automations::TriggerJob.perform_later(
+              card_id: @card.id,
+              trigger_type: "card_updated",
+              context: { changes: @card.previous_changes.except("updated_at") }
+            )
             render json: { data: card_payload(@card) }
           else
             render_unprocessable(@card)
