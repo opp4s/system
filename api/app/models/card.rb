@@ -33,6 +33,11 @@ class Card < ApplicationRecord
 
   # Move o card para uma nova stage, registrando o evento de auditoria.
   def move_to_stage!(new_stage, user: nil, reason: nil)
+    if new_stage.won? && (value.nil? || value <= 0)
+      errors.add(:value, "é obrigatório para marcar como ganho")
+      raise ActiveRecord::RecordInvalid.new(self)
+    end
+
     old_stage = stage
 
     transaction do

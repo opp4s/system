@@ -15,9 +15,10 @@ Rails.application.routes.draw do
 
   namespace :api do
     namespace :v1 do
-      # Webhooks — sem autenticação JWT (identificação via account_id no payload)
+      # Webhooks — sem autenticação JWT
       namespace :webhooks do
-        post "chatwoot", to: "chatwoot#receive"
+        post "chatwoot",   to: "chatwoot#receive"
+        post "evolution",  to: "evolution#receive"
       end
 
       # Perfil do usuário autenticado
@@ -116,10 +117,21 @@ Rails.application.routes.draw do
         end
       end
 
+      # Definições de campos personalizados tipados
+      resources :custom_fields, only: [:index, :show, :create, :update, :destroy],
+                                controller: "custom_fields"
+
+      # WhatsApp — conexão via QR Code
+      namespace :whatsapp do
+        post "connect",    to: "connections#connect"
+        get  "status",     to: "connections#status"
+        post "disconnect", to: "connections#disconnect"
+      end
+
       # Dashboard KPIs
       get  "dashboard",        to: "dashboard#index"
       get  "dashboard/funnel", to: "dashboard#funnel"
-      get  "dashboard/agents", to: "dashboard#agents" 
+      get  "dashboard/agents", to: "dashboard#agents"
     end
   end
 end

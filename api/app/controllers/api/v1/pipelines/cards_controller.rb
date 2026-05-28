@@ -110,6 +110,8 @@ module Api
           render json: { data: card_payload(@card) }
         rescue ActiveRecord::RecordNotFound
           render json: { error: "Etapa não encontrada" }, status: :not_found
+        rescue ActiveRecord::RecordInvalid => e
+          render json: { error: e.record.errors.full_messages.first || e.message }, status: :unprocessable_entity
         end
 
         # POST /api/v1/pipelines/:pipeline_id/cards/:id/archive
