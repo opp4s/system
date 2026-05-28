@@ -77,35 +77,37 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { useChatwootStore } from '@/stores/chatwoot'
 import { useToast } from '@/composables/useToast'
 
 const workspaceStore = useWorkspaceStore()
+const chatwootStore = useChatwootStore()
 const toast = useToast()
+const router = useRouter()
 
-// Conexões simuladas para cada workspace
-const connections = ref({
-  1: false, // Workspace Principal começa deslogado
-  2: true   // Workspace Secundário começa conectado
+onMounted(async () => {
+  await chatwootStore.fetchSettings()
 })
 
 const isWhatsappConnected = computed(() => {
-  const currentId = workspaceStore.currentWorkspaceId
-  if (connections.value[currentId] === undefined) {
-    connections.value[currentId] = false
-  }
-  return connections.value[currentId]
+  return chatwootStore.configured
 })
 
 const connectWhatsapp = () => {
-  connections.value[workspaceStore.currentWorkspaceId] = true
-  toast.success('Dispositivo WhatsApp conectado com sucesso!')
+  router.push('/settings/whatsapp')
 }
 
-const disconnectWhatsapp = () => {
-  connections.value[workspaceStore.currentWorkspaceId] = false
-  toast.warning('WhatsApp desconectado do workspace.')
+const disconnectWhatsapp = async () => {
+  if (!confirm('Deseja realmente desconectar o WhatsApp?')) return
+  try {
+    await chatwootStore.disconnectChatwoot()
+    toast.warning('WhatsApp desconectado do workspace.')
+  } catch (e) {
+    toast.error('Erro ao desconectar.')
+  }
 }
 
 // Dados de KPIs dinâmicos para cada Workspace

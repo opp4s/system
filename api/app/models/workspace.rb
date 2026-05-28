@@ -8,6 +8,7 @@ class Workspace < ApplicationRecord
   has_many :cards,     dependent: :destroy
   has_one  :chatwoot_config, dependent: :destroy
   has_many :conversations,   dependent: :destroy
+  has_many :contacts,        dependent: :destroy
 
   validates :name, presence: true, length: { maximum: 100 }
   validates :slug, presence: true,

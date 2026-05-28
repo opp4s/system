@@ -39,7 +39,8 @@ const MOCK_CARDS = {
       days_in_stage: 2, 
       user: { name: 'João Agente', avatar: '' }, 
       labels: ['Alta Prioridade', 'Inbound'],
-      custom_fields: { 'WhatsApp': '+55 11 99999-9999', 'Origem': 'Google Search' }
+      custom_fields: { 'WhatsApp': '+55 11 99999-9999', 'Origem': 'Google Search' },
+      conversation_id: 123
     },
     { 
       id: 1002, 
@@ -349,12 +350,44 @@ export const usePipelineStore = defineStore('pipeline', {
             user: { name: 'Ana Souza' }
           },
           {
+            id: 10,
+            event_type: 'message',
+            message_type: 'incoming',
+            content: 'Olá! Gostaria de agendar uma demonstração da ferramenta para nosso time.',
+            created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+            sender_name: 'Carlos Souza'
+          },
+          {
+            id: 11,
+            event_type: 'message',
+            message_type: 'outgoing',
+            content: 'Com certeza, Carlos! Temos horários disponíveis amanhã às 14h ou 16h. Qual fica melhor?',
+            created_at: new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString(),
+            user: { name: 'João Agente' }
+          },
+          {
+            id: 12,
+            event_type: 'message',
+            message_type: 'private',
+            content: 'Cliente muito receptivo. Interessado no plano Enterprise (20 licenças).',
+            created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+            user: { name: 'João Agente' }
+          },
+          {
             id: 3,
             event_type: 'card_updated',
             title: 'Campos Atualizados',
             description: 'Informações do contato principal foram atualizadas.',
-            created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
             user: { name: 'João Agente' }
+          },
+          {
+            id: 13,
+            event_type: 'message',
+            message_type: 'incoming',
+            content: 'Perfeito, amanhã às 14h está ótimo para nós. Pode enviar o link do convite?',
+            created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+            sender_name: 'Carlos Souza'
           }
         ]
       } finally {
@@ -547,6 +580,48 @@ export const usePipelineStore = defineStore('pipeline', {
         console.error('Erro ao deletar etapa', error)
         this.stages = this.stages.filter(s => s.id !== stageId)
         throw error
+      }
+    },
+
+    async sendMessage(cardId, content, isPrivate) {
+      this.loading.mutation = true
+      try {
+        const response = await api.post(`/api/v1/cards/${cardId}/messages`, {
+          content,
+          private: isPrivate
+        })
+        const newMessage = response.data.data || response.data
+        const exists = this.cardTimeline.some(item => item.id === newMessage.id)
+        if (!exists) {
+          this.cardTimeline.push({
+            ...newMessage,
+            event_type: 'message',
+            message_type: newMessage.private ? 'private' : (newMessage.message_type || 'outgoing')
+          })
+        }
+        return newMessage
+      } catch (error) {
+        console.warn(`Erro ao enviar mensagem para o card ${cardId}. Utilizando fallback local.`, error)
+        
+        // Mock fallback local reativo (optimistic update)
+        const mockMsg = {
+          id: Date.now(),
+          event_type: 'message',
+          message_type: isPrivate ? 'private' : 'outgoing',
+          content: content,
+          created_at: new Date().toISOString(),
+          user: { name: 'João Agente' }
+        }
+        
+        this.cardTimeline.push(mockMsg)
+        
+        // Dispara o evento de scroll reativo
+        const customEvent = new CustomEvent('zavy-new-message', { detail: mockMsg })
+        window.dispatchEvent(customEvent)
+        
+        return mockMsg
+      } finally {
+        this.loading.mutation = false
       }
     }
   }

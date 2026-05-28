@@ -71,6 +71,14 @@ Rails.application.routes.draw do
         resources :messages, only: [:create], controller: "conversations/messages"
       end
 
+      # Contatos (espelho Chatwoot)
+      resources :contacts, only: [:index, :show] do
+        collection do
+          get  :search
+          post :sync
+        end
+      end
+
       # Integração Chatwoot
       namespace :chatwoot do
         get  "status",    to: "configs#status"

@@ -48,6 +48,11 @@ const routes = [
         component: () => import('@/views/DashboardPage.vue')
       },
       {
+        path: 'contacts',
+        name: 'contacts',
+        component: () => import('@/views/ContactsPage.vue')
+      },
+      {
         path: 'pipelines',
         name: 'pipelines',
         component: () => import('@/views/pipelines/PipelinesPage.vue'),
@@ -70,6 +75,15 @@ const routes = [
         path: 'pipelines/settings',
         name: 'pipeline-settings',
         component: () => import('@/views/pipelines/PipelineSettings.vue')
+      },
+      {
+        path: 'settings',
+        redirect: '/settings/whatsapp'
+      },
+      {
+        path: 'settings/whatsapp',
+        name: 'settings-whatsapp',
+        component: () => import('@/views/settings/WhatsAppSetup.vue')
       }
     ]
   },

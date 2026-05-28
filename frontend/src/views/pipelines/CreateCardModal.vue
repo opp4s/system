@@ -166,6 +166,10 @@ const props = defineProps({
   defaultStageId: {
     type: Number,
     default: null
+  },
+  initialContactData: {
+    type: Object,
+    default: null
   }
 })
 
@@ -193,9 +197,17 @@ const resetForm = () => {
   form.value = null
   // Pré-seleciona a etapa default ou a primeira do funil
   form.stage_id = props.defaultStageId || (pipelineStore.stages[0]?.id || null)
-  form.contact_name = ''
-  form.contact_phone = ''
-  form.contact_email = ''
+  
+  if (props.initialContactData) {
+    form.contact_name = props.initialContactData.contact_name || ''
+    form.contact_phone = props.initialContactData.contact_phone || ''
+    form.contact_email = props.initialContactData.contact_email || ''
+  } else {
+    form.contact_name = ''
+    form.contact_phone = ''
+    form.contact_email = ''
+  }
+  
   errors.title = ''
   errors.email = ''
 }
