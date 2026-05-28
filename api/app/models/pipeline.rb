@@ -1,7 +1,8 @@
 class Pipeline < ApplicationRecord
   belongs_to :workspace
   has_many   :stages, -> { order(:position) }, dependent: :destroy
-  has_many   :cards,  dependent: :destroy
+  has_many   :cards,       dependent: :destroy
+  has_many   :automations, dependent: :destroy
 
   validates :name,     presence: true, length: { maximum: 100 }
   validates :color,    format: { with: /\A#[0-9A-Fa-f]{6}\z/, message: "deve ser um hex válido (#RRGGBB)" }

@@ -48,6 +48,18 @@ Rails.application.routes.draw do
           end
         end
 
+        # Automações
+        resources :automations, only: [:index, :show, :create, :update, :destroy],
+                                controller: "pipelines/automations" do
+          member do
+            post :toggle
+            get  :logs
+          end
+          collection do
+            get :available_fields
+          end
+        end
+
         # Timeline de eventos do card
         get "cards/:card_id/timeline",
             to:  "pipelines/card_events#timeline",

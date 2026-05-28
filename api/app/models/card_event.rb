@@ -10,6 +10,11 @@ class CardEvent < ApplicationRecord
     message_sent
     conversation_linked
     conversation_unlinked
+    automation_message_sent
+    automation_moved
+    automation_assigned
+    automation_field_updated
+    task_created
   ].freeze
 
   belongs_to :card
@@ -18,6 +23,6 @@ class CardEvent < ApplicationRecord
 
   validates :event_type, inclusion: { in: TYPES }
 
-  scope :chronological,        -> { order(created_at: :asc) }
+  scope :chronological,         -> { order(created_at: :asc) }
   scope :reverse_chronological, -> { order(created_at: :desc) }
 end

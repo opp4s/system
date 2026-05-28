@@ -623,6 +623,64 @@ export const usePipelineStore = defineStore('pipeline', {
       } finally {
         this.loading.mutation = false
       }
+    },
+
+    async linkConversation(cardId, conversationId) {
+      this.loading.mutation = true
+      try {
+        const response = await api.post(`/api/v1/cards/${cardId}/link_conversation`, {
+          conversation_id: conversationId
+        })
+        
+        const cardIdx = this.cards.findIndex(c => c.id === cardId)
+        if (cardIdx !== -1) {
+          this.cards[cardIdx].conversation_id = conversationId
+        }
+        
+        return response.data?.data || response.data
+      } catch (error) {
+        console.warn(`Erro ao vincular conversa ${conversationId} no card ${cardId}. Utilizando fallback local.`, error)
+        
+        const cardIdx = this.cards.findIndex(c => c.id === cardId)
+        if (cardIdx !== -1) {
+          this.cards[cardIdx].conversation_id = conversationId
+        }
+        
+        if (error.response?.status === 404) {
+          return { success: true }
+        }
+        throw error
+      } finally {
+        this.loading.mutation = false
+      }
+    },
+
+    async unlinkConversation(cardId) {
+      this.loading.mutation = true
+      try {
+        const response = await api.delete(`/api/v1/cards/${cardId}/unlink_conversation`)
+        
+        const cardIdx = this.cards.findIndex(c => c.id === cardId)
+        if (cardIdx !== -1) {
+          this.cards[cardIdx].conversation_id = null
+        }
+        
+        return response.data?.data || response.data
+      } catch (error) {
+        console.warn(`Erro ao desvincular conversa do card ${cardId}. Utilizando fallback local.`, error)
+        
+        const cardIdx = this.cards.findIndex(c => c.id === cardId)
+        if (cardIdx !== -1) {
+          this.cards[cardIdx].conversation_id = null
+        }
+        
+        if (error.response?.status === 404) {
+          return { success: true }
+        }
+        throw error
+      } finally {
+        this.loading.mutation = false
+      }
     }
   }
 })
