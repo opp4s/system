@@ -94,11 +94,13 @@ export const usePipelineStore = defineStore('pipeline', {
     currentPipelineId: null,
     stages: [],
     cards: [],
+    cardTimeline: [],
     showFinalStages: true,
     loading: {
       pipelines: false,
       stages: false,
       cards: false,
+      timeline: false,
       mutation: false
     }
   }),
@@ -249,6 +251,47 @@ export const usePipelineStore = defineStore('pipeline', {
         return mockNewCard
       } finally {
         this.loading.mutation = false
+      }
+    },
+
+    // Busca a timeline de atividades de um card
+    async fetchCardTimeline(pipelineId, cardId) {
+      this.loading.timeline = true
+      this.cardTimeline = []
+      try {
+        const response = await api.get(`/api/v1/pipelines/${pipelineId}/cards/${cardId}/timeline`)
+        this.cardTimeline = response.data.data || response.data
+      } catch (error) {
+        console.warn(`Erro ao buscar timeline do card ${cardId}. Usando dados mockados.`, error)
+        // TODO: replace mock with real api when endpoint is ready
+        this.cardTimeline = [
+          {
+            id: 1,
+            event_type: 'card_created',
+            title: 'Negócio Criado',
+            description: 'O negócio foi registrado no sistema.',
+            created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            user: { name: 'João Agente' }
+          },
+          {
+            id: 2,
+            event_type: 'card_moved',
+            title: 'Etapa Alterada',
+            description: 'Negócio movido para a etapa Qualificado.',
+            created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            user: { name: 'Ana Souza' }
+          },
+          {
+            id: 3,
+            event_type: 'card_updated',
+            title: 'Campos Atualizados',
+            description: 'Informações do contato principal foram atualizadas.',
+            created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+            user: { name: 'João Agente' }
+          }
+        ]
+      } finally {
+        this.loading.timeline = false
       }
     }
   }
