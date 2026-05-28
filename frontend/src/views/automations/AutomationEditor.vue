@@ -108,53 +108,7 @@
                 <p class="text-[11px] text-gray-400">Escolha uma ou mais ações que serão executadas sequencialmente quando o gatilho for disparado.</p>
               </div>
 
-              <!-- Configurador de Ações (Placeholder Premium) -->
-              <div class="bg-white border border-gray-150 rounded-2xl p-5 shadow-sm space-y-4">
-                <div class="flex items-center justify-between text-xs pb-3 border-b border-gray-100">
-                  <span class="font-bold text-gray-800">Ações Configuradas</span>
-                  <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-[9px] font-bold uppercase tracking-wider">Breve (Dia 18)</span>
-                </div>
-
-                <!-- Listagem de Ações Atuais se existirem na edição -->
-                <div v-if="localAutomation.actions && localAutomation.actions.length > 0" class="space-y-2.5">
-                  <div 
-                    v-for="(action, idx) in localAutomation.actions" 
-                    :key="action.id || idx"
-                    class="p-4 bg-slate-50 border border-gray-150 rounded-xl flex items-center justify-between shadow-sm"
-                  >
-                    <div class="flex items-center space-x-3 text-xs">
-                      <span class="text-base">{{ getActionIcon(action.action_type) }}</span>
-                      <div>
-                        <span class="font-bold text-gray-900 block leading-tight">{{ getActionTypeLabel(action.action_type) }}</span>
-                        <span class="text-[10px] text-gray-400 mt-0.5 block font-medium max-w-md truncate">
-                          {{ action.action_config?.template || 'Ação configurada automaticamente' }}
-                        </span>
-                      </div>
-                    </div>
-                    <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Ação #{{ idx + 1 }}</span>
-                  </div>
-                </div>
-
-                <div v-else class="p-4 bg-slate-50 border border-gray-150 rounded-xl flex items-center justify-between text-xs text-gray-500 font-semibold italic">
-                  Adicione sua primeira ação (ex: enviar WhatsApp) para que o fluxo tenha efeito.
-                </div>
-
-                <!-- Grid de Ações para Adicionar (Botões Simulação) -->
-                <div class="grid grid-cols-2 gap-3.5 pt-2">
-                  <button
-                    v-for="opt in actionOptions"
-                    :key="opt.type"
-                    type="button"
-                    class="p-3 border border-gray-200 hover:border-slate-800 hover:bg-slate-50 text-left rounded-xl transition-all flex items-center space-x-2.5"
-                  >
-                    <span class="text-base p-1.5 bg-gray-50 rounded-lg group-hover:bg-white">{{ opt.icon }}</span>
-                    <div>
-                      <span class="text-[11px] font-bold text-gray-800 block">{{ opt.label }}</span>
-                      <span class="text-[9px] text-gray-400 block font-medium truncate max-w-[120px]">{{ opt.desc }}</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
+              <ActionConfigurator v-model="localAutomation.actions" />
             </section>
 
             <!-- STEP 4: REVISÃO & SALVAMENTO (REVIEW) -->
@@ -204,7 +158,7 @@
                           Executar sequencialmente {{ localAutomation.actions.length }} ação(ões):
                           <ul class="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-gray-500">
                             <li v-for="(act, idx) in localAutomation.actions" :key="idx">
-                              <strong>{{ getActionTypeLabel(act.action_type) }}</strong>: {{ act.action_config?.template || 'Execução automatizada' }}
+                              <strong>{{ getActionTypeLabel(act.action_type) }}</strong>: {{ getNaturalActionText(act) }}
                             </li>
                           </ul>
                         </span>
@@ -293,6 +247,7 @@ import { useAutomationStore } from '@/stores/automation'
 import { usePipelineStore } from '@/stores/pipeline'
 import { useToast } from '@/composables/useToast'
 import TriggerSelector from './TriggerSelector.vue'
+import ActionConfigurator from './ActionConfigurator.vue'
 import { 
   Zap, 
   X, 
@@ -481,20 +436,27 @@ const getFieldLabel = (field) => {
   }
 }
 
-// Helpers para placeholders de ações
-const actionOptions = [
-  { type: 'send_whatsapp', label: 'Enviar WhatsApp', desc: 'Dispare mensagens', icon: '💬' },
-  { type: 'create_task', label: 'Criar Tarefa', desc: 'Agende follow-ups', icon: '📋' },
-  { type: 'move_card', label: 'Mover Negócio', desc: 'Mude a etapa do lead', icon: '🔀' },
-  { type: 'assign_agent', label: 'Atribuir Agente', desc: 'Troque o responsável', icon: '👤' }
+// Helpers para ações
+const mockAgents = [
+  { id: 10001, name: 'João Agente' },
+  { id: 10002, name: 'Ana Souza' },
+  { id: 10003, name: 'Carlos Consultor' },
+  { id: 10004, name: 'Mariana Gerente' }
 ]
+
+const getAgentName = (id) => {
+  const agent = mockAgents.find(a => a.id === id)
+  return agent ? agent.name : ''
+}
 
 const getActionIcon = (type) => {
   switch (type) {
     case 'send_whatsapp': return '💬'
-    case 'create_task': return '📋'
     case 'move_card': return '🔀'
     case 'assign_agent': return '👤'
+    case 'create_task': return '📋'
+    case 'webhook': return '🔗'
+    case 'update_field': return '✏️'
     default: return '⚙️'
   }
 }
@@ -502,10 +464,48 @@ const getActionIcon = (type) => {
 const getActionTypeLabel = (type) => {
   switch (type) {
     case 'send_whatsapp': return 'Enviar WhatsApp'
-    case 'create_task': return 'Criar Tarefa'
     case 'move_card': return 'Mover Negócio'
     case 'assign_agent': return 'Atribuir Agente'
+    case 'create_task': return 'Criar Tarefa'
+    case 'webhook': return 'Enviar Webhook API'
+    case 'update_field': return 'Atualizar Campo'
     default: return 'Ação'
+  }
+}
+
+const getNaturalActionText = (action) => {
+  const type = action.action_type
+  const config = action.action_config
+
+  switch (type) {
+    case 'send_whatsapp':
+      return config.template 
+        ? `Mensagem: "${config.template}"` 
+        : 'Mensagem de WhatsApp não configurada'
+    case 'move_card': {
+      if (!config.stage_id) return 'Etapa de destino não selecionada'
+      const stage = pipelineStore.stages.find(s => s.id === config.stage_id)
+      return `Mover negócio para etapa: "${stage ? stage.name : `Etapa #${config.stage_id}`}"`
+    }
+    case 'assign_agent':
+      return config.assignment_type === 'round_robin'
+        ? 'Distribuir automaticamente por Round-robin'
+        : `Atribuir para o agente específico: ${getAgentName(config.agent_id) || 'Selecionar corretor'}`
+    case 'create_task':
+      return config.title 
+        ? `Criar tarefa: "${config.title}" (Vence em ${config.due_in_days || 0} dias úteis)` 
+        : 'Criar tarefa em aberto'
+    case 'webhook':
+      return config.url 
+        ? `Disparar Webhook HTTP POST para: ${config.url}` 
+        : 'URL do Webhook não preenchida'
+    case 'update_field': {
+      if (!config.field) return 'Nenhum campo selecionado'
+      const fieldName = getFieldLabel(config.field)
+      return `Atualizar campo "${fieldName}" para: "${config.value || 'vazio'}"`
+    }
+    default:
+      return 'Configuração da ação'
   }
 }
 </script>
