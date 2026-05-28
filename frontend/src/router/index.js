@@ -46,6 +46,30 @@ const routes = [
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('@/views/DashboardPage.vue')
+      },
+      {
+        path: 'pipelines',
+        name: 'pipelines',
+        component: () => import('@/views/pipelines/PipelinesPage.vue'),
+        children: [
+          {
+            path: ':id',
+            name: 'pipelines-detail',
+            component: () => import('@/views/pipelines/KanbanBoard.vue'),
+            children: [
+              {
+                path: 'cards/:cardId',
+                name: 'card-detail',
+                component: () => import('@/views/pipelines/CardDetail.vue')
+              }
+            ]
+          }
+        ]
+      },
+      {
+        path: 'pipelines/settings',
+        name: 'pipeline-settings',
+        component: () => import('@/views/pipelines/PipelineSettings.vue')
       }
     ]
   },

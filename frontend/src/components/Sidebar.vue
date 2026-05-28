@@ -62,7 +62,7 @@ import { useUiStore } from '@/stores/ui'
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher.vue'
 import { 
   LayoutDashboard, 
-  GitFork, 
+  Columns3, 
   Users, 
   Radio, 
   Zap, 
@@ -85,7 +85,7 @@ const isCollapsed = computed(() => {
 
 const menuItems = ref([
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Pipelines', path: '/pipelines', icon: GitFork },
+  { name: 'Pipelines', path: '/pipelines', icon: Columns3 },
   { name: 'Contatos', path: '/contacts', icon: Users },
   { name: 'Broadcast', path: '/broadcast', icon: Radio },
   { name: 'Automações', path: '/automations', icon: Zap },
