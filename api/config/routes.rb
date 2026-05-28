@@ -1,5 +1,6 @@
 Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
+  mount ActionCable.server => "/cable"
 
   # Cria o mapping Warden (:user) sem gerar as rotas padrão do Devise
   devise_for :users, skip: :all

@@ -7,12 +7,21 @@ module Api
         before_action :set_card, only: [:show, :update, :destroy, :move, :archive]
 
         # GET /api/v1/pipelines/:pipeline_id/cards
+        # Filtros: ?stage_id, ?assigned_agent_id, ?agent_id (alias),
+        #          ?min_value, ?max_value, ?min_days, ?max_days, ?archived
         def index
           authorize Card.new(workspace: current_workspace, pipeline: @pipeline), :index?
 
-          cards = @pipeline.cards.active.includes(:stage, :assigned_agent)
-          cards = cards.in_stage(params[:stage_id])                        if params[:stage_id].present?
-          cards = cards.where(assigned_agent_id: params[:agent_id])        if params[:agent_id].present?
+          base  = params[:archived] == "true" ? @pipeline.cards.archived : @pipeline.cards.active
+          cards = base.includes(:stage, :assigned_agent)
+
+          cards = cards.in_stage(params[:stage_id])                                    if params[:stage_id].present?
+          cards = cards.where(assigned_agent_id: params[:assigned_agent_id])           if params[:assigned_agent_id].present?
+          cards = cards.where(assigned_agent_id: params[:agent_id])                    if params[:agent_id].present? && params[:assigned_agent_id].blank?
+          cards = cards.where("value >= ?", params[:min_value].to_f)                   if params[:min_value].present?
+          cards = cards.where("value <= ?", params[:max_value].to_f)                   if params[:max_value].present?
+          cards = cards.where("EXTRACT(EPOCH FROM (NOW() - stage_changed_at)) / 86400 >= ?", params[:min_days].to_i) if params[:min_days].present?
+          cards = cards.where("EXTRACT(EPOCH FROM (NOW() - stage_changed_at)) / 86400 <= ?", params[:max_days].to_i) if params[:max_days].present?
 
           render json: { data: cards.ordered.map { |c| card_payload(c) } }
         end
@@ -37,6 +46,8 @@ module Api
               user_id: current_user.id, event_type: "card_created",
               payload: { title: card.title, stage_id: card.stage_id, value: card.value.to_f }
             )
+            invalidate_stage_cache(card.stage_id)
+            broadcast_pipeline_event("card_created", card)
             render json: { data: card_payload(card) }, status: :created
           else
             render_unprocessable(card)
@@ -55,6 +66,7 @@ module Api
               user_id: current_user.id, event_type: "card_updated",
               payload: { changes: @card.previous_changes.except("updated_at") }
             )
+            broadcast_pipeline_event("card_updated", @card)
             render json: { data: card_payload(@card) }
           else
             render_unprocessable(@card)
@@ -64,15 +76,22 @@ module Api
         # DELETE /api/v1/pipelines/:pipeline_id/cards/:id
         def destroy
           authorize @card
+          stage_id = @card.stage_id
+          broadcast_pipeline_event("card_deleted", @card)
           @card.destroy
+          invalidate_stage_cache(stage_id)
           head :no_content
         end
 
         # POST /api/v1/pipelines/:pipeline_id/cards/:id/move
         def move
           authorize @card, :move?
+          old_stage_id = @card.stage_id
           stage = @pipeline.stages.find(params.require(:stage_id))
           @card.move_to_stage!(stage, user: current_user, reason: params[:lost_reason])
+          invalidate_stage_cache(old_stage_id)
+          invalidate_stage_cache(@card.stage_id)
+          broadcast_pipeline_event("card_moved", @card)
           render json: { data: card_payload(@card) }
         rescue ActiveRecord::RecordNotFound
           render json: { error: "Etapa não encontrada" }, status: :not_found
@@ -82,6 +101,8 @@ module Api
         def archive
           authorize @card, :archive?
           @card.archive!(user: current_user)
+          invalidate_stage_cache(@card.stage_id)
+          broadcast_pipeline_event("card_archived", @card)
           head :no_content
         end
 
@@ -141,6 +162,17 @@ module Api
           }
           payload[:events_count] = card.card_events.count if detailed
           payload
+        end
+
+        def invalidate_stage_cache(stage_id)
+          Rails.cache.delete("stage_cards_count_#{stage_id}")
+        end
+
+        def broadcast_pipeline_event(event_type, card)
+          ActionCable.server.broadcast(
+            "pipeline_#{card.pipeline_id}",
+            { event: event_type, card: card_payload(card) }
+          )
         end
       end
     end

@@ -46,11 +46,12 @@ module Auth
 
     def user_payload(user, workspace = nil)
       payload = {
-        id:         user.id,
-        email:      user.email,
-        name:       user.name,
-        avatar_url: user.avatar_url,
-        created_at: user.created_at
+        id:            user.id,
+        email:         user.email,
+        name:          user.name,
+        avatar_url:    user.avatar_url,
+        pubsub_token:  user.pubsub_token,
+        created_at:    user.created_at
       }
       if workspace
         payload[:workspace] = {

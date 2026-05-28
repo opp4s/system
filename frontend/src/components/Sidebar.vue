@@ -1,13 +1,31 @@
 <template>
-  <aside class="w-60 bg-[#1E1E2E] text-slate-300 flex flex-col h-full border-r border-slate-800 shrink-0">
+  <aside 
+    class="bg-[#1E1E2E] text-slate-300 flex flex-col h-full border-r border-slate-800 shrink-0 transition-all duration-300"
+    :class="isCollapsed ? 'w-20' : 'w-60'"
+  >
     <!-- Header / Logo -->
-    <div class="h-16 flex items-center px-6 border-b border-slate-800/80">
-      <div class="flex items-center space-x-2 text-white font-extrabold text-xl">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-zavy-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="h-16 flex items-center justify-between px-4 border-b border-slate-800/80">
+      <div class="flex items-center space-x-2 text-white font-extrabold text-xl overflow-hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-zavy-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
-        <span class="tracking-tight">Zavy<span class="text-zavy-500">.</span></span>
+        <span v-if="!isCollapsed" class="tracking-tight transition-all duration-200">
+          Zavy<span class="text-zavy-500">.</span>
+        </span>
       </div>
+      
+      <!-- Botão Toggle de Desktop -->
+      <button 
+        @click="uiStore.toggleSidebar"
+        class="hidden md:block text-slate-500 hover:text-slate-300 transition-colors focus:outline-none"
+      >
+        <svg v-if="isCollapsed" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+        <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
     </div>
 
     <!-- Navegação -->
@@ -16,52 +34,58 @@
         v-for="item in menuItems"
         :key="item.path"
         :to="item.path"
-        class="flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150"
-        :class="isActive(item.path) 
-          ? 'bg-zavy-500/10 text-zavy-400 font-semibold' 
-          : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'"
+        class="flex items-center rounded-xl text-sm font-medium transition-all duration-150"
+        :class="[
+          isActive(item.path) 
+            ? 'bg-zavy-500/10 text-zavy-400 font-semibold' 
+            : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200',
+          isCollapsed ? 'justify-center p-3' : 'space-x-3 px-4 py-3'
+        ]"
+        :title="isCollapsed ? item.name : ''"
       >
-        <component :is="item.icon" class="h-5 w-5" />
-        <span>{{ item.name }}</span>
+        <component :is="item.icon" class="h-5 w-5 shrink-0" />
+        <span v-if="!isCollapsed" class="truncate">{{ item.name }}</span>
       </router-link>
     </nav>
 
-    <!-- Workspace Switcher no Rodapé (Placeholder) -->
+    <!-- Workspace Switcher no Rodapé -->
     <div class="p-3 border-t border-slate-800/80 bg-slate-900/20">
-      <button class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-800/30 hover:bg-slate-800/60 border border-slate-850 transition-all duration-150 text-left">
-        <div class="flex items-center space-x-3 min-w-0">
-          <div class="h-8 w-8 rounded-lg bg-zavy-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
-            ZW
-          </div>
-          <div class="min-w-0">
-            <p class="text-xs font-semibold text-white truncate">Workspace Principal</p>
-            <p class="text-[10px] text-slate-500 truncate">Plano Pro</p>
-          </div>
-        </div>
-        <component :is="ChevronDown" class="h-4 w-4 text-slate-500 shrink-0 ml-1" />
-      </button>
+      <WorkspaceSwitcher :force-expand="forceExpand" />
     </div>
   </aside>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUiStore } from '@/stores/ui'
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher.vue'
 import { 
   LayoutDashboard, 
-  GitFork, 
+  Columns3, 
   Users, 
   Radio, 
   Zap, 
-  Settings, 
-  ChevronDown 
+  Settings
 } from 'lucide-vue-next'
 
+const props = defineProps({
+  forceExpand: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const route = useRoute()
+const uiStore = useUiStore()
+
+const isCollapsed = computed(() => {
+  return uiStore.sidebarCollapsed && !props.forceExpand
+})
 
 const menuItems = ref([
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Pipelines', path: '/pipelines', icon: GitFork },
+  { name: 'Pipelines', path: '/pipelines', icon: Columns3 },
   { name: 'Contatos', path: '/contacts', icon: Users },
   { name: 'Broadcast', path: '/broadcast', icon: Radio },
   { name: 'Automações', path: '/automations', icon: Zap },

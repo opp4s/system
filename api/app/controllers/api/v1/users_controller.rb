@@ -46,13 +46,14 @@ module Api
 
       def me_payload(user)
         {
-          id:         user.id,
-          email:      user.email,
-          name:       user.name,
-          avatar_url: user.avatar_url,
-          created_at: user.created_at,
-          updated_at: user.updated_at,
-          workspaces: user_workspaces(user)
+          id:            user.id,
+          email:         user.email,
+          name:          user.name,
+          avatar_url:    user.avatar_url,
+          pubsub_token:  user.pubsub_token,
+          created_at:    user.created_at,
+          updated_at:    user.updated_at,
+          workspaces:    user_workspaces(user)
         }
       end
 

@@ -77,6 +77,12 @@ module Api
           )
         end
 
+        def cached_cards_count(stage)
+          Rails.cache.fetch("stage_cards_count_#{stage.id}", expires_in: 30.seconds) do
+            stage.cards.active.count
+          end
+        end
+
         def stage_payload(stage)
           {
             id:              stage.id,
@@ -87,7 +93,7 @@ module Api
             stage_type:      stage.stage_type,
             win_probability: stage.win_probability,
             loss_reasons:    stage.loss_reasons,
-            cards_count:     stage.cards.active.size,
+            cards_count:     cached_cards_count(stage),
             created_at:      stage.created_at,
             updated_at:      stage.updated_at
           }

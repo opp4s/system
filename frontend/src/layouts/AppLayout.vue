@@ -10,7 +10,7 @@
       
       <!-- Gaveta Lateral -->
       <div class="relative flex flex-col w-60 h-full bg-[#1E1E2E] shadow-2xl transition-transform duration-200">
-        <Sidebar class="h-full border-r-0" />
+        <Sidebar class="h-full border-r-0" :force-expand="true" />
       </div>
     </div>
 
@@ -51,10 +51,10 @@
           <!-- Avatar e Perfil do Usuário com Dropdown -->
           <div class="relative">
             <button @click="profileDropdownOpen = !profileDropdownOpen" class="flex items-center space-x-2.5 p-1.5 hover:bg-gray-50 rounded-xl transition-all duration-150">
-              <div class="h-8 w-8 rounded-lg bg-zavy-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                U
+              <div class="h-8 w-8 rounded-lg bg-zavy-500 text-white flex items-center justify-center font-bold text-sm shadow-sm uppercase">
+                {{ userInitials }}
               </div>
-              <span class="hidden md:inline text-sm font-semibold text-gray-700">Usuário</span>
+              <span class="hidden md:inline text-sm font-semibold text-gray-700">{{ userName }}</span>
               <component :is="ChevronDown" class="h-4 w-4 text-gray-400" />
             </button>
 
@@ -64,7 +64,7 @@
                 <component :is="User" class="h-4 w-4 text-gray-400" />
                 <span>Meu Perfil</span>
               </button>
-              <button @click="logout" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50/50 flex items-center space-x-2">
+              <button @click="handleLogout" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50/50 flex items-center space-x-2">
                 <component :is="LogOut" class="h-4 w-4 text-rose-500" />
                 <span>Sair</span>
               </button>
@@ -85,6 +85,8 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Sidebar from '@/components/Sidebar.vue'
+import { useAuth } from '@/composables/useAuth'
+import { useAuthStore } from '@/stores/auth'
 import { 
   Menu, 
   Search, 
@@ -96,6 +98,8 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
+const { currentUser } = useAuth()
 
 const mobileSidebarOpen = ref(false)
 const profileDropdownOpen = ref(false)
@@ -104,8 +108,17 @@ const currentRouteName = computed(() => {
   return route.name || ''
 })
 
-const logout = () => {
-  localStorage.removeItem('auth')
+const userName = computed(() => {
+  return currentUser.value?.name || 'Usuário Zavy'
+})
+
+const userInitials = computed(() => {
+  const name = currentUser.value?.name || 'U'
+  return name.substring(0, 1).toUpperCase()
+})
+
+const handleLogout = () => {
+  authStore.logout()
   router.push({ name: 'login' })
 }
 </script>

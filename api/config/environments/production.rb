@@ -38,6 +38,10 @@ Rails.application.configure do
   config.force_ssl = false
   config.assume_ssl = true
 
+  # ActionCable: permite conexões da origem do app e localhost
+  # A auth real é feita via pubsub_token — forgery protection é redundante
+  config.action_cable.disable_request_forgery_protection = true
+
   # Log to STDOUT by default
   config.logger = ActiveSupport::Logger.new(STDOUT)
     .tap  { |logger| logger.formatter = ::Logger::Formatter.new }
@@ -51,8 +55,12 @@ Rails.application.configure do
   # want to log everything, set the level to "debug".
   config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
 
-  # Use a different cache store in production.
-  # config.cache_store = :mem_cache_store
+  config.cache_store = :redis_cache_store, {
+    url:        ENV.fetch("REDIS_URL", "redis://zavy-redis:6379/2"),
+    namespace:  "zavy_cache",
+    expires_in: 1.hour,
+    pool:       false
+  }
 
   # Use a real queuing backend for Active Job (and separate queues per environment).
   # config.active_job.queue_adapter = :resque

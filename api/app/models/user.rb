@@ -13,10 +13,15 @@ class User < ApplicationRecord
   validates :email, presence: true, uniqueness: { case_sensitive: false }
 
   before_create :set_jti
+  before_create :set_pubsub_token
 
   private
 
   def set_jti
     self.jti ||= SecureRandom.uuid
+  end
+
+  def set_pubsub_token
+    self.pubsub_token ||= SecureRandom.hex(32)
   end
 end
