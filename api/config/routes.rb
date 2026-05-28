@@ -41,6 +41,11 @@ Rails.application.routes.draw do
             post :archive
           end
         end
+
+        # Timeline de eventos do card
+        get "cards/:card_id/timeline",
+            to:  "pipelines/card_events#timeline",
+            as:  :card_timeline
       end
     end
   end
