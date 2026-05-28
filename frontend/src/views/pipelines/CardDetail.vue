@@ -272,26 +272,8 @@
             </div>
           </div>
 
-          <!-- Compositor de Mensagens / Notas (Footer placeholder) -->
-          <footer class="p-4 border-t border-gray-150 bg-gray-50/50">
-            <div class="flex items-center space-x-2">
-              <input 
-                type="text" 
-                placeholder="Escreva uma nota interna ou envie mensagem..." 
-                disabled
-                class="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none cursor-not-allowed opacity-60" 
-              />
-              <button 
-                disabled 
-                class="p-2.5 bg-slate-900 text-white rounded-xl cursor-not-allowed opacity-50"
-              >
-                <component :is="Send" class="h-4 w-4" />
-              </button>
-            </div>
-            <p class="text-[10px] text-center text-gray-400 mt-1.5">
-              Composer de mensagens funcional a partir do Sprint 3 (Canais de Chat).
-            </p>
-          </footer>
+          <!-- Compositor de Mensagens / Notas (Sprint 3) -->
+          <CardComposer :card="card" @message-sent="scrollToBottom" />
         </section>
       </div>
 
@@ -318,6 +300,7 @@ import { usePipelineStore } from '@/stores/pipeline'
 import { usePipelineSocket } from '@/composables/usePipelineSocket'
 import StageSwitcher from './StageSwitcher.vue'
 import LossReasonModal from './LossReasonModal.vue'
+import CardComposer from './CardComposer.vue'
 import { X, Plus, MoveRight, HelpCircle, FileText, Send, MessageSquare } from 'lucide-vue-next'
 
 const route = useRoute()

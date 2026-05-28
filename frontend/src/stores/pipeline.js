@@ -39,7 +39,8 @@ const MOCK_CARDS = {
       days_in_stage: 2, 
       user: { name: 'João Agente', avatar: '' }, 
       labels: ['Alta Prioridade', 'Inbound'],
-      custom_fields: { 'WhatsApp': '+55 11 99999-9999', 'Origem': 'Google Search' }
+      custom_fields: { 'WhatsApp': '+55 11 99999-9999', 'Origem': 'Google Search' },
+      conversation_id: 123
     },
     { 
       id: 1002, 
@@ -579,6 +580,48 @@ export const usePipelineStore = defineStore('pipeline', {
         console.error('Erro ao deletar etapa', error)
         this.stages = this.stages.filter(s => s.id !== stageId)
         throw error
+      }
+    },
+
+    async sendMessage(cardId, content, isPrivate) {
+      this.loading.mutation = true
+      try {
+        const response = await api.post(`/api/v1/cards/${cardId}/messages`, {
+          content,
+          private: isPrivate
+        })
+        const newMessage = response.data.data || response.data
+        const exists = this.cardTimeline.some(item => item.id === newMessage.id)
+        if (!exists) {
+          this.cardTimeline.push({
+            ...newMessage,
+            event_type: 'message',
+            message_type: newMessage.private ? 'private' : (newMessage.message_type || 'outgoing')
+          })
+        }
+        return newMessage
+      } catch (error) {
+        console.warn(`Erro ao enviar mensagem para o card ${cardId}. Utilizando fallback local.`, error)
+        
+        // Mock fallback local reativo (optimistic update)
+        const mockMsg = {
+          id: Date.now(),
+          event_type: 'message',
+          message_type: isPrivate ? 'private' : 'outgoing',
+          content: content,
+          created_at: new Date().toISOString(),
+          user: { name: 'João Agente' }
+        }
+        
+        this.cardTimeline.push(mockMsg)
+        
+        // Dispara o evento de scroll reativo
+        const customEvent = new CustomEvent('zavy-new-message', { detail: mockMsg })
+        window.dispatchEvent(customEvent)
+        
+        return mockMsg
+      } finally {
+        this.loading.mutation = false
       }
     }
   }
