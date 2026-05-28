@@ -12,6 +12,7 @@ class Card < ApplicationRecord
 
   # Garante que stage e pipeline pertencem ao mesmo workspace
   validate :stage_belongs_to_pipeline
+  validate :custom_fields_must_be_hash
 
   before_create :set_stage_changed_at
 
@@ -80,6 +81,12 @@ class Card < ApplicationRecord
 
     unless stage.pipeline_id == pipeline.id
       errors.add(:stage, "não pertence ao pipeline selecionado")
+    end
+  end
+
+  def custom_fields_must_be_hash
+    unless custom_fields.is_a?(Hash)
+      errors.add(:custom_fields, "deve ser um objeto JSON")
     end
   end
 end

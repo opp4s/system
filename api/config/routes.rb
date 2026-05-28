@@ -46,6 +46,13 @@ Rails.application.routes.draw do
         get "cards/:card_id/timeline",
             to:  "pipelines/card_events#timeline",
             as:  :card_timeline
+
+        # Custom fields dedicado (merge semântico)
+        get   "cards/:card_id/custom_fields",
+              to:  "pipelines/card_custom_fields#show",
+              as:  :card_custom_fields
+        patch "cards/:card_id/custom_fields",
+              to:  "pipelines/card_custom_fields#update"
       end
     end
   end
