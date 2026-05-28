@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import api from '@/plugins/axios'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -6,97 +7,108 @@ export const useAuthStore = defineStore('auth', {
     token: null,
   }),
   actions: {
-    // Simulação de login com atraso de rede
+    // Login real enviando credenciais sob a chave 'user'
     async login(email, password) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await api.post('/auth/login', {
+        user: { email, password }
+      })
 
-      if (email === 'erro@zavycrm.com') {
-        throw new Error('E-mail ou senha incorretos.')
-      }
+      this.token = response.data.token
+      this.user = response.data.data
 
-      const mockToken = 'mocked_jwt_token_zavy_crm_2026'
-      const mockUser = {
-        id: 1,
-        name: 'Carlos Zavy',
-        email: email,
-        role: 'admin',
-        avatar: null
-      }
+      // Carrega informações completas de perfil e workspaces
+      await this.fetchMe()
 
-      this.token = mockToken
-      this.user = mockUser
-
-      return { user: mockUser, token: mockToken }
+      return response.data
     },
 
-    // Simulação de cadastro com auto-login
+    // Cadastro real com criação de workspace padrão no Rails
     async register(name, email, password) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await api.post('/auth/register', {
+        user: { 
+          name, 
+          email, 
+          password, 
+          password_confirmation: password 
+        }
+      })
 
-      if (email === 'erro@zavycrm.com') {
-        throw new Error('Este e-mail já está sendo utilizado.')
-      }
+      this.token = response.data.token
+      this.user = response.data.data
 
-      const mockToken = 'mocked_jwt_token_new_user'
-      const mockUser = {
-        id: 2,
-        name: name,
-        email: email,
-        role: 'admin',
-        avatar: null
-      }
+      // Carrega informações completas de perfil e workspaces
+      await this.fetchMe()
 
-      this.token = mockToken
-      this.user = mockUser
-
-      return { user: mockUser, token: mockToken }
+      return response.data
     },
 
-    // Ação de logout limpando estados e dados persistidos
-    logout() {
-      this.token = null
-      this.user = null
-      localStorage.removeItem('auth')
-      localStorage.removeItem('workspace')
+    // Ação de logout real com revogação de token no servidor
+    async logout() {
+      try {
+        if (this.token) {
+          await api.delete('/auth/logout')
+        }
+      } catch (error) {
+        console.error('Erro ao efetuar logout no servidor:', error)
+      } finally {
+        this.token = null
+        this.user = null
+        localStorage.removeItem('auth')
+        localStorage.removeItem('workspace')
+      }
     },
 
-    // Simulação de envio de recuperação de senha
+    // Envio de email para recuperação de senha
     async forgotPassword(email) {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      
-      if (email === 'erro@zavycrm.com') {
-        throw new Error('E-mail não cadastrado.')
-      }
-      
-      return true
+      const response = await api.post('/auth/forgot_password', { email })
+      return response.data
     },
 
-    // Simulação de redefinição de senha
+    // Redefinição de senha com token recebido
     async resetPassword(token, password) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      
-      if (token === 'expirado') {
-        throw new Error('O link de recuperação expirou. Solicite um novo.')
-      }
-      
-      return true
+      const response = await api.post('/auth/reset_password', {
+        reset_password_token: token,
+        password: password,
+        password_confirmation: password
+      })
+      return response.data
     },
 
-    // Simulação de carregamento do usuário atual (/me)
+    // Carrega o usuário atual e popula a store de workspaces de forma síncrona
     async fetchMe() {
       if (!this.token) return null
-      await new Promise((resolve) => setTimeout(resolve, 500))
       
-      const mockUser = {
-        id: this.user?.id || 1,
-        name: this.user?.name || 'Carlos Zavy',
-        email: this.user?.email || 'carlos@zavycrm.com',
-        role: this.user?.role || 'admin',
-        avatar: null
+      try {
+        const response = await api.get('/api/v1/me')
+        this.user = response.data.data
+
+        // Importa dinamicamente a workspace store para evitar dependência circular
+        const { useWorkspaceStore } = await import('./workspace')
+        const workspaceStore = useWorkspaceStore()
+        
+        if (this.user.workspaces) {
+          workspaceStore.workspaces = this.user.workspaces
+          
+          // Se houver workspaces mas nenhum selecionado estiver na lista, seleciona o primeiro
+          if (workspaceStore.workspaces.length > 0) {
+            const exists = workspaceStore.workspaces.some(w => w.id === workspaceStore.currentWorkspaceId)
+            if (!exists) {
+              workspaceStore.currentWorkspaceId = workspaceStore.workspaces[0].id
+            }
+          }
+        }
+
+        return this.user
+      } catch (error) {
+        if (error.response && error.response.status === 401) {
+          // Token expirado ou inválido, limpa sessão local
+          this.token = null
+          this.user = null
+          localStorage.removeItem('auth')
+          localStorage.removeItem('workspace')
+        }
+        throw error
       }
-      
-      this.user = mockUser
-      return mockUser
     }
   },
   persist: true

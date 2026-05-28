@@ -1,16 +1,14 @@
 import { defineStore } from 'pinia'
+import api from '@/plugins/axios'
 
 export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
-    workspaces: [
-      { id: 1, name: 'Workspace Principal', role: 'admin', plan: 'Pro' },
-      { id: 2, name: 'Workspace Secundário', role: 'membro', plan: 'Grátis' }
-    ],
-    currentWorkspaceId: 1
+    workspaces: [],
+    currentWorkspaceId: null
   }),
   getters: {
     currentWorkspace: (state) => {
-      return state.workspaces.find((w) => w.id === state.currentWorkspaceId) || state.workspaces[0]
+      return state.workspaces.find((w) => w.id === state.currentWorkspaceId) || state.workspaces[0] || { name: 'Carregando...', plan: 'Nenhum' }
     }
   },
   actions: {
@@ -22,31 +20,37 @@ export const useWorkspaceStore = defineStore('workspace', {
       }
     },
 
-    // Cria um novo workspace simulado com atraso de rede
+    // Cria um novo workspace real via POST /api/v1/workspaces
     async createWorkspace(name) {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-
       if (!name.trim()) {
         throw new Error('O nome do workspace não pode estar vazio.')
       }
 
-      const newId = Date.now()
-      const newWorkspace = {
-        id: newId,
-        name: name,
-        role: 'admin',
-        plan: 'Pro'
-      }
+      const response = await api.post('/api/v1/workspaces', {
+        workspace: { name }
+      })
 
+      const newWorkspace = response.data.data
       this.workspaces.push(newWorkspace)
-      this.currentWorkspaceId = newId
+      this.currentWorkspaceId = newWorkspace.id
 
       return newWorkspace
     },
 
-    // Simulação de carregamento de workspaces do servidor
+    // Carrega a lista real de workspaces do servidor
     async fetchWorkspaces() {
-      await new Promise((resolve) => setTimeout(resolve, 600))
+      const response = await api.get('/api/v1/workspaces')
+      this.workspaces = response.data.data
+
+      if (this.workspaces.length > 0) {
+        const exists = this.workspaces.some((w) => w.id === this.currentWorkspaceId)
+        if (!exists) {
+          this.currentWorkspaceId = this.workspaces[0].id
+        }
+      } else {
+        this.currentWorkspaceId = null
+      }
+
       return this.workspaces
     }
   },
