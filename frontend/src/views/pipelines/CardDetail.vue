@@ -79,6 +79,12 @@
           <!-- Separador -->
           <div class="border-t border-gray-100"></div>
 
+          <!-- Conexão WhatsApp / Conversa Chatwoot (Sprint 3) -->
+          <ConversationLinker :card="card" />
+
+          <!-- Separador -->
+          <div class="border-t border-gray-100"></div>
+
           <!-- Campos Personalizados (Custom Fields) -->
           <div class="space-y-4">
             <div class="flex items-center justify-between">
@@ -301,6 +307,7 @@ import { usePipelineSocket } from '@/composables/usePipelineSocket'
 import StageSwitcher from './StageSwitcher.vue'
 import LossReasonModal from './LossReasonModal.vue'
 import CardComposer from './CardComposer.vue'
+import ConversationLinker from './ConversationLinker.vue'
 import { X, Plus, MoveRight, HelpCircle, FileText, Send, MessageSquare } from 'lucide-vue-next'
 
 const route = useRoute()

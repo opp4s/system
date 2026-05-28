@@ -80,12 +80,26 @@
                   </h4>
                 </div>
 
-                <!-- Contato -->
-                <div v-if="card.contact_name" class="flex items-center space-x-1.5 text-xs text-gray-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  <span class="truncate font-medium">{{ card.contact_name }}</span>
+                <!-- Contato e Conexão de Conversa -->
+                <div v-if="card.contact_name" class="flex items-center justify-between text-xs text-gray-500">
+                  <div class="flex items-center space-x-1.5 min-w-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span class="truncate font-medium text-gray-700">{{ card.contact_name }}</span>
+                  </div>
+                  
+                  <!-- Ícone de WhatsApp se o card possui conversa vinculada -->
+                  <div 
+                    v-if="card.conversation_id" 
+                    class="flex items-center text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 space-x-0.5"
+                    title="WhatsApp Vinculado"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-emerald-650" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <span>Zap</span>
+                  </div>
                 </div>
 
                 <!-- Rodapé do Card (Valor, Dias, Agente) -->
