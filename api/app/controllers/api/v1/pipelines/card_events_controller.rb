@@ -10,13 +10,12 @@ module Api
         def timeline
           authorize @card, :show?, policy_class: CardPolicy
 
-          limit  = params.fetch(:limit, 200).to_i
-          events = @card.card_events.includes(:user).chronological
-          result = events.map { |e| event_payload(e) }
-          result = merge_chatwoot_messages(result)
-          result = result.sort_by { |e| e[:created_at] || Time.at(0) }.last(limit)
+          events = @card.card_events
+                        .includes(:user)
+                        .reverse_chronological
+                        .limit(params.fetch(:limit, 100).to_i)
 
-          render json: { data: result }
+          render json: { data: events.map { |e| event_payload(e) } }
         end
 
         private
@@ -76,56 +75,19 @@ module Api
             "#{user_name} vinculou conversa ##{event.payload['chatwoot_conversation_id']}"
           when "conversation_unlinked"
             "#{user_name} desvinculou conversa"
+          when "automation_message_sent"
+            "Mensagem automática enviada"
+          when "automation_moved"
+            "Automação moveu para #{event.payload['to_stage_name']}"
+          when "automation_assigned"
+            "Automação atribuiu agente"
+          when "automation_field_updated"
+            "Automação atualizou campo"
+          when "task_created"
+            "Tarefa criada: #{event.payload['title']}"
           else
             event.event_type
           end
-        end
-
-        def merge_chatwoot_messages(existing_events)
-          conv = @card.conversations.order(created_at: :desc).first
-          return existing_events unless conv
-
-          config = current_workspace.chatwoot_config
-          return existing_events unless config
-
-          known_ids = existing_events
-                        .filter_map { |e| p = e[:payload] || {}; p["message_id"] || p["chatwoot_msg_id"] }
-                        .map(&:to_i).to_set
-
-          begin
-            client   = ::Chatwoot::Client.new(config)
-            raw      = client.messages(conv.chatwoot_conversation_id)
-            messages = raw[:payload] || []
-
-            messages.each do |msg|
-              next if msg[:id].blank?
-              next if known_ids.include?(msg[:id].to_i)
-              next if msg[:content].blank?
-              next if msg[:message_type].to_i > 1
-
-              msg_type = msg[:message_type].to_i == 0 ? "incoming" : "outgoing"
-
-              existing_events << {
-                id:         "cw_#{msg[:id]}",
-                event_type: "chatwoot_message",
-                payload:    {
-                  "subtype"         => "message",
-                  "message_type"    => msg_type,
-                  "content"         => msg[:content],
-                  "sender_name"     => msg.dig(:sender, :name),
-                  "conversation_id" => conv.chatwoot_conversation_id,
-                  "chatwoot_msg_id" => msg[:id]
-                },
-                user:       nil,
-                created_at: msg[:created_at] ? Time.at(msg[:created_at].to_i) : nil,
-                label:      msg_type == "incoming" ? "Mensagem recebida" : "Mensagem enviada"
-              }
-            end
-          rescue ::Chatwoot::Client::ApiError => e
-            Rails.logger.warn "[Timeline] Chatwoot fetch failed: #{e.message}"
-          end
-
-          existing_events
         end
       end
     end

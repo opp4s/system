@@ -81,19 +81,50 @@ module Api
           }, status: config.previously_new_record? ? :created : :ok
         end
 
-        # PATCH /api/v1/chatwoot/settings
-        def update_settings
-          config = current_workspace.chatwoot_config
-          return render json: { error: "Chatwoot não configurado" }, status: :unprocessable_entity unless config
+        # POST /api/v1/chatwoot/quick_connect
+        def quick_connect
+          config = current_workspace.chatwoot_config ||
+                   current_workspace.build_chatwoot_config
 
           authorize config, :configure?, policy_class: ChatwootConfigPolicy
 
-          allowed = %w[auto_create_card auto_create_pipeline_id auto_create_stage_id]
-          new_settings = settings_params.to_h.slice(*allowed)
-          config.settings = (config.settings || {}).merge(new_settings)
+          chatwoot_url   = ENV["CHATWOOT_URL"]
+          api_token      = ENV["CHATWOOT_API_TOKEN"]
+          account_id     = params[:account_id].to_s
+
+          return render json: { error: "CHATWOOT_URL e CHATWOOT_API_TOKEN não configurados no servidor" },
+                        status: :unprocessable_entity if chatwoot_url.blank? || api_token.blank?
+
+          return render json: { error: "account_id é obrigatório" },
+                        status: :bad_request if account_id.blank?
+
+          config.assign_attributes(
+            chatwoot_url:        chatwoot_url,
+            chatwoot_account_id: account_id
+          )
+          config.chatwoot_api_token = api_token
+
+          begin
+            client = ::Chatwoot::Client.new(config)
+            info   = client.account_info
+          rescue ::Chatwoot::Client::ApiError => e
+            return render json: {
+              error:   "Não foi possível conectar ao Chatwoot: #{e.message}",
+              details: { status: e.status }
+            }, status: :unprocessable_entity
+          end
+
           config.save!
 
-          render json: { data: config.settings }
+          render json: {
+            data: {
+              configured:          true,
+              connected:           true,
+              chatwoot_url:        config.chatwoot_url,
+              chatwoot_account_id: config.chatwoot_account_id,
+              account_name:        info[:name]
+            }
+          }, status: config.previously_new_record? ? :created : :ok
         end
 
         private
@@ -101,12 +132,6 @@ module Api
         def configure_params
           params.require(:chatwoot).permit(
             :chatwoot_url, :account_id, :api_token, :inbox_id
-          )
-        end
-
-        def settings_params
-          params.require(:settings).permit(
-            :auto_create_card, :auto_create_pipeline_id, :auto_create_stage_id
           )
         end
       end

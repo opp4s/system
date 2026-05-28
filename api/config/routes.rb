@@ -97,9 +97,10 @@ Rails.application.routes.draw do
 
       # Integração Chatwoot
       namespace :chatwoot do
-        get   "status",    to: "configs#status"
-        post  "configure", to: "configs#configure"
-        patch "settings",  to: "configs#update_settings"
+        get   "status",        to: "configs#status"
+        post  "configure",     to: "configs#configure"
+        patch "settings",      to: "configs#update_settings"
+        post  "quick_connect", to: "configs#quick_connect"
       end
 
       # Broadcasts (disparo em massa)

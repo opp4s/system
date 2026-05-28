@@ -22,6 +22,8 @@ module Api
         authorize pipeline
 
         if pipeline.save
+          pipeline.provision_default_stages! if pipeline.stages.empty?
+          pipeline.reload
           render json: { data: pipeline_payload(pipeline, include_stages: true) }, status: :created
         else
           render_unprocessable(pipeline)

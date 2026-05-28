@@ -14,23 +14,27 @@ module Api
                           status: :unprocessable_entity
           end
 
-          conv = @card.conversations.order(created_at: :desc).first
-          unless conv
-            return render json: { error: "Card não possui conversa Chatwoot vinculada" },
-                          status: :unprocessable_entity
-          end
-
           config = current_workspace.chatwoot_config
           unless config
             return render json: { error: "Chatwoot não configurado neste workspace" },
                           status: :unprocessable_entity
           end
 
-          client  = ::Chatwoot::Client.new(config)
-          cw_msg  = client.send_message(
+          conv = @card.conversations.order(created_at: :desc).first
+          conv ||= auto_discover_conversation(config)
+
+          unless conv
+            return render json: {
+              error: "Card não possui conversa Chatwoot vinculada. " \
+                     "Aguarde o cliente entrar em contato ou vincule manualmente via POST /cards/:id/link_conversation"
+            }, status: :unprocessable_entity
+          end
+
+          client = ::Chatwoot::Client.new(config)
+          cw_msg = client.send_message(
             conv.chatwoot_conversation_id,
             message_params[:content],
-            private: message_params[:private_note] == true || message_params[:private_note] == "true"
+            private: message_params[:private_note].in?([true, "true"])
           )
 
           event = CardEvent.create!(
@@ -68,6 +72,38 @@ module Api
 
         def message_params
           params.require(:message).permit(:content, :private_note)
+        end
+
+        def auto_discover_conversation(config)
+          return nil if @card.contact_phone.blank?
+
+          client  = ::Chatwoot::Client.new(config)
+          results = client.find_contact_by_phone(@card.contact_phone)
+          contacts_payload = results[:payload] || []
+          return nil if contacts_payload.empty?
+
+          cw_contact = contacts_payload.first
+          convs      = client.contact_conversations(cw_contact[:id])
+          cw_conv    = (convs[:payload] || []).find { |c| c[:status] == "open" } ||
+                       (convs[:payload] || []).first
+          return nil unless cw_conv
+
+          conv = Conversation.find_or_initialize_by(
+            workspace:                current_workspace,
+            chatwoot_conversation_id: cw_conv[:id]
+          )
+          conv.assign_attributes(
+            chatwoot_account_id: config.chatwoot_account_id,
+            contact_id:          cw_contact[:id],
+            status:              cw_conv[:status] || "open",
+            last_activity_at:    Time.current,
+            card:                @card
+          )
+          conv.save!
+          conv
+        rescue => e
+          Rails.logger.warn "[MessagesController] auto_discover failed: #{e.message}"
+          nil
         end
 
         def event_payload(event)
