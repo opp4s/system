@@ -23,18 +23,23 @@ export const useChatwootStore = defineStore('chatwoot', {
     async fetchSettings() {
       this.loading = true
       try {
-        // TODO: replace mock with real api when endpoint is ready
-        const response = await api.get('/api/v1/chatwoot/settings')
+        const response = await api.get('/api/v1/chatwoot/status')
         const data = response.data.data || response.data
         this.configured = data.configured ?? false
         this.chatwootUrl = data.chatwoot_url || 'https://chat.opp4s.com'
-        this.accountId = data.account_id || ''
+        this.accountId = data.chatwoot_account_id || ''
         this.apiToken = data.api_token || ''
-        this.autoLinkEnabled = data.auto_link_enabled ?? false
-        this.destinationPipelineId = data.destination_pipeline_id || null
-        this.destinationStageId = data.destination_stage_id || null
+        if (data.settings) {
+          this.autoLinkEnabled = data.settings.auto_create_card ?? false
+          this.destinationPipelineId = data.settings.auto_create_pipeline_id || null
+          this.destinationStageId = data.settings.auto_create_stage_id || null
+        } else {
+          this.autoLinkEnabled = data.auto_link_enabled ?? false
+          this.destinationPipelineId = data.destination_pipeline_id || null
+          this.destinationStageId = data.destination_stage_id || null
+        }
       } catch (error) {
-        console.warn('Endpoint GET /api/v1/chatwoot/settings não disponível. Mantendo configurações locais.', error)
+        console.warn('Endpoint GET /api/v1/chatwoot/status não disponível. Mantendo configurações locais.', error)
         // Mantém as configurações que estão no localStorage/state
       } finally {
         this.loading = false
@@ -86,9 +91,9 @@ export const useChatwootStore = defineStore('chatwoot', {
         // PATCH /api/v1/chatwoot/settings
         const response = await api.patch('/api/v1/chatwoot/settings', {
           settings: {
-            auto_link_enabled: settingsData.autoLinkEnabled,
-            destination_pipeline_id: settingsData.destinationPipelineId,
-            destination_stage_id: settingsData.destinationStageId
+            auto_create_card: settingsData.autoLinkEnabled,
+            auto_create_pipeline_id: settingsData.destinationPipelineId,
+            auto_create_stage_id: settingsData.destinationStageId
           }
         })
         

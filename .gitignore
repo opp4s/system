@@ -1,0 +1,9 @@
+.env
+api/log/*.log
+api/tmp/
+api/storage/
+api/.byebug_history
+api/vendor/bundle
+api/node_modules/
+*.swp
+.DS_Store

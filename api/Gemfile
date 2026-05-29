@@ -1,0 +1,51 @@
+source "https://rubygems.org"
+
+ruby "3.3.11"
+
+gem "rails", "~> 7.1.5"
+
+# Database
+gem "pg", "~> 1.1"
+
+# Server
+gem "puma", ">= 5.0"
+
+# Auth
+gem "devise", "~> 4.9"
+gem "devise-jwt", "~> 0.11"
+gem "bcrypt", "~> 3.1.7"
+
+# Authorization
+gem "pundit", "~> 2.3"
+
+# Background jobs
+gem "sidekiq", "~> 7.2"
+
+# Cache + ActionCable
+gem "redis", "~> 5.0"
+
+# HTTP client
+gem "faraday", "~> 2.9"
+gem "faraday-retry", "~> 2.2"
+
+# CORS
+gem "rack-cors", "~> 2.0"
+
+# JSON serialization
+gem "jbuilder", "~> 2.11"
+
+# Boot performance
+gem "bootsnap", require: false
+
+# Timezone data (Windows/JRuby)
+gem "tzinfo-data", platforms: %i[ windows jruby ]
+
+group :development, :test do
+  gem "debug", platforms: %i[ mri windows ]
+  gem "factory_bot_rails"
+  gem "faker"
+end
+
+group :development do
+  gem "annotate"
+end

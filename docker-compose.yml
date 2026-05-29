@@ -1,0 +1,125 @@
+version: "3.9"
+
+services:
+  zavy-postgres:
+    image: postgres:16-alpine
+    container_name: zavy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zavy
+      POSTGRES_PASSWORD: ${ZAVY_DB_PASSWORD}
+      POSTGRES_DB: zavy_production
+    volumes:
+      - zavy-postgres-data:/var/lib/postgresql/data
+    networks:
+      - zavy-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zavy -d zavy_production"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zavy-redis:
+    image: redis:7-alpine
+    container_name: zavy-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - zavy-redis-data:/data
+    networks:
+      - zavy-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zavy-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: zavy-api
+    restart: unless-stopped
+    ports:
+      - "3100:3000"
+    environment:
+      RAILS_ENV: production
+      DATABASE_URL: postgres://zavy:${ZAVY_DB_PASSWORD}@zavy-postgres:5432/zavy_production
+      REDIS_URL: redis://zavy-redis:6379/0
+      SECRET_KEY_BASE: ${ZAVY_SECRET_KEY_BASE}
+      DEVISE_JWT_SECRET_KEY: ${ZAVY_JWT_SECRET}
+      CHATWOOT_PLATFORM_TOKEN: ${CHATWOOT_PLATFORM_TOKEN}
+      CHATWOOT_URL: ${CHATWOOT_URL}
+      CHATWOOT_API_TOKEN: ${CHATWOOT_API_TOKEN}
+      ASAAS_API_KEY: ${ASAAS_API_KEY}
+      MAILGUN_SMTP_USER: ${MAILGUN_SMTP_USER}
+      MAILGUN_SMTP_PASSWORD: ${MAILGUN_SMTP_PASSWORD}
+      MAILER_FROM: ${MAILER_FROM}
+      APP_HOST: ${APP_HOST}
+      EVOLUTION_URL: ${EVOLUTION_URL}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID}
+      APP_URL: ${APP_URL}
+      RAILS_LOG_TO_STDOUT: "true"
+      RAILS_SERVE_STATIC_FILES: "true"
+    depends_on:
+      zavy-postgres:
+        condition: service_healthy
+      zavy-redis:
+        condition: service_healthy
+    networks:
+      - zavy-net
+    volumes:
+      - zavy-storage:/app/storage
+
+  zavy-sidekiq:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: zavy-sidekiq
+    restart: unless-stopped
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    environment:
+      RAILS_ENV: production
+      DATABASE_URL: postgres://zavy:${ZAVY_DB_PASSWORD}@zavy-postgres:5432/zavy_production
+      REDIS_URL: redis://zavy-redis:6379/0
+      SECRET_KEY_BASE: ${ZAVY_SECRET_KEY_BASE}
+      DEVISE_JWT_SECRET_KEY: ${ZAVY_JWT_SECRET}
+      CHATWOOT_PLATFORM_TOKEN: ${CHATWOOT_PLATFORM_TOKEN}
+      CHATWOOT_URL: ${CHATWOOT_URL}
+      CHATWOOT_API_TOKEN: ${CHATWOOT_API_TOKEN}
+      ASAAS_API_KEY: ${ASAAS_API_KEY}
+      MAILGUN_SMTP_USER: ${MAILGUN_SMTP_USER}
+      MAILGUN_SMTP_PASSWORD: ${MAILGUN_SMTP_PASSWORD}
+      EVOLUTION_URL: ${EVOLUTION_URL}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID}
+      APP_URL: ${APP_URL}
+      RAILS_LOG_TO_STDOUT: "true"
+    depends_on:
+      zavy-postgres:
+        condition: service_healthy
+      zavy-redis:
+        condition: service_healthy
+    networks:
+      - zavy-net
+
+  zavy-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: zavy-frontend
+    restart: unless-stopped
+    ports:
+      - "3101:80"
+    networks:
+      - zavy-net
+
+volumes:
+  zavy-postgres-data:
+  zavy-redis-data:
+  zavy-storage:
+
+networks:
+  zavy-net:
+    driver: bridge

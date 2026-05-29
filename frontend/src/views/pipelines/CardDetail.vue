@@ -6,16 +6,16 @@
       class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300"
     ></div>
 
-    <!-- Painel Slide-in Lateral (ocupando 70% de largura no desktop) -->
+    <!-- Painel Slide-in Lateral (ocupando 60% de largura no desktop, layout dividido) -->
     <div 
-      class="relative w-full md:w-[70vw] lg:w-[65vw] h-full bg-white shadow-2xl flex flex-col z-10 animate-slide-in-right transition-transform duration-300"
+      class="relative w-full md:w-[65vw] lg:w-[60vw] h-full bg-white shadow-2xl flex flex-col z-10 animate-slide-in-right transition-transform duration-300"
     >
       <!-- Header do Slide-in -->
       <header class="h-16 px-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50/50">
         <div class="flex items-center space-x-3">
           <span class="px-2.5 py-1 text-xs font-bold bg-slate-950 text-white rounded-lg">Negócio #{{ cardId }}</span>
           <span class="text-gray-400">/</span>
-          <span class="text-sm font-semibold text-gray-500">Detalhes do Lead</span>
+          <span class="text-sm font-semibold text-gray-500">Ficha do Lead</span>
         </div>
 
         <button 
@@ -28,69 +28,147 @@
 
       <!-- Corpo do Detalhe -->
       <div v-if="card" class="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <!-- Coluna Esquerda: Dados do Card (Painel de 320px) -->
-        <aside class="w-full md:w-80 border-b md:border-b-0 md:border-r border-gray-100 overflow-y-auto p-6 flex flex-col space-y-6 bg-gray-50/30">
-          <!-- Título do negócio -->
-          <div>
-            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Título do Negócio</label>
-            <h2 class="text-base font-bold text-gray-900 mt-1">{{ card.title }}</h2>
+        <!-- Coluna Esquerda: Dados do Card (Painel de ~38% de largura no desktop) -->
+        <aside class="w-full md:w-80 border-b md:border-b-0 md:border-r border-gray-100 overflow-y-auto p-5 flex flex-col space-y-5 bg-gray-50/30">
+          
+          <!-- Seletor de Tabs (Dados, Campos, Histórico) -->
+          <div class="flex border-b border-gray-200 shrink-0 bg-transparent -mx-5 px-5">
+            <button 
+              v-for="tab in ['dados', 'campos', 'historico']" 
+              :key="tab"
+              @click="activeTab = tab"
+              class="pb-2.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all mr-5 focus:outline-none"
+              :class="activeTab === tab ? 'border-slate-900 text-slate-900' : 'border-transparent text-gray-400 hover:text-gray-600'"
+            >
+              {{ tab === 'dados' ? 'Dados' : tab === 'campos' ? 'Campos' : 'Histórico' }}
+            </button>
           </div>
 
-          <!-- Estágio Atual (StageSwitcher integrado) -->
-          <div>
-            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Etapa do Funil</label>
-            <StageSwitcher 
-              :active-stage-id="card.stage_id"
-              @change-stage="handleStageChange"
-            />
-          </div>
-
-          <!-- Valor e Moeda -->
-          <div>
-            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Valor da Oportunidade</label>
-            <div class="text-lg font-extrabold text-gray-900 mt-0.5">
-              {{ formatCurrency(card.value, card.currency) }}
-            </div>
-          </div>
-
-          <!-- Separador -->
-          <div class="border-t border-gray-100"></div>
-
-          <!-- Dados do Contato Principal -->
-          <div class="space-y-4">
-            <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Contato Principal</h3>
-            
-            <div>
-              <label class="text-[10px] font-bold text-gray-400 uppercase">Nome</label>
-              <div class="text-sm font-semibold text-gray-800 mt-0.5">{{ card.contact_name || 'Não informado' }}</div>
+          <!-- TAB 1: DADOS PRINCIPAIS -->
+          <div v-if="activeTab === 'dados'" class="space-y-4 flex-1">
+            <!-- Título do negócio -->
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-gray-450 uppercase tracking-wider block">Título do Negócio</label>
+              <div v-if="!isEditingTitle" @click="isEditingTitle = true" class="text-sm font-bold text-gray-900 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center transition-colors">
+                {{ card.title }}
+              </div>
+              <input
+                v-else
+                v-model="editingTitle"
+                @blur="saveTitle"
+                @keyup.enter="saveTitle"
+                type="text"
+                autofocus
+                class="text-sm font-bold text-gray-900 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+              />
             </div>
 
-            <div>
-              <label class="text-[10px] font-bold text-gray-400 uppercase">Telefone</label>
-              <div class="text-sm font-medium text-gray-800 mt-0.5">{{ card.contact_phone || 'Não informado' }}</div>
+            <!-- Estágio Atual (StageSwitcher integrado) -->
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-gray-450 uppercase tracking-wider block mb-1">Etapa do Funil</label>
+              <StageSwitcher 
+                :active-stage-id="card.stage_id"
+                @change-stage="handleStageChange"
+              />
             </div>
 
-            <div>
-              <label class="text-[10px] font-bold text-gray-400 uppercase">E-mail</label>
-              <div class="text-sm font-medium text-gray-800 mt-0.5 break-all">{{ card.contact_email || 'Não informado' }}</div>
+            <!-- Valor e Moeda -->
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-gray-450 uppercase tracking-wider block">Valor da Oportunidade</label>
+              <div v-if="!isEditingValue" @click="isEditingValue = true" class="text-sm font-bold text-gray-900 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center transition-colors">
+                {{ formatCurrency(card.value, card.currency) }}
+              </div>
+              <div v-else class="flex items-center space-x-1.5">
+                <span class="text-xs font-bold text-gray-400">R$</span>
+                <input
+                  v-model.number="editingValue"
+                  @blur="saveValue"
+                  @keyup.enter="saveValue"
+                  type="number"
+                  autofocus
+                  class="text-sm font-bold text-gray-900 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+                />
+              </div>
             </div>
-          </div>
 
-          <!-- Separador -->
-          <div class="border-t border-gray-100"></div>
+            <!-- Separador -->
+            <div class="border-t border-gray-100 my-2"></div>
 
-          <!-- Conexão WhatsApp / Conversa Chatwoot (Sprint 3) -->
-          <ConversationLinker :card="card" />
-
-          <!-- Separador -->
-          <div class="border-t border-gray-100"></div>
-
-          <!-- Campos Personalizados (Custom Fields) -->
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Campos Personalizados</h3>
+            <!-- Dados do Contato Principal -->
+            <div class="space-y-3.5">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Contato Principal</h3>
+                <span v-if="contactSaveStatus" class="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  {{ contactSaveStatus }}
+                </span>
+              </div>
               
-              <!-- Indicador de Status do Auto-save -->
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-bold text-gray-450 uppercase block">Nome</label>
+                <div v-if="!isEditingContactName" @click="isEditingContactName = true" class="text-xs font-semibold text-gray-800 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center transition-colors">
+                  {{ card.contact_name || 'Não informado (clique para editar)' }}
+                </div>
+                <input
+                  v-else
+                  v-model="editingContactName"
+                  @blur="saveContactName"
+                  @keyup.enter="saveContactName"
+                  type="text"
+                  autofocus
+                  class="text-xs font-semibold text-gray-800 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-bold text-gray-450 uppercase block">Telefone</label>
+                <div v-if="!isEditingContactPhone" @click="isEditingContactPhone = true" class="text-xs font-semibold text-gray-800 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center justify-between transition-colors group/phone">
+                  <span>{{ card.contact_phone || 'Não informado (clique para editar)' }}</span>
+                  <button @click.stop="addSecondaryPhone" class="p-1 opacity-0 group-hover/phone:opacity-100 hover:bg-gray-200 rounded text-gray-500 transition-all" title="Adicionar telefone secundário">
+                    <component :is="Plus" class="h-3 w-3" />
+                  </button>
+                </div>
+                <input
+                  v-else
+                  v-model="editingContactPhone"
+                  @blur="saveContactPhone"
+                  @keyup.enter="saveContactPhone"
+                  type="text"
+                  autofocus
+                  class="text-xs font-semibold text-gray-800 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-bold text-gray-450 uppercase block">E-mail</label>
+                <div v-if="!isEditingContactEmail" @click="isEditingContactEmail = true" class="text-xs font-semibold text-gray-800 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center justify-between transition-colors group/email">
+                  <span class="break-all">{{ card.contact_email || 'Não informado (clique para editar)' }}</span>
+                  <button @click.stop="addSecondaryEmail" class="p-1 opacity-0 group-hover/email:opacity-100 hover:bg-gray-200 rounded text-gray-500 transition-all" title="Adicionar e-mail secundário">
+                    <component :is="Plus" class="h-3 w-3" />
+                  </button>
+                </div>
+                <input
+                  v-else
+                  v-model="editingContactEmail"
+                  @blur="saveContactEmail"
+                  @keyup.enter="saveContactEmail"
+                  type="email"
+                  autofocus
+                  class="text-xs font-semibold text-gray-800 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+                />
+              </div>
+            </div>
+
+            <!-- Separador -->
+            <div class="border-t border-gray-100 my-2"></div>
+
+            <!-- Conexão WhatsApp / Conversa Chatwoot -->
+            <ConversationLinker :card="card" />
+          </div>
+
+          <!-- TAB 2: CAMPOS PERSONALIZADOS (TIPADOS) -->
+          <div v-else-if="activeTab === 'campos'" class="space-y-4 flex-1">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Campos Definidos</h3>
               <span v-if="saveStatus" class="text-[10px] font-bold flex items-center transition-all">
                 <span v-if="saveStatus === 'salvando'" class="text-slate-500 flex items-center">
                   <svg class="animate-spin h-3 w-3 mr-1 text-slate-500" fill="none" viewBox="0 0 24 24">
@@ -105,75 +183,104 @@
                   </svg>
                   Salvo
                 </span>
-                <span v-else-if="saveStatus === 'erro'" class="text-rose-600">Erro ao salvar</span>
               </span>
             </div>
-            
-            <div class="space-y-2">
-              <div 
-                v-for="(val, key) in localCustomFields" 
-                :key="key"
-                class="bg-white p-2.5 rounded-xl border border-gray-150 flex flex-col relative group/field shadow-sm hover:border-gray-250 transition-all duration-150"
-              >
-                <label class="text-[10px] font-bold text-gray-400 uppercase">{{ key }}</label>
-                <input 
-                  v-model="localCustomFields[key]"
-                  type="text"
-                  class="text-xs font-semibold text-gray-800 bg-transparent border-0 border-b border-transparent hover:border-gray-250 focus:border-slate-800 focus:outline-none focus:ring-0 w-full mt-0.5 p-0 transition-colors"
-                />
-                <button 
-                  @click="removeField(key)"
-                  type="button"
-                  class="absolute right-2 top-2 p-1 text-gray-300 hover:text-rose-650 opacity-0 group-hover/field:opacity-100 transition-opacity rounded-lg hover:bg-gray-50"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-            </div>
 
-            <!-- Formulário Adicionar Campo -->
-            <div class="pt-2">
-              <div v-if="isAddingField" class="space-y-2 bg-white p-3 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
-                <input 
-                  v-model="newFieldKey" 
-                  type="text" 
-                  placeholder="Nome do campo (ex: CPF)" 
-                  class="block w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:border-slate-800"
-                />
-                <input 
-                  v-model="newFieldValue" 
-                  type="text" 
-                  placeholder="Valor" 
-                  class="block w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:border-slate-800"
-                />
-                <div class="flex items-center justify-end space-x-1.5">
-                  <button @click="isAddingField = false" type="button" class="px-2.5 py-1 text-[10px] text-gray-500 hover:text-gray-700">
-                    Cancelar
-                  </button>
-                  <button @click="addNewField" type="button" class="px-2.5 py-1 text-[10px] bg-slate-900 text-white rounded-md font-semibold">
-                    Adicionar
-                  </button>
-                </div>
-              </div>
-              <button 
-                v-else 
-                @click="isAddingField = true; newFieldKey = ''; newFieldValue = ''" 
-                type="button" 
-                class="w-full py-2.5 border border-dashed border-gray-300 hover:border-gray-400 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-750 bg-white transition-all flex items-center justify-center space-x-1.5 shadow-sm"
+            <!-- Lista de Campos Baseados nas Definições do Funil -->
+            <div class="space-y-3.5 pt-2">
+              <div 
+                v-for="field in pipelineStore.customFields" 
+                :key="field.id"
+                class="space-y-1 bg-white p-3 border border-gray-150 rounded-2xl shadow-sm"
               >
-                <span>+ Adicionar Campo</span>
-              </button>
-            </div>
-            
-            <div v-if="!Object.keys(localCustomFields).length && !isAddingField" class="text-xs text-gray-400 italic">
-              Nenhum campo personalizado cadastrado.
+                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{{ field.name }}</label>
+                
+                <!-- Tipo: text -->
+                <input 
+                  v-if="field.field_type === 'text'"
+                  v-model="localCustomFields[field.name]"
+                  type="text"
+                  @blur="triggerAutoSave"
+                  class="block w-full px-3 py-1.5 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 text-xs text-gray-800 transition-all bg-gray-50/20"
+                  placeholder="Preencher texto..."
+                />
+
+                <!-- Tipo: number -->
+                <input 
+                  v-else-if="field.field_type === 'number'"
+                  v-model.number="localCustomFields[field.name]"
+                  type="number"
+                  @blur="triggerAutoSave"
+                  class="block w-full px-3 py-1.5 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 text-xs text-gray-800 transition-all bg-gray-50/20"
+                  placeholder="0"
+                />
+
+                <!-- Tipo: select -->
+                <select 
+                  v-else-if="field.field_type === 'select'"
+                  v-model="localCustomFields[field.name]"
+                  @change="triggerAutoSave"
+                  class="block w-full px-3 py-1.5 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 text-xs text-gray-800 transition-all bg-gray-50/20"
+                >
+                  <option :value="undefined">Selecione...</option>
+                  <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
+                </select>
+
+                <!-- Tipo: boolean (Toggle Switch ou Checkbox) -->
+                <div v-else-if="field.field_type === 'boolean'" class="flex items-center space-x-2 py-1">
+                  <input 
+                    v-model="localCustomFields[field.name]"
+                    type="checkbox"
+                    @change="triggerAutoSave"
+                    class="h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-900"
+                  />
+                  <span class="text-xs text-gray-650 font-semibold">Sim / Confirmado</span>
+                </div>
+
+                <!-- Tipo: date -->
+                <input 
+                  v-else-if="field.field_type === 'date'"
+                  v-model="localCustomFields[field.name]"
+                  type="date"
+                  @change="triggerAutoSave"
+                  class="block w-full px-3 py-1.5 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 text-xs text-gray-800 transition-all bg-gray-50/20"
+                />
+              </div>
+
+              <!-- Lista vazia state -->
+              <div v-if="pipelineStore.customFields.length === 0" class="text-center py-8 text-xs text-gray-400 italic">
+                Nenhum campo personalizado definido para este funil nas configurações.
+              </div>
             </div>
           </div>
+
+          <!-- TAB 3: HISTÓRICO DE EVENTOS -->
+          <div v-else-if="activeTab === 'historico'" class="space-y-3.5 flex-1 overflow-y-auto">
+            <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider mb-2">Auditoria do Lead</h3>
+            
+            <div class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+              <div 
+                v-for="event in systemEvents" 
+                :key="event.id" 
+                class="p-3 bg-white rounded-2xl border border-gray-150 shadow-sm space-y-1.5 transition-all"
+              >
+                <div class="flex items-center space-x-2 text-[9px] text-gray-400 font-bold uppercase tracking-wider">
+                  <component :is="getEventIcon(event.event_type)" class="h-3.5 w-3.5 text-gray-400" />
+                  <span>{{ formatFriendlyDate(event.created_at) }}</span>
+                </div>
+                <p class="text-xs text-slate-750 font-semibold leading-normal">{{ event.description }}</p>
+                <p v-if="event.user" class="text-[9px] text-gray-400 font-semibold">Alterado por: {{ event.user.name }}</p>
+              </div>
+              
+              <div v-if="systemEvents.length === 0" class="text-center py-10 text-xs text-gray-400 italic">
+                Nenhum histórico registrado no sistema.
+              </div>
+            </div>
+          </div>
+
         </aside>
 
-        <!-- Coluna Direita / Centro: Timeline de Atividades (Sprint 3) -->
+        <!-- Coluna Direita / Centro: Timeline de Atividades / WhatsApp Chat -->
         <section class="flex-1 flex flex-col bg-slate-50/50 overflow-hidden">
           <!-- Area de Mensagens / Chat -->
           <div 
@@ -278,7 +385,7 @@
             </div>
           </div>
 
-          <!-- Compositor de Mensagens / Notas (Sprint 3) -->
+          <!-- Compositor de Mensagens / Notas -->
           <CardComposer :card="card" @message-sent="scrollToBottom" />
         </section>
       </div>
@@ -293,6 +400,7 @@
     <LossReasonModal
       :show="showLossModal"
       :card-title="card?.title"
+      :loss-reasons="lossReasons"
       @confirm="handleConfirmLoss"
       @cancel="handleCancelLoss"
     />
@@ -315,6 +423,7 @@ const router = useRouter()
 const pipelineStore = usePipelineStore()
 
 const cardId = computed(() => Number(route.params.cardId))
+const activeTab = ref('dados')
 
 const card = computed(() => {
   return pipelineStore.cards.find(c => c.id === cardId.value)
@@ -323,6 +432,33 @@ const card = computed(() => {
 // Modal de perda e estágio pendente
 const showLossModal = ref(false)
 const pendingStageChange = ref(null)
+
+const pendingStage = computed(() => {
+  if (!pendingStageChange.value) return null
+  return pipelineStore.stages.find(s => s.id === pendingStageChange.value)
+})
+
+const lossReasons = computed(() => {
+  return pendingStage.value?.loss_reasons || []
+})
+
+// Estados locais de edição inline com auto-save no blur
+const isEditingTitle = ref(false)
+const editingTitle = ref('')
+const isEditingValue = ref(false)
+const editingValue = ref(0)
+const isEditingContactName = ref(false)
+const editingContactName = ref('')
+const isEditingContactPhone = ref(false)
+const editingContactPhone = ref('')
+const isEditingContactEmail = ref(false)
+const editingContactEmail = ref('')
+
+const contactSaveStatus = ref('') // 'salvando', 'salvo', ''
+
+// --- LÓGICA DE CAMPOS PERSONALIZADOS ---
+const localCustomFields = ref({})
+const saveStatus = ref('') // '', 'salvando', 'salvo'
 
 const formatCurrency = (value, currency = 'BRL') => {
   if (value === undefined || value === null) return 'R$ 0,00'
@@ -342,37 +478,105 @@ const getEventIcon = (type) => {
   }
 }
 
-// Retorna cor do ícone conforme o tipo de evento
-const getEventIconBg = (type) => {
-  switch (type) {
-    case 'card_created': return 'bg-emerald-500'
-    case 'card_moved': return 'bg-blue-500'
-    case 'card_updated': return 'bg-amber-500'
-    default: return 'bg-slate-500'
+// Sincroniza estados de edição com o card ativo
+watch(() => card.value, (newCard) => {
+  if (newCard) {
+    if (!isEditingTitle.value) editingTitle.value = newCard.title || ''
+    if (!isEditingValue.value) editingValue.value = newCard.value || 0
+    if (!isEditingContactName.value) editingContactName.value = newCard.contact_name || ''
+    if (!isEditingContactPhone.value) editingContactPhone.value = newCard.contact_phone || ''
+    if (!isEditingContactEmail.value) editingContactEmail.value = newCard.contact_email || ''
+    
+    localCustomFields.value = { ...newCard.custom_fields }
+  }
+}, { immediate: true, deep: true })
+
+// Ações de salvamento inline
+const saveTitle = async () => {
+  isEditingTitle.value = false
+  const trimmed = editingTitle.value.trim()
+  if (trimmed && trimmed !== card.value.title) {
+    showContactSaving()
+    await pipelineStore.updateCard(cardId.value, { title: trimmed })
+    hideContactSaving()
   }
 }
 
-// Formatação amigável das datas da timeline em português
-const formatEventDate = (isoString) => {
-  if (!isoString) return ''
-  const date = new Date(isoString)
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  const hours = date.getHours().toString().padStart(2, '0')
-  const minutes = date.getMinutes().toString().padStart(2, '0')
-
-  if (date.toDateString() === today.toDateString()) {
-    return `Hoje às ${hours}:${minutes}`
-  } else if (date.toDateString() === yesterday.toDateString()) {
-    return `Ontem às ${hours}:${minutes}`
-  } else {
-    const day = date.getDate().toString().padStart(2, '0')
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const year = date.getFullYear()
-    return `${day}/${month}/${year} às ${hours}:${minutes}`
+const saveValue = async () => {
+  isEditingValue.value = false
+  const val = Number(editingValue.value)
+  if (!isNaN(val) && val !== card.value.value) {
+    showContactSaving()
+    await pipelineStore.updateCard(cardId.value, { value: val })
+    hideContactSaving()
   }
+}
+
+const saveContactName = async () => {
+  isEditingContactName.value = false
+  const trimmed = editingContactName.value.trim()
+  if (trimmed !== card.value.contact_name) {
+    showContactSaving()
+    await pipelineStore.updateCard(cardId.value, { contact_name: trimmed })
+    hideContactSaving()
+  }
+}
+
+const saveContactPhone = async () => {
+  isEditingContactPhone.value = false
+  const trimmed = editingContactPhone.value.trim()
+  if (trimmed !== card.value.contact_phone) {
+    showContactSaving()
+    await pipelineStore.updateCard(cardId.value, { contact_phone: trimmed })
+    hideContactSaving()
+  }
+}
+
+const saveContactEmail = async () => {
+  isEditingContactEmail.value = false
+  const trimmed = editingContactEmail.value.trim()
+  if (trimmed !== card.value.contact_email) {
+    showContactSaving()
+    await pipelineStore.updateCard(cardId.value, { contact_email: trimmed })
+    hideContactSaving()
+  }
+}
+
+const showContactSaving = () => {
+  contactSaveStatus.value = 'salvando...'
+}
+
+const hideContactSaving = () => {
+  contactSaveStatus.value = 'salvo!'
+  setTimeout(() => {
+    contactSaveStatus.value = ''
+  }, 1500)
+}
+
+// Simuladores de telefones/emails múltiplos
+const addSecondaryPhone = () => {
+  const phone = prompt('Digite o telefone secundário:')
+  if (phone && phone.trim()) {
+    const key = `Telefone ${Object.keys(localCustomFields.value).filter(k => k.startsWith('Telefone')).length + 2}`
+    localCustomFields.value[key] = phone.trim()
+    triggerAutoSave()
+    toastInfo(`Telefone secundário cadastrado em ${key}`)
+  }
+}
+
+const addSecondaryEmail = () => {
+  const email = prompt('Digite o e-mail secundário:')
+  if (email && email.trim()) {
+    const key = `E-mail ${Object.keys(localCustomFields.value).filter(k => k.startsWith('E-mail')).length + 2}`
+    localCustomFields.value[key] = email.trim()
+    triggerAutoSave()
+    toastInfo(`E-mail secundário cadastrado em ${key}`)
+  }
+}
+
+const toastInfo = (msg) => {
+  // Dispara evento global de toast se tiver
+  console.log('Zavy CRM Event:', msg)
 }
 
 const closeDetail = () => {
@@ -444,6 +648,12 @@ const loadTimeline = async () => {
   }
 }
 
+const loadCustomFieldDefinitions = async () => {
+  if (route.params.id) {
+    await pipelineStore.fetchCustomFields(Number(route.params.id))
+  }
+}
+
 // Escuta teclado Esc para fechar
 const handleKeyDown = (e) => {
   if (e.key === 'Escape') {
@@ -458,6 +668,7 @@ const onNewMessageReceived = () => {
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
   loadTimeline()
+  loadCustomFieldDefinitions()
   
   // Conecta ao ActionCable via WebSocket para updates em tempo real
   if (route.params.id) {
@@ -496,6 +707,13 @@ const formatTimeOnly = (isoString) => {
   return `${hours}:${minutes}`
 }
 
+// Formatador amigável de datas
+const formatFriendlyDate = (isoString) => {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  return date.toLocaleDateString('pt-BR') + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
 // Agrupador e formatador de datas da timeline
 const getFriendlyDateKey = (dateStr) => {
   const date = new Date(dateStr)
@@ -524,25 +742,16 @@ const groupedTimeline = computed(() => {
   return groups
 })
 
-// --- LÓGICA DE CAMPOS PERSONALIZADOS (DIA 9) ---
-const localCustomFields = ref({})
-const saveStatus = ref('') // '', 'salvando', 'salvo', 'erro'
-const isAddingField = ref(false)
-const newFieldKey = ref('')
-const newFieldValue = ref('')
+// Timeline de Auditoria de Sistema
+const systemEvents = computed(() => {
+  return pipelineStore.cardTimeline.filter(event => event.event_type !== 'message')
+})
 
-// Sincroniza custom fields locais do card da store
-watch(() => card.value, (newCard) => {
-  if (newCard) {
-    localCustomFields.value = { ...newCard.custom_fields }
-  } else {
-    localCustomFields.value = {}
-  }
-}, { immediate: true, deep: true })
+
 
 let autoSaveTimeout = null
 
-// Dispara o salvamento automático com de-bounce de 700ms
+// Dispara o salvamento automático com de-bounce de 500ms
 const triggerAutoSave = () => {
   saveStatus.value = 'salvando'
   
@@ -556,47 +765,15 @@ const triggerAutoSave = () => {
         custom_fields: { ...localCustomFields.value }
       })
       saveStatus.value = 'salvo'
-      
-      // Limpa indicador de salvo após 2 segundos
       setTimeout(() => {
         if (saveStatus.value === 'salvo') {
           saveStatus.value = ''
         }
-      }, 2000)
+      }, 1500)
     } catch (error) {
-      saveStatus.value = 'erro'
+      saveStatus.value = ''
     }
-  }, 700)
-}
-
-// Watcher com verificação profunda para salvar apenas se houver mudanças reais
-watch(localCustomFields, (newVal) => {
-  if (!card.value) return
-  
-  const storeFields = card.value.custom_fields || {}
-  
-  // Verifica diferença chave-valor
-  const hasChanges = Object.keys(newVal).some(key => newVal[key] !== storeFields[key]) ||
-                     Object.keys(storeFields).some(key => newVal[key] !== storeFields[key])
-                     
-  if (hasChanges) {
-    triggerAutoSave()
-  }
-}, { deep: true })
-
-const addNewField = () => {
-  const key = newFieldKey.value.trim()
-  const val = newFieldValue.value.trim()
-  if (key && val) {
-    localCustomFields.value[key] = val
-    isAddingField.value = false
-    newFieldKey.value = ''
-    newFieldValue.value = ''
-  }
-}
-
-const removeField = (key) => {
-  delete localCustomFields.value[key]
+  }, 500)
 }
 </script>
 
@@ -611,5 +788,18 @@ const removeField = (key) => {
 }
 .animate-slide-in-right {
   animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-scale-up {
+  animation: scaleUp 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 </style>
