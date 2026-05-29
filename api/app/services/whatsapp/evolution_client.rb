@@ -25,6 +25,7 @@ module Whatsapp
     def create_instance(instance_name, workspace_id:)
       body = {
         instanceName:  instance_name,
+        browserName:   "#{Date.today.strftime("%Y-%m-%d")} ZavyCRM",
         integration:   "WHATSAPP-BAILEYS",
         qrcode:        true,
         webhook: {

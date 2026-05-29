@@ -6,7 +6,7 @@ defineProps({
   loading: { type: Boolean, default: false },
 })
 
-defineEmits(['on-disconnect', 'on-reconnect'])
+defineEmits(['on-disconnect', 'on-reconnect', 'on-delete'])
 
 const statusConfig = {
   connected: {
@@ -15,6 +15,7 @@ const statusConfig = {
     dot: 'bg-emerald-500 animate-ping',
     canDisconnect: true,
     canReconnect: false,
+    canDelete: true,
   },
   qr_pending: {
     label: 'Aguardando conexão',
@@ -22,6 +23,7 @@ const statusConfig = {
     dot: 'bg-amber-500 animate-pulse',
     canDisconnect: false,
     canReconnect: true,
+    canDelete: true,
   },
   user_disconnected: {
     label: 'Desconectado',
@@ -29,6 +31,7 @@ const statusConfig = {
     dot: 'bg-gray-400',
     canDisconnect: false,
     canReconnect: true,
+    canDelete: true,
   }
 }
 
@@ -39,6 +42,7 @@ function cfg(status) {
     dot: 'bg-gray-400',
     canDisconnect: false,
     canReconnect: true,
+    canDelete: false,
   }
 }
 </script>
@@ -100,10 +104,17 @@ function cfg(status) {
               </button>
               <button
                 v-if="cfg(inst.status).canDisconnect"
-                class="px-3 py-1.5 border border-rose-250 hover:bg-rose-50 text-rose-650 font-bold rounded-xl transition-all"
+                class="px-3 py-1.5 border border-gray-250 hover:bg-gray-50 text-gray-700 font-bold rounded-xl transition-all"
                 @click="$emit('on-disconnect', inst)"
               >
                 Desconectar
+              </button>
+              <button
+                v-if="cfg(inst.status).canDelete"
+                class="px-3 py-1.5 border border-rose-250 hover:bg-rose-50 text-rose-650 font-bold rounded-xl transition-all"
+                @click="$emit('on-delete', inst)"
+              >
+                Excluir
               </button>
             </div>
           </td>
