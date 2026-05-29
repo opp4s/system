@@ -42,7 +42,13 @@ module Api
 
           case state
           when "open"
-            wi.update_columns(status: "connected")
+            updates = { status: "connected" }
+            # Captura número real do JID quando a instância foi criada sem phone
+            wuid = data.dig("data", "wuid") || data.dig("data", "user", "id")
+            if wuid.present? && wi.phone_number.blank?
+              updates[:phone_number] = wuid.split("@").first
+            end
+            wi.update_columns(updates)
           when "close", "failed"
             wi.update_columns(status: "disconnected")
           end

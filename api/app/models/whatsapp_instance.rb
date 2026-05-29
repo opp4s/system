@@ -4,7 +4,7 @@ class WhatsappInstance < ApplicationRecord
   belongs_to :workspace
 
   validates :instance_id,  presence: true
-  validates :phone_number, presence: true
+
   validates :status,       inclusion: { in: STATUSES }
   validates :instance_id,  uniqueness: { scope: :workspace_id }
 end

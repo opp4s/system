@@ -5,15 +5,16 @@ module Api
         before_action :require_workspace!
 
         # POST /api/v1/whatsapp/connect
-        # Body: { phone_number: "+5511999999999" }
+        # Body: { phone_number: "+5511999999999" }  — opcional
         def connect
-          phone = params.require(:phone_number).to_s.gsub(/\D/, "")
-          return render json: { error: "phone_number inválido" }, status: :bad_request if phone.length < 10
+          raw_phone = params[:phone_number].to_s.gsub(/\D/, "")
+          phone         = raw_phone.length >= 10 ? raw_phone : nil
+          instance_name = phone \
+            ? "zavy-#{current_workspace.id}-#{phone}" \
+            : "zavy-#{current_workspace.id}-#{SecureRandom.uuid}"
 
-          instance_name = "zavy-#{current_workspace.id}-#{phone}"
           client = ::Whatsapp::EvolutionClient.new
-
-          state = client.connection_state(instance_name)
+          state  = client.connection_state(instance_name)
 
           if state == "open"
             wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
@@ -28,16 +29,14 @@ module Api
             }
           end
 
-          # Cria ou reconecta instância
-          if params[:method] == "pairing"
-            client.create_instance(instance_name, workspace_id: current_workspace.id) if state == "not_found"
-            result = client.get_pairing_code(instance_name, phone)
+          # Cria instância se não existir, depois busca QR separadamente
+          # (Chatwoot suprime qrcode na resposta do create — get_qr sempre tem)
+          client.create_instance(instance_name, workspace_id: current_workspace.id) if state == "not_found"
+
+          result = if params[:method] == "pairing" && phone
+            client.get_pairing_code(instance_name, phone)
           else
-            result = if state == "not_found"
-              client.create_instance(instance_name, workspace_id: current_workspace.id)
-            else
-              client.get_qr(instance_name)
-            end
+            client.get_qr(instance_name)
           end
 
           wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
@@ -55,8 +54,6 @@ module Api
           }
         rescue ::Whatsapp::EvolutionClient::ApiError => e
           render json: { error: "Erro na Evolution API: #{e.message}" }, status: :unprocessable_entity
-        rescue ActionController::ParameterMissing => e
-          render json: { error: e.message }, status: :bad_request
         end
 
         # GET /api/v1/whatsapp/status
@@ -70,7 +67,7 @@ module Api
         end
 
         # POST /api/v1/whatsapp/disconnect
-        # Body: { instance_id: "zavy-30-5511999999999" }
+        # Body: { instance_id: "zavy-30-..." }
         def disconnect
           instance_name = params.require(:instance_id)
           wi = current_workspace.whatsapp_instances.find_by(instance_id: instance_name)
@@ -95,7 +92,7 @@ module Api
         def instance_payload(wi)
           {
             instance_id: wi.instance_id,
-            phone:       wi.phone_number,
+            phone:       wi.phone_number.presence,
             status:      wi.status,
             created_at:  wi.created_at
           }

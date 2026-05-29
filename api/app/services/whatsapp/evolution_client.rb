@@ -30,11 +30,11 @@ module Whatsapp
         qrcode:        true,
         webhook: {
           url:      "#{ZAVY_WEBHOOK}/api/v1/webhooks/evolution",
-          byEvents: true,
-          base64:   false,
+          byEvents: false,
+          base64:   true,
           events:   ["CONNECTION_UPDATE", "QRCODE_UPDATED"]
         },
-        webhookByEvents: true,
+        webhookByEvents: false,
         chatwootAccountId: ENV["CHATWOOT_ACCOUNT_ID"].to_s.presence || "1",
         chatwootToken:     ENV["CHATWOOT_API_TOKEN"],
         chatwootUrl:       ENV["CHATWOOT_URL"],
@@ -44,11 +44,21 @@ module Whatsapp
       }
 
       resp = post("/instance/create", body)
+      h = resp.is_a?(Hash) ? resp : {}
 
-      qr_data = resp.dig("qrcode", "base64") || resp.dig("hash", "qrcode")
+      # Evolution pode retornar qrcode como Hash {base64:...} ou String diretamente
+      qrcode_val = h["qrcode"]
+      qr_data = case qrcode_val
+                when Hash   then qrcode_val["base64"]
+                when String then qrcode_val
+                end
+      qr_data ||= (h.dig("hash", "qrcode") rescue nil)
+
+      instance_val = h["instance"]
+      resolved_id  = instance_val.is_a?(Hash) ? instance_val["instanceName"] : nil
 
       {
-        instance_id: resp.dig("instance", "instanceName") || instance_name,
+        instance_id: resolved_id || instance_name,
         qr_base64:   qr_data,
         expires_at:  (Time.current + 60.seconds).iso8601
       }
@@ -57,7 +67,13 @@ module Whatsapp
     # Obtém QR code de instância existente (quando expirou)
     def get_qr(instance_name)
       resp = get("/instance/connect/#{instance_name}")
-      qr   = resp["base64"] || resp.dig("qrcode", "base64")
+      h    = resp.is_a?(Hash) ? resp : {}
+      qrcode_val = h["qrcode"]
+      qr = case qrcode_val
+           when Hash   then qrcode_val["base64"]
+           when String then qrcode_val
+           end
+      qr ||= h["base64"]
       { qr_base64: qr, expires_at: (Time.current + 60.seconds).iso8601 }
     end
 
