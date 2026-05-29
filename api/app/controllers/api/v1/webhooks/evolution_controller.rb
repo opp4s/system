@@ -11,9 +11,9 @@ module Api
           instance_name = params[:instance]
 
           case event
-          when "CONNECTION_UPDATE"
+          when "connection.update"
             handle_connection_update(instance_name, params.to_unsafe_h)
-          when "QRCODE_UPDATED"
+          when "qrcode.updated"
             Rails.logger.info "[Evolution] QR atualizado para #{instance_name}"
           end
 
