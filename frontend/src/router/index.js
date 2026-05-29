@@ -96,7 +96,7 @@ const routes = [
       {
         path: 'settings/whatsapp',
         name: 'settings-whatsapp',
-        component: () => import('@/views/settings/WhatsAppSetup.vue')
+        component: () => import('@/views/settings/whatsapp/Index.vue')
       }
     ]
   },
