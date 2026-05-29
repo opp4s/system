@@ -1,7 +1,7 @@
 module Whatsapp
   class EvolutionClient
-    BASE_URL    = ENV.fetch("EVOLUTION_URL", "https://evolution.opp4s.com")
-    API_KEY     = ENV.fetch("EVOLUTION_API_KEY", "")
+    BASE_URL     = ENV.fetch("EVOLUTION_URL", "https://evolution.opp4s.com")
+    API_KEY      = ENV.fetch("EVOLUTION_API_KEY", "")
     ZAVY_WEBHOOK = ENV.fetch("APP_URL", "https://api.zavycrm.com")
 
     class ApiError < StandardError
@@ -32,7 +32,7 @@ module Whatsapp
           url:      "#{ZAVY_WEBHOOK}/api/v1/webhooks/evolution",
           byEvents: false,
           base64:   true,
-          events:   ["CONNECTION_UPDATE", "QRCODE_UPDATED"]
+          events:   ["connection.update", "qrcode.updated"]
         },
         webhookByEvents: false,
         chatwootAccountId: ENV["CHATWOOT_ACCOUNT_ID"].to_s.presence || "1",
@@ -80,7 +80,7 @@ module Whatsapp
     # Obtém código de pareamento para a instância
     def get_pairing_code(instance_name, phone_number)
       resp = get("/instance/connect/#{instance_name}?number=#{phone_number}")
-      code = resp["pairingCode"] || resp["code"]
+      code = resp.is_a?(Hash) ? (resp["pairingCode"] || resp["code"]) : nil
       {
         instance_id:  instance_name,
         pairing_code: code,
@@ -88,42 +88,53 @@ module Whatsapp
       }
     end
 
-    # Verifica estado da conexão
+    # Verifica estado da conexão — retorna string de estado ou "not_found"
     def connection_state(instance_name)
       resp = get("/instance/connectionState/#{instance_name}")
-      resp["instance"]&.dig("state") || resp["state"]
+      h    = resp.is_a?(Hash) ? resp : {}
+      h["instance"]&.dig("state") || h["state"] || "not_found"
     rescue ApiError
       "not_found"
     end
 
-    # Deleta instância
+    # Deleta instância permanentemente da Evolution
     def delete_instance(instance_name)
-      resp = delete("/instance/delete/#{instance_name}")
-      resp["status"] == "SUCCESS" || resp["deleted"]
-    rescue ApiError
+      delete("/instance/delete/#{instance_name}")
+      true
+    rescue ApiError => e
+      return true if e.status == 404
       false
     end
 
-    # Lista instâncias
+    # Faz logout (desconecta WhatsApp mas mantém instância na Evolution)
+    def logout_instance(instance_name)
+      delete("/instance/logout/#{instance_name}")
+      true
+    rescue ApiError => e
+      return true if e.status == 404
+      false
+    end
+
+    # Lista todas as instâncias
     def fetch_instances
-      get("/instance/fetchInstances")
+      resp = get("/instance/fetchInstances")
+      resp.is_a?(Array) ? resp : []
+    rescue ApiError
+      []
     end
 
     private
 
     def get(path)
-      resp = @conn.get(path)
-      handle_response(resp)
+      handle_response(@conn.get(path))
     end
 
     def post(path, body)
-      resp = @conn.post(path, body)
-      handle_response(resp)
+      handle_response(@conn.post(path, body))
     end
 
     def delete(path)
-      resp = @conn.delete(path)
-      handle_response(resp)
+      handle_response(@conn.delete(path))
     end
 
     def handle_response(resp)

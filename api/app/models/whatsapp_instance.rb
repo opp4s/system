@@ -1,5 +1,5 @@
 class WhatsappInstance < ApplicationRecord
-  STATUSES = %w[qr_pending connected disconnected].freeze
+  STATUSES = %w[qr_pending connecting connected disconnected].freeze
 
   belongs_to :workspace
 

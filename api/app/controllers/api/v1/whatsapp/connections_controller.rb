@@ -57,17 +57,26 @@ module Api
         end
 
         # GET /api/v1/whatsapp/status
+        # Sincroniza status com Evolution antes de retornar
         def status
           instances = current_workspace.whatsapp_instances.order(:created_at)
-          render json: {
-            data: {
-              instances: instances.map { |wi| instance_payload(wi) }
-            }
-          }
+          client    = ::Whatsapp::EvolutionClient.new
+
+          result = instances.map do |wi|
+            real_status = evolution_status(client, wi.instance_id)
+            if real_status && real_status != wi.status
+              wi.update_columns(status: real_status)
+              wi.status = real_status
+            end
+            instance_payload(wi)
+          end
+
+          render json: { data: { instances: result } }
         end
 
         # POST /api/v1/whatsapp/disconnect
         # Body: { instance_id: "zavy-30-..." }
+        # Faz logout na Evolution (desconecta WhatsApp mas mantém a instância)
         def disconnect
           instance_name = params.require(:instance_id)
           wi = current_workspace.whatsapp_instances.find_by(instance_id: instance_name)
@@ -76,18 +85,46 @@ module Api
             return render json: { data: { disconnected: true, message: "Instância não encontrada" } }
           end
 
-          client = ::Whatsapp::EvolutionClient.new
-          client.delete_instance(instance_name)
-          wi.destroy
+          ::Whatsapp::EvolutionClient.new.logout_instance(instance_name)
+          wi.update_columns(status: "disconnected")
 
-          render json: { data: { disconnected: true } }
+          render json: { data: { disconnected: true, instance_id: instance_name } }
         rescue ActionController::ParameterMissing => e
           render json: { error: e.message }, status: :bad_request
-        rescue ::Whatsapp::EvolutionClient::ApiError => e
-          render json: { error: "Erro ao desconectar: #{e.message}" }, status: :unprocessable_entity
+        end
+
+        # DELETE /api/v1/whatsapp/destroy
+        # Body: { instance_id: "zavy-30-..." }
+        # Remove instância da Evolution E do banco
+        def destroy
+          instance_name = params.require(:instance_id)
+          wi = current_workspace.whatsapp_instances.find_by(instance_id: instance_name)
+
+          unless wi
+            return render json: { data: { deleted: true, message: "Instância não encontrada" } }
+          end
+
+          ::Whatsapp::EvolutionClient.new.delete_instance(instance_name)
+          wi.destroy!
+
+          render json: { data: { deleted: true, instance_id: instance_name } }
+        rescue ActionController::ParameterMissing => e
+          render json: { error: e.message }, status: :bad_request
         end
 
         private
+
+        def evolution_status(client, instance_id)
+          state = client.connection_state(instance_id)
+          case state
+          when "open"             then "connected"
+          when "close", "refused" then "disconnected"
+          when "connecting"       then "connecting"
+          end
+        rescue => e
+          Rails.logger.warn "[WhatsApp] Erro ao consultar Evolution para #{instance_id}: #{e.message}"
+          nil
+        end
 
         def instance_payload(wi)
           {
