@@ -34,18 +34,13 @@ async function fetchInstances() {
   loading.value = true
   try {
     const res = await api.get('/api/v1/whatsapp/status')
-    const data = res.data?.data
-    if (data && data.instance_id) {
-      instances.value = [{
-        instance_id: data.instance_id,
-        phone_number: data.phone,
-        status: data.connected ? 'connected' : 'user_disconnected'
-      }]
-      chatwootStore.configured = data.connected
-    } else {
-      instances.value = []
-      chatwootStore.configured = false
-    }
+    const list = res.data?.data?.instances || []
+    instances.value = list.map(wi => ({
+      instance_id: wi.instance_id,
+      phone_number: wi.phone,
+      status: wi.status
+    }))
+    chatwootStore.configured = instances.value.some(i => i.status === 'connected')
   } catch {
     instances.value = []
     chatwootStore.configured = false
@@ -56,7 +51,7 @@ async function fetchInstances() {
 
 async function disconnect(inst) {
   const ok = confirm(
-    `Desconectar "${inst.phone_number || 'Dispositivo'}"?\n\n` +
+    `Desconectar "${inst.phone_number || inst.instance_id}"?\n\n` +
     `A caixa de entrada e o histórico serão preservados. ` +
     `Você poderá reconectar quando quiser.`
   )
@@ -64,9 +59,7 @@ async function disconnect(inst) {
   
   loading.value = true
   try {
-    await api.post('/api/v1/whatsapp/disconnect')
-    chatwootStore.configured = false
-    chatwootStore.disconnectChatwoot()
+    await api.post('/api/v1/whatsapp/disconnect', { instance_id: inst.instance_id })
     toast.success('WhatsApp desconectado com sucesso.')
     await fetchInstances()
   } catch (e) {
@@ -79,7 +72,7 @@ async function disconnect(inst) {
 
 async function deleteInstance(inst) {
   const ok = confirm(
-    `Excluir definitivamente "${inst.phone_number || 'Dispositivo'}"?\n\n` +
+    `Excluir definitivamente "${inst.phone_number || inst.instance_id}"?\n\n` +
     `ATENÇÃO: a conexão será desfeita e todas as configurações removidas.\n` +
     `Esta ação não pode ser desfeita.`
   )
@@ -87,9 +80,7 @@ async function deleteInstance(inst) {
 
   loading.value = true
   try {
-    await api.post('/api/v1/whatsapp/disconnect')
-    chatwootStore.configured = false
-    chatwootStore.disconnectChatwoot()
+    await api.post('/api/v1/whatsapp/disconnect', { instance_id: inst.instance_id })
     toast.success('Conexão excluída com sucesso.')
     await fetchInstances()
   } catch (e) {

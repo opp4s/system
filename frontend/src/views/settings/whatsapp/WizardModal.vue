@@ -11,26 +11,11 @@ const props = defineProps({
 const emit = defineEmits(['close', 'connected'])
 const toast = useToast()
 
-const DDI_OPTIONS = [
-  { label: '+55 Brasil', value: '+55' },
-  { label: '+1 EUA/Canadá', value: '+1' },
-  { label: '+351 Portugal', value: '+351' },
-  { label: '+54 Argentina', value: '+54' },
-  { label: '+598 Uruguai', value: '+598' },
-  { label: '+56 Chile', value: '+56' },
-  { label: '+57 Colômbia', value: '+57' },
-]
-
-const step = ref('platform') // platform, phone, qr, success
+const step = ref('platform') // platform, qr, success
 const platform = ref(null)
-const ddi = ref('+55')
-const phone = ref('')
-const phoneError = ref('')
 const instanceId = ref(null)
 const qrCode = ref(null)
-const pairingCode = ref(null)
 const expiresAt = ref(null)
-const usePairing = ref(false)
 const loadingQr = ref(false)
 const apiError = ref('')
 
@@ -39,30 +24,13 @@ let refreshTimer = null
 let abortController = null
 
 const stepIndex = computed(() => {
-  const map = { platform: 0, phone: 1, qr: 2, success: 3 }
+  const map = { platform: 0, qr: 1, success: 2 }
   return map[step.value] ?? 0
 })
 
 function selectPlatform(p) {
   platform.value = p
-  step.value = 'phone'
-}
-
-function fullPhoneNumber() {
-  if (ddi.value) {
-    return `${ddi.value}${phone.value.replace(/\D/g, '')}`
-  }
-  return phone.value.trim()
-}
-
-function validatePhone() {
-  const digits = fullPhoneNumber().replace(/\D/g, '')
-  if (digits.length < 8) {
-    phoneError.value = ddi.value ? 'Digite um número válido' : 'Digite o número completo com +DDI (ex: +5541999000000)'
-    return false
-  }
-  phoneError.value = ''
-  return true
+  requestConnection()
 }
 
 function scheduleQrRefresh(expiresAtIso) {
@@ -81,8 +49,9 @@ function startPolling() {
   pollTimer = setInterval(async () => {
     try {
       const res = await api.get('/api/v1/whatsapp/status')
-      const data = res.data?.data
-      if (data && data.connected) {
+      const list = res.data?.data?.instances || []
+      const currentInst = list.find(i => i.instance_id === instanceId.value)
+      if (currentInst && currentInst.status === 'connected') {
         clearInterval(pollTimer)
         clearTimeout(refreshTimer)
         step.value = 'success'
@@ -95,20 +64,16 @@ function startPolling() {
 }
 
 async function requestConnection() {
-  if (!validatePhone()) return
-
   abortController = new AbortController()
   loadingQr.value = true
   apiError.value = ''
-  pairingCode.value = null
   qrCode.value = null
 
   try {
     const res = await api.post(
       '/api/v1/whatsapp/connect',
       {
-        phone_number: fullPhoneNumber(),
-        method: usePairing.value ? 'pairing' : 'qr',
+        method: 'qr',
       },
       { signal: abortController.signal }
     )
@@ -119,15 +84,11 @@ async function requestConnection() {
     }
 
     instanceId.value = data.instance_id
-    if (usePairing.value) {
-      pairingCode.value = data.pairing_code
-    } else {
-      let qr = data.qr_code_base64
-      if (qr && !qr.startsWith('data:')) {
-        qr = `data:image/png;base64,${qr}`
-      }
-      qrCode.value = qr
+    let qr = data.qr_code_base64
+    if (qr && !qr.startsWith('data:')) {
+      qr = `data:image/png;base64,${qr}`
     }
+    qrCode.value = qr
     expiresAt.value = data.expires_at
 
     step.value = 'qr'
@@ -148,20 +109,15 @@ async function refreshQr() {
   apiError.value = ''
   try {
     const res = await api.post('/api/v1/whatsapp/connect', {
-      phone_number: fullPhoneNumber(),
-      method: usePairing.value ? 'pairing' : 'qr',
+      method: 'qr',
     })
     const data = res.data?.data
     if (data) {
-      if (usePairing.value) {
-        pairingCode.value = data.pairing_code
-      } else {
-        let qr = data.qr_code_base64
-        if (qr && !qr.startsWith('data:')) {
-          qr = `data:image/png;base64,${qr}`
-        }
-        qrCode.value = qr
+      let qr = data.qr_code_base64
+      if (qr && !qr.startsWith('data:')) {
+        qr = `data:image/png;base64,${qr}`
       }
+      qrCode.value = qr
       expiresAt.value = data.expires_at
       scheduleQrRefresh(expiresAt.value)
     }
@@ -182,23 +138,6 @@ function close() {
 onMounted(() => {
   if (props.reconnectInstance) {
     instanceId.value = props.reconnectInstance.instance_id
-    // Parse number
-    if (props.reconnectInstance.phone_number) {
-      const fullPhone = props.reconnectInstance.phone_number
-      if (fullPhone.startsWith('+')) {
-        const matchedDdi = DDI_OPTIONS.find(opt => fullPhone.startsWith(opt.value))
-        if (matchedDdi) {
-          ddi.value = matchedDdi.value
-          phone.value = fullPhone.substring(matchedDdi.value.length)
-        } else {
-          ddi.value = ''
-          phone.value = fullPhone
-        }
-      } else {
-        ddi.value = ''
-        phone.value = fullPhone
-      }
-    }
     platform.value = 'android'
     step.value = 'qr'
     requestConnection()
@@ -237,7 +176,7 @@ onUnmounted(() => {
 
       <!-- Step indicator -->
       <div class="flex items-center justify-between px-6 pt-4 pb-2 border-b border-gray-50 bg-gray-50/20">
-        <template v-for="(label, i) in ['Plataforma', 'Número', 'Conectar', 'Pronto']" :key="i">
+        <template v-for="(label, i) in ['Plataforma', 'Conectar', 'Pronto']" :key="i">
           <div class="flex items-center gap-1.5">
             <div
               class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-150"
@@ -251,7 +190,7 @@ onUnmounted(() => {
               :class="i <= stepIndex ? 'text-gray-800 font-bold' : 'text-gray-400 font-medium'"
             >{{ label }}</span>
           </div>
-          <div v-if="i < 3" class="flex-1 h-px mx-3 bg-gray-100 min-w-4" />
+          <div v-if="i < 2" class="flex-1 h-px mx-3 bg-gray-100 min-w-4" />
         </template>
       </div>
 
@@ -289,102 +228,28 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- STEP: Phone number -->
-        <div v-else-if="step === 'phone'" class="flex flex-col max-w-sm mx-auto w-full space-y-4">
-          <div>
-            <h3 class="text-base font-extrabold text-gray-900">Qual o número do WhatsApp?</h3>
-            <p class="text-xs text-gray-500 mt-0.5">Selecione o país e digite o número com o código DDD.</p>
-          </div>
-
-          <div>
-            <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1.5">País</label>
-            <select
-              v-model="ddi"
-              class="w-full px-3 py-2.5 rounded-xl border border-gray-250 text-xs text-gray-800 bg-white outline-none focus:border-slate-800 focus:ring-1 focus:ring-slate-800 transition-all"
-            >
-              <option v-for="opt in DDI_OPTIONS" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-              <option value="">Outro (digitar +DDI junto)</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1.5">Número de telefone</label>
-            <div class="flex gap-2">
-              <span
-                v-if="ddi"
-                class="flex items-center px-4 rounded-xl border border-gray-250 bg-gray-50 text-xs font-bold text-gray-600 select-none whitespace-nowrap"
-              >{{ ddi }}</span>
-              <input
-                v-model="phone"
-                type="tel"
-                :placeholder="ddi === '+55' ? '(11) 99999-0000' : ddi ? '' : '+5541999000000'"
-                class="flex-1 px-4 py-2.5 rounded-xl border text-xs text-gray-800 bg-white outline-none focus:border-slate-800 focus:ring-1 focus:ring-slate-800 transition-all"
-                :class="phoneError ? 'border-rose-500 focus:border-rose-500' : 'border-gray-250'"
-                @keyup.enter="requestConnection"
-              />
-            </div>
-            <p v-if="phoneError" class="text-xs text-rose-600 mt-1 font-semibold">{{ phoneError }}</p>
-          </div>
-
-          <label class="flex items-center gap-2 cursor-pointer pt-1 select-none">
-            <input v-model="usePairing" type="checkbox" class="rounded border-gray-300 text-slate-900 focus:ring-slate-800" />
-            <span class="text-xs font-semibold text-gray-600">Usar código de pareamento <span class="text-gray-400 font-medium">(sem QR Code)</span></span>
-          </label>
-
-          <p v-if="apiError" class="text-xs text-rose-600 font-semibold">{{ apiError }}</p>
-
-          <div class="flex gap-3 pt-3">
-            <button
-              class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors"
-              @click="step = 'platform'"
-            >
-              Voltar
-            </button>
-            <button
-              class="flex-1 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-              :disabled="loadingQr"
-              @click="requestConnection"
-            >
-              <Loader2 v-if="loadingQr" class="animate-spin h-3.5 w-3.5" />
-              <span>{{ loadingQr ? 'Gerando...' : 'Gerar Código' }}</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- STEP: QR / Pairing code -->
+        <!-- STEP: QR Code -->
         <div v-else-if="step === 'qr'" class="flex flex-col md:flex-row gap-6 w-full animate-scale-up">
           <!-- Left: Instructions -->
           <div class="flex-1 flex flex-col justify-between space-y-4">
             <div>
               <h3 class="text-base font-extrabold text-gray-900">
-                {{ usePairing ? 'Insira o código no WhatsApp' : 'Abra o seu WhatsApp no celular' }}
+                Abra o seu WhatsApp no celular
               </h3>
 
-              <template v-if="!usePairing">
-                <ol class="space-y-2.5 text-xs text-gray-650 font-medium pl-4 list-decimal leading-relaxed pt-3">
-                  <li>Abra o WhatsApp no seu celular</li>
-                  <li>
-                    <template v-if="platform === 'iphone'">
-                      Vá em <strong>Configurações</strong> → <strong>Dispositivos conectados</strong>
-                    </template>
-                    <template v-else>
-                      Vá no <strong>Menu (3 pontos)</strong> → <strong>Dispositivos conectados</strong>
-                    </template>
-                  </li>
-                  <li>Toque em <strong>Conectar um dispositivo</strong></li>
-                  <li>Aponte a câmera para o QR Code ao lado</li>
-                </ol>
-              </template>
-
-              <template v-else>
-                <ol class="space-y-2.5 text-xs text-gray-650 font-medium pl-4 list-decimal leading-relaxed pt-3">
-                  <li>Abra o WhatsApp no celular</li>
-                  <li>Vá em <strong>Dispositivos conectados</strong> → <strong>Conectar com número de telefone</strong></li>
-                  <li>Insira o código exibido ao lado no celular</li>
-                </ol>
-              </template>
+              <ol class="space-y-2.5 text-xs text-gray-650 font-medium pl-4 list-decimal leading-relaxed pt-3">
+                <li>Abra o WhatsApp no seu celular</li>
+                <li>
+                  <template v-if="platform === 'iphone'">
+                    Vá em <strong>Configurações</strong> → <strong>Dispositivos conectados</strong>
+                  </template>
+                  <template v-else>
+                    Vá no <strong>Menu (3 pontos)</strong> → <strong>Dispositivos conectados</strong>
+                  </template>
+                </li>
+                <li>Toque em <strong>Conectar um dispositivo</strong></li>
+                <li>Aponte a câmera para o QR Code ao lado</li>
+              </ol>
             </div>
 
             <div class="pt-3">
@@ -396,45 +261,27 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Right: QR or Pairing Code -->
+          <!-- Right: QR Code -->
           <div class="flex flex-col items-center justify-center flex-shrink-0 bg-gray-50 border border-gray-150 rounded-3xl p-4 w-full md:w-52 h-52 relative">
-            <template v-if="usePairing">
-              <div class="text-center space-y-3 select-all">
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Código de Conexão</p>
-                <div
-                  v-if="pairingCode"
-                  class="text-2xl font-mono font-extrabold text-slate-900 tracking-widest bg-white border border-gray-200 px-4 py-2.5 rounded-2xl"
-                >
-                  {{ pairingCode }}
-                </div>
-                <div v-else class="flex items-center justify-center h-12">
-                  <Loader2 class="animate-spin h-6 w-6 text-gray-400" />
-                </div>
-                <p class="text-[9px] text-gray-400 font-medium">Clique para copiar</p>
+            <div class="relative w-full h-full flex items-center justify-center">
+              <div v-if="loadingQr || !qrCode" class="w-full h-full flex items-center justify-center">
+                <Loader2 class="animate-spin h-8 w-8 text-gray-400" />
               </div>
-            </template>
-
-            <template v-else>
-              <div class="relative w-full h-full flex items-center justify-center">
-                <div v-if="loadingQr || !qrCode" class="w-full h-full flex items-center justify-center">
-                  <Loader2 class="animate-spin h-8 w-8 text-gray-400" />
-                </div>
-                <img
-                  v-else
-                  :src="qrCode"
-                  alt="Evolution QR Code"
-                  class="w-full h-full object-contain rounded-xl"
-                />
-              </div>
-              <button
-                class="absolute bottom-2 text-[10px] text-zavy-600 hover:text-zavy-700 flex items-center gap-1 font-bold bg-white/95 border border-gray-150 rounded-full px-2.5 py-1 shadow-sm transition-all"
-                @click="refreshQr"
-                :disabled="loadingQr"
-              >
-                <RefreshCw class="h-3 w-3" :class="{'animate-spin': loadingQr}" />
-                <span>Atualizar QR</span>
-              </button>
-            </template>
+              <img
+                v-else
+                :src="qrCode"
+                alt="Evolution QR Code"
+                class="w-full h-full object-contain rounded-xl"
+              />
+            </div>
+            <button
+              class="absolute bottom-2 text-[10px] text-zavy-600 hover:text-zavy-700 flex items-center gap-1 font-bold bg-white/95 border border-gray-150 rounded-full px-2.5 py-1 shadow-sm transition-all"
+              @click="refreshQr"
+              :disabled="loadingQr"
+            >
+              <RefreshCw class="h-3 w-3" :class="{'animate-spin': loadingQr}" />
+              <span>Atualizar QR</span>
+            </button>
           </div>
         </div>
 
