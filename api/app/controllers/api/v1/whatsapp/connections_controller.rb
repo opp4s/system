@@ -13,9 +13,11 @@ module Api
           instance_name = "zavy-#{current_workspace.id}-#{phone}"
           client = ::Whatsapp::EvolutionClient.new
 
-          # Verifica se já existe instância conectada
           state = client.connection_state(instance_name)
+
           if state == "open"
+            wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
+            wi.update!(phone_number: phone, status: "connected")
             return render json: {
               data: {
                 instance_id: instance_name,
@@ -38,18 +40,17 @@ module Api
             end
           end
 
-          # Auto-configura ChatwootConfig com credenciais do servidor
-          auto_configure_chatwoot
+          wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
+          wi.update!(phone_number: phone, status: "qr_pending")
 
-          # Persiste instance_id nas settings
-          save_whatsapp_settings(instance_name, phone)
+          auto_configure_chatwoot
 
           render json: {
             data: {
-              instance_id:  result[:instance_id] || instance_name,
+              instance_id:    result[:instance_id] || instance_name,
               qr_code_base64: result[:qr_base64],
-              pairing_code: result[:pairing_code],
-              expires_at:   result[:expires_at]
+              pairing_code:   result[:pairing_code],
+              expires_at:     result[:expires_at]
             }
           }
         rescue ::Whatsapp::EvolutionClient::ApiError => e
@@ -60,50 +61,45 @@ module Api
 
         # GET /api/v1/whatsapp/status
         def status
-          config = current_workspace.chatwoot_config
-          instance_name = config&.settings&.dig("whatsapp_instance_id")
-
-          unless instance_name
-            return render json: { data: { connected: false, instance_id: nil, phone: nil } }
-          end
-
-          client = ::Whatsapp::EvolutionClient.new
-          state  = client.connection_state(instance_name)
-
+          instances = current_workspace.whatsapp_instances.order(:created_at)
           render json: {
             data: {
-              connected:   state == "open",
-              state:       state,
-              instance_id: instance_name,
-              phone:       config.settings["whatsapp_phone"]
+              instances: instances.map { |wi| instance_payload(wi) }
             }
           }
         end
 
         # POST /api/v1/whatsapp/disconnect
+        # Body: { instance_id: "zavy-30-5511999999999" }
         def disconnect
-          config = current_workspace.chatwoot_config
-          instance_name = config&.settings&.dig("whatsapp_instance_id")
+          instance_name = params.require(:instance_id)
+          wi = current_workspace.whatsapp_instances.find_by(instance_id: instance_name)
 
-          unless instance_name
-            return render json: { data: { disconnected: true, message: "Nenhuma instância encontrada" } }
+          unless wi
+            return render json: { data: { disconnected: true, message: "Instância não encontrada" } }
           end
 
           client = ::Whatsapp::EvolutionClient.new
           client.delete_instance(instance_name)
-
-          # Remove instance_id das settings
-          if config
-            new_settings = (config.settings || {}).except("whatsapp_instance_id", "whatsapp_phone")
-            config.update_columns(settings: new_settings)
-          end
+          wi.destroy
 
           render json: { data: { disconnected: true } }
+        rescue ActionController::ParameterMissing => e
+          render json: { error: e.message }, status: :bad_request
         rescue ::Whatsapp::EvolutionClient::ApiError => e
           render json: { error: "Erro ao desconectar: #{e.message}" }, status: :unprocessable_entity
         end
 
         private
+
+        def instance_payload(wi)
+          {
+            instance_id: wi.instance_id,
+            phone:       wi.phone_number,
+            status:      wi.status,
+            created_at:  wi.created_at
+          }
+        end
 
         def auto_configure_chatwoot
           return if ENV["CHATWOOT_URL"].blank? || ENV["CHATWOOT_API_TOKEN"].blank?
@@ -121,19 +117,6 @@ module Api
           config.save if config.valid?
         rescue => e
           Rails.logger.warn "[WhatsApp] auto_configure_chatwoot failed: #{e.message}"
-        end
-
-        def save_whatsapp_settings(instance_name, phone)
-          config = current_workspace.chatwoot_config
-          return unless config&.persisted?
-
-          new_settings = (config.settings || {}).merge(
-            "whatsapp_instance_id" => instance_name,
-            "whatsapp_phone"       => phone
-          )
-          config.update_columns(settings: new_settings)
-        rescue => e
-          Rails.logger.warn "[WhatsApp] save_whatsapp_settings failed: #{e.message}"
         end
       end
     end

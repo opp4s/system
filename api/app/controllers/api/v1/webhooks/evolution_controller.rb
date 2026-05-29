@@ -14,7 +14,6 @@ module Api
           when "CONNECTION_UPDATE"
             handle_connection_update(instance_name, params.to_unsafe_h)
           when "QRCODE_UPDATED"
-            # QR expirou — frontend deve fazer GET /whatsapp/status para novo QR
             Rails.logger.info "[Evolution] QR atualizado para #{instance_name}"
           end
 
@@ -27,7 +26,6 @@ module Api
           state = data.dig("data", "state")
           Rails.logger.info "[Evolution] Connection update: #{instance_name} → #{state}"
 
-          # Extrai workspace_id do nome da instância: zavy-{workspace_id}-{phone}
           return unless instance_name&.start_with?("zavy-")
 
           parts = instance_name.split("-")
@@ -39,15 +37,14 @@ module Api
           workspace = Workspace.find_by(id: workspace_id)
           return unless workspace
 
-          config = workspace.chatwoot_config
-          return unless config
+          wi = workspace.whatsapp_instances.find_by(instance_id: instance_name)
+          return unless wi
 
-          if state == "open"
-            new_settings = (config.settings || {}).merge("whatsapp_connected" => true)
-            config.update_columns(settings: new_settings)
-          elsif state.in?(%w[close failed])
-            new_settings = (config.settings || {}).merge("whatsapp_connected" => false)
-            config.update_columns(settings: new_settings)
+          case state
+          when "open"
+            wi.update_columns(status: "connected")
+          when "close", "failed"
+            wi.update_columns(status: "disconnected")
           end
         rescue => e
           Rails.logger.error "[Evolution] handle_connection_update error: #{e.message}"
