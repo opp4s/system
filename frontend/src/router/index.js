@@ -66,16 +66,19 @@ const routes = [
         path: 'pipelines',
         name: 'pipelines',
         component: () => import('@/views/pipelines/PipelinesPage.vue'),
+        meta: { fullWidth: true },
         children: [
           {
             path: ':id',
             name: 'pipelines-detail',
             component: () => import('@/views/pipelines/KanbanBoard.vue'),
+            meta: { fullWidth: true },
             children: [
               {
                 path: 'cards/:cardId',
                 name: 'card-detail',
-                component: () => import('@/views/pipelines/CardDetail.vue')
+                component: () => import('@/views/pipelines/CardDetail.vue'),
+                meta: { fullWidth: true }
               }
             ]
           }

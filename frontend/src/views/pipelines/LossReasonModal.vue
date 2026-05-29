@@ -20,7 +20,7 @@
         </div>
         <button 
           @click="cancel"
-          class="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          class="p-2 text-gray-400 hover:text-gray-650 hover:bg-gray-100 rounded-xl transition-all duration-155"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -30,36 +30,35 @@
 
       <!-- Corpo -->
       <main class="py-4 space-y-4">
-        <p class="text-xs text-gray-500">
-          Você está movendo o lead <strong class="text-gray-800">{{ cardTitle }}</strong> para a coluna de perda. Por favor, descreva o motivo da perda.
+        <p class="text-xs text-gray-505">
+          Você está movendo o lead <strong class="text-gray-800">{{ cardTitle }}</strong> para a etapa de perda. Por favor, selecione o motivo.
         </p>
 
-        <!-- Botões de Motivos Rápidos -->
-        <div>
-          <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Motivos comuns</label>
-          <div class="flex flex-wrap gap-2">
-            <button 
-              v-for="reason in QUICK_REASONS" 
-              :key="reason"
-              type="button"
-              @click="setQuickReason(reason)"
-              class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-gray-250 bg-gray-50 hover:bg-gray-100 text-gray-700 transition-all duration-150"
-              :class="{'border-rose-500 bg-rose-50/20 text-rose-700': formReason === reason}"
-            >
+        <!-- Dropdown de Motivos -->
+        <div class="space-y-1.5">
+          <label for="reason-select" class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Motivo da Perda</label>
+          <select
+            id="reason-select"
+            v-model="selectedReason"
+            class="block w-full px-4 py-2.5 rounded-xl border border-gray-250 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-550 bg-gray-50/20 text-xs text-gray-850 transition-all"
+          >
+            <option value="" disabled>Selecione um motivo...</option>
+            <option v-for="reason in reasonsToDisplay" :key="reason" :value="reason">
               {{ reason }}
-            </button>
-          </div>
+            </option>
+            <option value="other">Outro (especificar)</option>
+          </select>
         </div>
 
-        <!-- Campo Texto livre -->
-        <div>
-          <label for="reason-input" class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Justificativa Detalhada</label>
+        <!-- Campo Texto livre se 'other' ou sem motivos rápidos -->
+        <div v-if="showOtherInput" class="space-y-1.5 animate-scale-up">
+          <label for="reason-input" class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Especifique o Motivo</label>
           <textarea
             id="reason-input"
-            v-model="formReason"
+            v-model="otherReason"
             rows="3"
             required
-            class="block w-full px-4 py-3 rounded-xl border border-gray-250 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-gray-50/30 text-sm text-gray-900 placeholder-gray-400 transition-all duration-150"
+            class="block w-full px-4 py-3 rounded-xl border border-gray-250 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-550 bg-gray-50/20 text-xs text-gray-900 placeholder-gray-400 transition-all"
             placeholder="Descreva detalhadamente o motivo da perda..."
           ></textarea>
         </div>
@@ -70,15 +69,15 @@
         <button
           type="button"
           @click="cancel"
-          class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all"
+          class="px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all"
         >
           Cancelar
         </button>
         <button
           type="button"
           @click="confirm"
-          :disabled="!formReason.trim()"
-          class="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white rounded-xl text-sm font-semibold shadow-md shadow-rose-600/10 hover:shadow-lg transition-all disabled:cursor-not-allowed"
+          :disabled="!isConfirmEnabled"
+          class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-600/10 hover:shadow-lg transition-all disabled:cursor-not-allowed"
         >
           Confirmar Perda
         </button>
@@ -88,7 +87,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
   show: {
@@ -98,6 +97,10 @@ const props = defineProps({
   cardTitle: {
     type: String,
     default: 'Negócio'
+  },
+  lossReasons: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -112,15 +115,34 @@ const QUICK_REASONS = [
   'Decidiu adiar projeto'
 ]
 
-const formReason = ref('')
+const selectedReason = ref('')
+const otherReason = ref('')
 
-const setQuickReason = (reason) => {
-  formReason.value = reason
-}
+const reasonsToDisplay = computed(() => {
+  return props.lossReasons && props.lossReasons.length > 0 ? props.lossReasons : QUICK_REASONS
+})
+
+const showOtherInput = computed(() => {
+  return selectedReason.value === 'other' || reasonsToDisplay.value.length === 0
+})
+
+const isConfirmEnabled = computed(() => {
+  if (showOtherInput.value) {
+    return !!otherReason.value.trim()
+  }
+  return !!selectedReason.value
+})
 
 const confirm = () => {
-  if (formReason.value.trim()) {
-    emits('confirm', formReason.value.trim())
+  let finalReason = ''
+  if (showOtherInput.value) {
+    finalReason = otherReason.value.trim()
+  } else {
+    finalReason = selectedReason.value
+  }
+
+  if (finalReason) {
+    emits('confirm', finalReason)
   }
 }
 
@@ -128,10 +150,11 @@ const cancel = () => {
   emits('cancel')
 }
 
-// Reseta o campo quando o modal abre/fecha
+// Reseta os campos ao abrir
 watch(() => props.show, (newVal) => {
   if (newVal) {
-    formReason.value = ''
+    selectedReason.value = ''
+    otherReason.value = ''
   }
 })
 </script>
@@ -148,6 +171,6 @@ watch(() => props.show, (newVal) => {
   }
 }
 .animate-scale-up {
-  animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: scaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 </style>

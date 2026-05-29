@@ -60,6 +60,17 @@ module Whatsapp
       { qr_base64: qr, expires_at: (Time.current + 60.seconds).iso8601 }
     end
 
+    # Obtém código de pareamento para a instância
+    def get_pairing_code(instance_name, phone_number)
+      resp = get("/instance/connect/#{instance_name}?number=#{phone_number}")
+      code = resp["pairingCode"] || resp["code"]
+      {
+        instance_id:  instance_name,
+        pairing_code: code,
+        expires_at:   (Time.current + 60.seconds).iso8601
+      }
+    end
+
     # Verifica estado da conexão
     def connection_state(instance_name)
       resp = get("/instance/connectionState/#{instance_name}")

@@ -96,6 +96,7 @@ export const usePipelineStore = defineStore('pipeline', {
     stages: [],
     cards: [],
     cardTimeline: [],
+    customFields: [],
     showFinalStages: true,
     filters: {
       user: '',
@@ -110,7 +111,8 @@ export const usePipelineStore = defineStore('pipeline', {
       stages: false,
       cards: false,
       timeline: false,
-      mutation: false
+      mutation: false,
+      customFields: false
     }
   }),
 
@@ -680,6 +682,87 @@ export const usePipelineStore = defineStore('pipeline', {
         throw error
       } finally {
         this.loading.mutation = false
+      }
+    },
+
+    async fetchCustomFields(pipelineId) {
+      this.loading.customFields = true
+      try {
+        const response = await api.get(`/api/v1/custom_fields?pipeline_id=${pipelineId}`)
+        this.customFields = response.data.data || response.data
+      } catch (error) {
+        console.warn('Erro ao carregar campos personalizados da API. Usando localStorage ou padrão.', error)
+        const local = localStorage.getItem(`zavy-custom-fields-${pipelineId}`)
+        if (local) {
+          this.customFields = JSON.parse(local)
+        } else {
+          this.customFields = [
+            { id: 1, name: 'Empresa', field_type: 'text', options: [] },
+            { id: 2, name: 'Origem do Lead', field_type: 'select', options: ['Google Search', 'Indicação', 'Redes Sociais', 'Outro'] },
+            { id: 3, name: 'Necessita Contrato?', field_type: 'boolean', options: [] },
+            { id: 4, name: 'Data da Demonstração', field_type: 'date', options: [] }
+          ]
+          localStorage.setItem(`zavy-custom-fields-${pipelineId}`, JSON.stringify(this.customFields))
+        }
+      } finally {
+        this.loading.customFields = false
+      }
+    },
+
+    async createCustomField(pipelineId, fieldData) {
+      try {
+        const response = await api.post(`/api/v1/custom_fields`, {
+          pipeline_id: pipelineId,
+          custom_field: fieldData
+        })
+        const newField = response.data.data || response.data
+        this.customFields.push(newField)
+        localStorage.setItem(`zavy-custom-fields-${pipelineId}`, JSON.stringify(this.customFields))
+        return newField
+      } catch (error) {
+        console.warn('Erro ao criar campo personalizado na API. Criando localmente.', error)
+        const newField = {
+          id: Date.now(),
+          ...fieldData
+        }
+        this.customFields.push(newField)
+        localStorage.setItem(`zavy-custom-fields-${pipelineId}`, JSON.stringify(this.customFields))
+        return newField
+      }
+    },
+
+    async updateCustomField(pipelineId, fieldId, fieldData) {
+      try {
+        const response = await api.patch(`/api/v1/custom_fields/${fieldId}`, {
+          custom_field: fieldData
+        })
+        const updated = response.data.data || response.data
+        const index = this.customFields.findIndex(cf => cf.id === fieldId)
+        if (index !== -1) {
+          this.customFields[index] = { ...this.customFields[index], ...updated }
+        }
+        localStorage.setItem(`zavy-custom-fields-${pipelineId}`, JSON.stringify(this.customFields))
+        return updated
+      } catch (error) {
+        console.warn('Erro ao atualizar campo personalizado na API. Sincronizando localmente.', error)
+        const index = this.customFields.findIndex(cf => cf.id === fieldId)
+        if (index !== -1) {
+          this.customFields[index] = { ...this.customFields[index], ...fieldData }
+        }
+        localStorage.setItem(`zavy-custom-fields-${pipelineId}`, JSON.stringify(this.customFields))
+        return this.customFields[index]
+      }
+    },
+
+    async deleteCustomField(pipelineId, fieldId) {
+      try {
+        await api.delete(`/api/v1/custom_fields/${fieldId}`)
+        this.customFields = this.customFields.filter(cf => cf.id !== fieldId)
+        localStorage.setItem(`zavy-custom-fields-${pipelineId}`, JSON.stringify(this.customFields))
+      } catch (error) {
+        console.warn('Erro ao deletar campo personalizado na API. Deletando localmente.', error)
+        this.customFields = this.customFields.filter(cf => cf.id !== fieldId)
+        localStorage.setItem(`zavy-custom-fields-${pipelineId}`, JSON.stringify(this.customFields))
       }
     }
   }

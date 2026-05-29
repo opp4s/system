@@ -27,10 +27,15 @@ module Api
           end
 
           # Cria ou reconecta instância
-          result = if state == "not_found"
-            client.create_instance(instance_name, workspace_id: current_workspace.id)
+          if params[:method] == "pairing"
+            client.create_instance(instance_name, workspace_id: current_workspace.id) if state == "not_found"
+            result = client.get_pairing_code(instance_name, phone)
           else
-            client.get_qr(instance_name)
+            result = if state == "not_found"
+              client.create_instance(instance_name, workspace_id: current_workspace.id)
+            else
+              client.get_qr(instance_name)
+            end
           end
 
           # Auto-configura ChatwootConfig com credenciais do servidor
@@ -43,6 +48,7 @@ module Api
             data: {
               instance_id:  result[:instance_id] || instance_name,
               qr_code_base64: result[:qr_base64],
+              pairing_code: result[:pairing_code],
               expires_at:   result[:expires_at]
             }
           }
