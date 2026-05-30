@@ -49,7 +49,7 @@ async function fetchInstances() {
   }
 }
 
-async function disconnect(inst) {
+async function handleDisconnect(inst) {
   const ok = confirm(
     `Desconectar "${inst.phone_number || inst.instance_id}"?\n\n` +
     `A caixa de entrada e o histórico serão preservados. ` +
@@ -70,28 +70,26 @@ async function disconnect(inst) {
   }
 }
 
-async function deleteInstance(inst) {
-  const ok = confirm(
-    `Excluir definitivamente "${inst.phone_number || inst.instance_id}"?\n\n` +
-    `ATENÇÃO: a conexão será desfeita e todas as configurações removidas.\n` +
-    `Esta ação não pode ser desfeita.`
-  )
-  if (!ok) return
+async function handleDelete(instance) {
+  const confirmed = confirm(`Tem certeza que deseja EXCLUIR a instância ${instance.instance_id}?\n\nEsta ação é irreversível e desconectará o WhatsApp permanentemente.`)
+  if (!confirmed) return
 
   loading.value = true
   try {
-    await api.post('/api/v1/whatsapp/disconnect', { instance_id: inst.instance_id })
-    toast.success('Conexão excluída com sucesso.')
-    await fetchInstances()
-  } catch (e) {
-    console.error('delete error', e)
-    toast.error('Erro ao excluir. Verifique a conexão.')
+    await api.delete('/api/v1/whatsapp/destroy', {
+      data: { instance_id: instance.instance_id }
+    })
+    instances.value = instances.value.filter(i => i.instance_id !== instance.instance_id)
+    toast.success('Instância excluída com sucesso')
+  } catch (error) {
+    toast.error('Erro ao excluir instância')
+    console.error(error)
   } finally {
     loading.value = false
   }
 }
 
-function reconnect(inst) {
+function handleReconnect(inst) {
   wizardReconnect.value = inst
   showWizard.value = true
 }
@@ -153,9 +151,9 @@ onMounted(checkSettings)
         <ConnectionList
           :instances="instances"
           :loading="loading"
-          @on-disconnect="disconnect"
-          @on-reconnect="reconnect"
-          @on-delete="deleteInstance"
+          @disconnect="handleDisconnect"
+          @reconnect="handleReconnect"
+          @delete="handleDelete"
         />
       </div>
 

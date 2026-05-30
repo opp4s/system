@@ -6,7 +6,7 @@ defineProps({
   loading: { type: Boolean, default: false },
 })
 
-defineEmits(['on-disconnect', 'on-reconnect', 'on-delete'])
+defineEmits(['disconnect', 'reconnect', 'delete'])
 
 const statusConfig = {
   connected: {
@@ -94,29 +94,27 @@ function cfg(status) {
             </span>
           </td>
           <td class="px-6 py-4 text-right">
-            <div class="flex items-center justify-end gap-3">
-              <button
-                v-if="cfg(inst.status).canReconnect"
-                class="px-3 py-1.5 bg-zavy-50 hover:bg-zavy-100 text-zavy-700 font-bold rounded-xl transition-all"
-                @click="$emit('on-reconnect', inst)"
-              >
-                Reconectar
-              </button>
-              <button
-                v-if="cfg(inst.status).canDisconnect"
-                class="px-3 py-1.5 border border-gray-250 hover:bg-gray-50 text-gray-700 font-bold rounded-xl transition-all"
-                @click="$emit('on-disconnect', inst)"
-              >
-                Desconectar
-              </button>
-              <button
-                v-if="cfg(inst.status).canDelete"
-                class="px-3 py-1.5 border border-rose-250 hover:bg-rose-50 text-rose-650 font-bold rounded-xl transition-all"
-                @click="$emit('on-delete', inst)"
-              >
-                Excluir
-              </button>
-            </div>
+            <button
+              v-if="inst.status === 'connected'"
+              @click="$emit('disconnect', inst)"
+              class="text-slate-600 hover:text-slate-900 font-medium text-sm mr-3"
+            >
+              Desconectar
+            </button>
+            <button
+              v-else
+              @click="$emit('reconnect', inst)"
+              class="text-indigo-600 hover:text-indigo-800 font-medium text-sm mr-3"
+            >
+              Reconectar
+            </button>
+
+            <button
+              @click="$emit('delete', inst)"
+              class="text-red-500 hover:text-red-700 font-medium text-sm"
+            >
+              Excluir
+            </button>
           </td>
         </tr>
       </tbody>
