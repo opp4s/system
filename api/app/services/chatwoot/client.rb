@@ -9,6 +9,15 @@ module Chatwoot
       end
     end
 
+    # Cliente global usando ENV vars — para operações de inbox sem workspace config
+    def self.from_env
+      instance = allocate
+      instance.instance_variable_set(:@base_url,   ENV.fetch("CHATWOOT_URL", "").chomp("/"))
+      instance.instance_variable_set(:@token,      ENV.fetch("CHATWOOT_API_TOKEN", ""))
+      instance.instance_variable_set(:@account_id, ENV.fetch("CHATWOOT_ACCOUNT_ID", "1"))
+      instance
+    end
+
     def initialize(workspace_or_config)
       config = workspace_or_config.is_a?(ChatwootConfig) \
         ? workspace_or_config \
@@ -73,6 +82,20 @@ module Chatwoot
 
     def inboxes
       get("/api/v1/accounts/#{@account_id}/inboxes")
+    end
+
+    def find_inbox_by_name(name)
+      data = inboxes
+      list = data.is_a?(Hash) ? (data[:payload] || data["payload"] || []) : Array(data)
+      list.find { |i| (i[:name] || i["name"]) == name }
+    end
+
+    def delete_inbox(inbox_id)
+      resp = conn.delete("/api/v1/accounts/#{@account_id}/inboxes/#{inbox_id}")
+      return true if resp.status.between?(200, 299) || resp.status == 404
+      raise ApiError.new("Chatwoot retornou #{resp.status} ao deletar inbox", status: resp.status)
+    rescue Faraday::ConnectionFailed, Faraday::TimeoutError => e
+      raise ApiError.new("Chatwoot indisponível: #{e.message}")
     end
 
     # ── Webhooks ──────────────────────────────────────────────────────────────

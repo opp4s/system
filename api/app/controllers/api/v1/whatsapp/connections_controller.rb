@@ -13,8 +13,8 @@ module Api
             ? "zavy-#{current_workspace.id}-#{phone}" \
             : "zavy-#{current_workspace.id}-#{SecureRandom.uuid}"
 
-          client = ::Whatsapp::EvolutionClient.new
-          state  = client.connection_state(instance_name)
+          evo_client = ::Whatsapp::EvolutionClient.new
+          state      = evo_client.connection_state(instance_name)
 
           if state == "open"
             wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
@@ -31,16 +31,22 @@ module Api
 
           # Cria instância se não existir, depois busca QR separadamente
           # (Chatwoot suprime qrcode na resposta do create — get_qr sempre tem)
-          client.create_instance(instance_name, workspace_id: current_workspace.id) if state == "not_found"
+          evo_client.create_instance(instance_name, workspace_id: current_workspace.id) if state == "not_found"
 
           result = if params[:method] == "pairing" && phone
-            client.get_pairing_code(instance_name, phone)
+            evo_client.get_pairing_code(instance_name, phone)
           else
-            client.get_qr(instance_name)
+            evo_client.get_qr(instance_name)
           end
 
           wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
-          wi.update!(phone_number: phone, status: "qr_pending")
+          wi.phone_number = phone
+          wi.status       = "qr_pending"
+
+          # Capturar inbox_id do Chatwoot criado automaticamente pela Evolution
+          wi.chatwoot_inbox_id ||= fetch_chatwoot_inbox_id(instance_name)
+
+          wi.save!
 
           auto_configure_chatwoot
 
@@ -59,11 +65,11 @@ module Api
         # GET /api/v1/whatsapp/status
         # Sincroniza status com Evolution antes de retornar
         def status
-          instances = current_workspace.whatsapp_instances.order(:created_at)
-          client    = ::Whatsapp::EvolutionClient.new
+          instances  = current_workspace.whatsapp_instances.order(:created_at)
+          evo_client = ::Whatsapp::EvolutionClient.new
 
           result = instances.map do |wi|
-            real_status = evolution_status(client, wi.instance_id)
+            real_status = evolution_status(evo_client, wi.instance_id)
             if real_status && real_status != wi.status
               wi.update_columns(status: real_status)
               wi.status = real_status
@@ -95,7 +101,7 @@ module Api
 
         # DELETE /api/v1/whatsapp/destroy
         # Body: { instance_id: "zavy-30-..." }
-        # Remove instância da Evolution E do banco
+        # Remove instância da Evolution, inbox do Chatwoot e registro local
         def destroy
           instance_name = params.require(:instance_id)
           wi = current_workspace.whatsapp_instances.find_by(instance_id: instance_name)
@@ -104,7 +110,19 @@ module Api
             return render json: { data: { deleted: true, message: "Instância não encontrada" } }
           end
 
+          # 1. Remover da Evolution
           ::Whatsapp::EvolutionClient.new.delete_instance(instance_name)
+
+          # 2. Remover inbox do Chatwoot
+          begin
+            cw = ::Chatwoot::Client.from_env
+            inbox_id = wi.chatwoot_inbox_id || cw.find_inbox_by_name(instance_name)&.then { |i| i[:id] || i["id"] }
+            cw.delete_inbox(inbox_id) if inbox_id
+          rescue => e
+            Rails.logger.warn "[WhatsApp] Falha ao deletar inbox Chatwoot para #{instance_name}: #{e.message}"
+          end
+
+          # 3. Remover do banco
           wi.destroy!
 
           render json: { data: { deleted: true, instance_id: instance_name } }
@@ -113,6 +131,15 @@ module Api
         end
 
         private
+
+        def fetch_chatwoot_inbox_id(instance_name)
+          return nil if ENV["CHATWOOT_URL"].blank? || ENV["CHATWOOT_API_TOKEN"].blank?
+          inbox = ::Chatwoot::Client.from_env.find_inbox_by_name(instance_name)
+          inbox ? (inbox[:id] || inbox["id"]) : nil
+        rescue => e
+          Rails.logger.warn "[WhatsApp] Não foi possível capturar inbox_id do Chatwoot: #{e.message}"
+          nil
+        end
 
         def evolution_status(client, instance_id)
           state = client.connection_state(instance_id)
@@ -128,10 +155,11 @@ module Api
 
         def instance_payload(wi)
           {
-            instance_id: wi.instance_id,
-            phone:       wi.phone_number.presence,
-            status:      wi.status,
-            created_at:  wi.created_at
+            instance_id:       wi.instance_id,
+            phone:             wi.phone_number.presence,
+            status:            wi.status,
+            chatwoot_inbox_id: wi.chatwoot_inbox_id,
+            created_at:        wi.created_at
           }
         end
 
