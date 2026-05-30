@@ -123,10 +123,11 @@ Rails.application.routes.draw do
 
       # WhatsApp — conexão via QR Code
       namespace :whatsapp do
-        post   "connect",    to: "connections#connect"
-        get    "status",     to: "connections#status"
-        post   "disconnect", to: "connections#disconnect"
-        delete "destroy",    to: "connections#destroy"
+        post   "connect",                  to: "connections#connect"
+        get    "status",                   to: "connections#status"
+        post   "disconnect",               to: "connections#disconnect"
+        delete "destroy",                  to: "connections#destroy"
+        patch  "instances/:instance_id",   to: "connections#update"
       end
 
       # Dashboard KPIs

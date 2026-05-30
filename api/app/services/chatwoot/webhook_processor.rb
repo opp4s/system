@@ -158,14 +158,20 @@ module Chatwoot
 
     def auto_create_card(workspace, conv, contact)
       config = workspace.chatwoot_config
-      return unless config&.settings&.dig("auto_create_card")
 
-      pipeline_id = config.settings["auto_create_pipeline_id"].to_i
-      stage_id    = config.settings["auto_create_stage_id"].to_i
-      return unless pipeline_id > 0 && stage_id > 0
+      # Prioridade 1: pipeline vinculado à instância WhatsApp do inbox da conversa
+      pipeline, stage = pipeline_from_whatsapp_instance(workspace, conv)
 
-      pipeline = workspace.pipelines.find_by(id: pipeline_id)
-      stage    = pipeline&.stages&.find_by(id: stage_id)
+      # Prioridade 2: configuração global auto_create_card
+      unless pipeline
+        return unless config&.settings&.dig("auto_create_card")
+        pipeline_id = config.settings["auto_create_pipeline_id"].to_i
+        stage_id    = config.settings["auto_create_stage_id"].to_i
+        return unless pipeline_id > 0 && stage_id > 0
+        pipeline = workspace.pipelines.find_by(id: pipeline_id)
+        stage    = pipeline&.stages&.find_by(id: stage_id)
+      end
+
       return unless pipeline && stage
 
       card = workspace.cards.create!(
@@ -218,6 +224,25 @@ module Chatwoot
     end
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    # Retorna [pipeline, stage] a partir do inbox_id da conversa → WhatsappInstance → pipeline_id
+    def pipeline_from_whatsapp_instance(workspace, conv)
+      inbox_id = conv.inbox_id
+      return [nil, nil] unless inbox_id.present?
+
+      wi = WhatsappInstance.find_by(workspace: workspace, chatwoot_inbox_id: inbox_id)
+      return [nil, nil] unless wi&.pipeline_id?
+
+      pipeline = wi.pipeline
+      return [nil, nil] unless pipeline
+
+      stage = pipeline.stages.where(stage_type: "intermediate").order(:position).first ||
+              pipeline.stages.order(:position).first
+      [pipeline, stage]
+    rescue => e
+      Rails.logger.warn "[WebhookProcessor] pipeline_from_whatsapp_instance error: #{e.message}"
+      [nil, nil]
+    end
 
     def extract_contact_id(data)
       (

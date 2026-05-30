@@ -5,7 +5,6 @@ module Api
         before_action :require_workspace!
 
         # POST /api/v1/whatsapp/connect
-        # Body: { phone_number: "+5511999999999" }  — opcional
         def connect
           raw_phone = params[:phone_number].to_s.gsub(/\D/, "")
           phone         = raw_phone.length >= 10 ? raw_phone : nil
@@ -19,18 +18,9 @@ module Api
           if state == "open"
             wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
             wi.update!(phone_number: phone, status: "connected")
-            return render json: {
-              data: {
-                instance_id: instance_name,
-                connected:   true,
-                phone:       phone,
-                message:     "WhatsApp já está conectado"
-              }
-            }
+            return render json: { data: instance_payload(wi) }
           end
 
-          # Cria instância se não existir, depois busca QR separadamente
-          # (Chatwoot suprime qrcode na resposta do create — get_qr sempre tem)
           evo_client.create_instance(instance_name, workspace_id: current_workspace.id) if state == "not_found"
 
           result = if params[:method] == "pairing" && phone
@@ -40,32 +30,27 @@ module Api
           end
 
           wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
-          wi.phone_number = phone
-          wi.status       = "qr_pending"
-
-          # Capturar inbox_id do Chatwoot criado automaticamente pela Evolution
+          wi.phone_number    = phone
+          wi.status          = "qr_pending"
           wi.chatwoot_inbox_id ||= fetch_chatwoot_inbox_id(instance_name)
-
           wi.save!
 
           auto_configure_chatwoot
 
           render json: {
-            data: {
-              instance_id:    result[:instance_id] || instance_name,
+            data: instance_payload(wi).merge(
               qr_code_base64: result[:qr_base64],
               pairing_code:   result[:pairing_code],
               expires_at:     result[:expires_at]
-            }
+            )
           }
         rescue ::Whatsapp::EvolutionClient::ApiError => e
           render json: { error: "Erro na Evolution API: #{e.message}" }, status: :unprocessable_entity
         end
 
         # GET /api/v1/whatsapp/status
-        # Sincroniza status com Evolution antes de retornar
         def status
-          instances  = current_workspace.whatsapp_instances.order(:created_at)
+          instances  = current_workspace.whatsapp_instances.includes(:pipeline).order(:created_at)
           evo_client = ::Whatsapp::EvolutionClient.new
 
           result = instances.map do |wi|
@@ -80,9 +65,20 @@ module Api
           render json: { data: { instances: result } }
         end
 
+        # PATCH /api/v1/whatsapp/instances/:instance_id
+        def update
+          wi = current_workspace.whatsapp_instances.find_by(instance_id: params[:instance_id])
+          return render json: { error: "Instância não encontrada" }, status: :not_found unless wi
+
+          if wi.update(instance_update_params)
+            wi.reload
+            render json: { data: instance_payload(wi) }
+          else
+            render json: { errors: wi.errors.full_messages }, status: :unprocessable_entity
+          end
+        end
+
         # POST /api/v1/whatsapp/disconnect
-        # Body: { instance_id: "zavy-30-..." }
-        # Faz logout na Evolution (desconecta WhatsApp mas mantém a instância)
         def disconnect
           instance_name = params.require(:instance_id)
           wi = current_workspace.whatsapp_instances.find_by(instance_id: instance_name)
@@ -100,8 +96,6 @@ module Api
         end
 
         # DELETE /api/v1/whatsapp/destroy
-        # Body: { instance_id: "zavy-30-..." }
-        # Remove instância da Evolution, inbox do Chatwoot e registro local
         def destroy
           instance_name = params.require(:instance_id)
           wi = current_workspace.whatsapp_instances.find_by(instance_id: instance_name)
@@ -110,19 +104,17 @@ module Api
             return render json: { data: { deleted: true, message: "Instância não encontrada" } }
           end
 
-          # 1. Remover da Evolution
           ::Whatsapp::EvolutionClient.new.delete_instance(instance_name)
 
-          # 2. Remover inbox do Chatwoot
           begin
             cw = ::Chatwoot::Client.from_env
-            inbox_id = wi.chatwoot_inbox_id || cw.find_inbox_by_name(instance_name)&.then { |i| i[:id] || i["id"] }
+            inbox_id = wi.chatwoot_inbox_id ||
+                       cw.find_inbox_by_name(instance_name)&.then { |i| i[:id] || i["id"] }
             cw.delete_inbox(inbox_id) if inbox_id
           rescue => e
             Rails.logger.warn "[WhatsApp] Falha ao deletar inbox Chatwoot para #{instance_name}: #{e.message}"
           end
 
-          # 3. Remover do banco
           wi.destroy!
 
           render json: { data: { deleted: true, instance_id: instance_name } }
@@ -131,6 +123,23 @@ module Api
         end
 
         private
+
+        def instance_update_params
+          params.require(:instance).permit(:name, :pipeline_id)
+        end
+
+        def instance_payload(wi)
+          {
+            instance_id:       wi.instance_id,
+            name:              wi.name,
+            phone:             wi.phone_number.presence,
+            status:            wi.status,
+            pipeline_id:       wi.pipeline_id,
+            pipeline:          wi.pipeline ? { id: wi.pipeline.id, name: wi.pipeline.name } : nil,
+            chatwoot_inbox_id: wi.chatwoot_inbox_id,
+            created_at:        wi.created_at
+          }
+        end
 
         def fetch_chatwoot_inbox_id(instance_name)
           return nil if ENV["CHATWOOT_URL"].blank? || ENV["CHATWOOT_API_TOKEN"].blank?
@@ -151,16 +160,6 @@ module Api
         rescue => e
           Rails.logger.warn "[WhatsApp] Erro ao consultar Evolution para #{instance_id}: #{e.message}"
           nil
-        end
-
-        def instance_payload(wi)
-          {
-            instance_id:       wi.instance_id,
-            phone:             wi.phone_number.presence,
-            status:            wi.status,
-            chatwoot_inbox_id: wi.chatwoot_inbox_id,
-            created_at:        wi.created_at
-          }
         end
 
         def auto_configure_chatwoot
