@@ -11,6 +11,7 @@ const chatwootStore = useChatwootStore()
 const toast = useToast()
 
 const instances = ref([])
+const pipelines = ref([])
 const showWizard = ref(false)
 const loading = ref(false)
 const wizardReconnect = ref(null)
@@ -21,9 +22,8 @@ const configured = ref(true) // always configured on Zavy env vars
 
 async function checkSettings() {
   try {
-    // Simula a checagem do status/configurações do Zavy
     ready.value = true
-    await fetchInstances()
+    await Promise.all([fetchInstances(), fetchPipelines()])
   } catch (e) {
     console.error('settings check failed', e)
     ready.value = true
@@ -38,7 +38,9 @@ async function fetchInstances() {
     instances.value = list.map(wi => ({
       instance_id: wi.instance_id,
       phone_number: wi.phone,
-      status: wi.status
+      status: wi.status,
+      name: wi.name,
+      pipeline_id: wi.pipeline_id
     }))
     chatwootStore.configured = instances.value.some(i => i.status === 'connected')
   } catch {
@@ -46,6 +48,15 @@ async function fetchInstances() {
     chatwootStore.configured = false
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchPipelines() {
+  try {
+    const res = await api.get('/api/v1/pipelines')
+    pipelines.value = res.data?.data || res.data || []
+  } catch (e) {
+    console.error('[WhatsApp] Erro ao buscar pipelines:', e)
   }
 }
 
@@ -150,6 +161,7 @@ onMounted(checkSettings)
       <div class="flex-1 overflow-auto px-6 py-6 bg-white">
         <ConnectionList
           :instances="instances"
+          :pipelines="pipelines"
           :loading="loading"
           @disconnect="handleDisconnect"
           @reconnect="handleReconnect"

@@ -1,123 +1,190 @@
-<script setup>
-import { Loader2 } from 'lucide-vue-next'
-
-defineProps({
-  instances: { type: Array, default: () => [] },
-  loading: { type: Boolean, default: false },
-})
-
-defineEmits(['disconnect', 'reconnect', 'delete'])
-
-const statusConfig = {
-  connected: {
-    label: 'Conectado',
-    color: 'text-emerald-600 font-bold',
-    dot: 'bg-emerald-500 animate-ping',
-    canDisconnect: true,
-    canReconnect: false,
-    canDelete: true,
-  },
-  qr_pending: {
-    label: 'Aguardando conexão',
-    color: 'text-amber-600 font-bold',
-    dot: 'bg-amber-500 animate-pulse',
-    canDisconnect: false,
-    canReconnect: true,
-    canDelete: true,
-  },
-  user_disconnected: {
-    label: 'Desconectado',
-    color: 'text-gray-500 font-medium',
-    dot: 'bg-gray-400',
-    canDisconnect: false,
-    canReconnect: true,
-    canDelete: true,
-  }
-}
-
-function cfg(status) {
-  return statusConfig[status] || {
-    label: 'Desconectado',
-    color: 'text-gray-500 font-medium',
-    dot: 'bg-gray-400',
-    canDisconnect: false,
-    canReconnect: true,
-    canDelete: false,
-  }
-}
-</script>
-
 <template>
-  <div v-if="loading" class="flex flex-col items-center justify-center py-16 text-gray-500">
-    <Loader2 class="animate-spin h-8 w-8 text-zavy-600 mb-3" />
-    <span class="text-xs font-bold uppercase tracking-wider">Carregando conexões...</span>
-  </div>
-
-  <div v-else-if="!instances.length" class="flex flex-col items-center justify-center py-16 text-center">
-    <div class="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-4">
-      <svg viewBox="0 0 24 24" class="w-8 h-8 fill-emerald-500">
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.554 4.118 1.524 5.845L.057 23.07a.75.75 0 00.932.932l5.226-1.467A11.944 11.944 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.89 0-3.663-.497-5.193-1.367l-.372-.214-3.852 1.081 1.081-3.852-.214-.372A9.944 9.944 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
-      </svg>
-    </div>
-    <h3 class="text-base font-bold text-gray-800 mb-1">Nenhuma conexão WhatsApp ativa</h3>
-    <p class="text-xs text-gray-500 max-w-xs mx-auto">
-      Clique em "Conectar WhatsApp" para parear um número de celular via QR Code ou código.
-    </p>
-  </div>
-
-  <div v-else class="overflow-x-auto border border-gray-150 rounded-3xl bg-white shadow-sm">
-    <table class="w-full text-left border-collapse">
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[700px]">
       <thead>
-        <tr class="border-b border-gray-100 bg-gray-50/50 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-          <th class="px-6 py-4">ID da Instância</th>
-          <th class="px-6 py-4">Número Conectado</th>
-          <th class="px-6 py-4">Status</th>
-          <th class="px-6 py-4 text-right">Ações</th>
+        <tr class="text-left text-xs text-slate-400 uppercase tracking-wider border-b border-slate-100">
+          <th class="py-3 px-4 font-medium">Nome</th>
+          <th class="py-3 px-4 font-medium">Número</th>
+          <th class="py-3 px-4 font-medium">Funil</th>
+          <th class="py-3 px-4 font-medium">Estado</th>
+          <th class="py-3 px-4 font-medium text-right">Ações</th>
         </tr>
       </thead>
       <tbody>
         <tr
           v-for="inst in instances"
           :key="inst.instance_id"
-          class="border-b border-gray-100 last:border-0 hover:bg-gray-50/30 transition-colors text-xs text-gray-800"
+          class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors"
         >
-          <td class="px-6 py-4 font-mono font-medium text-gray-600">{{ inst.instance_id }}</td>
-          <td class="px-6 py-4 font-semibold">{{ inst.phone_number || '—' }}</td>
-          <td class="px-6 py-4">
+          <!-- NOME — editável inline -->
+          <td class="py-3 px-4">
+            <input
+              :value="inst.name || ''"
+              @blur="onNameBlur($event, inst)"
+              @keyup.enter="$event.target.blur()"
+              class="bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:ring-0 text-sm text-slate-800 w-full max-w-[200px] px-0 py-1 placeholder:text-slate-300"
+              placeholder="Dar um nome..."
+            />
+          </td>
+
+          <!-- NÚMERO — formatado, não editável -->
+          <td class="py-3 px-4 text-sm text-slate-700 font-mono">
+            {{ formatPhone(inst.phone_number) }}
+          </td>
+
+          <!-- FUNIL — dropdown -->
+          <td class="py-3 px-4">
+            <select
+              :value="inst.pipeline_id"
+              @change="onPipelineChange($event, inst)"
+              class="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white hover:border-slate-300 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer min-w-[180px]"
+            >
+              <option :value="null">Selecionar funil...</option>
+              <option v-for="p in pipelines" :key="p.id" :value="p.id">
+                {{ p.name }}
+              </option>
+            </select>
+          </td>
+
+          <!-- ESTADO — bolinha + label -->
+          <td class="py-3 px-4">
             <span class="inline-flex items-center gap-2">
-              <span class="relative flex h-2 w-2">
-                <span :class="['absolute inline-flex h-full w-full rounded-full opacity-75', cfg(inst.status).dot]" />
-                <span :class="['relative inline-flex rounded-full h-2 w-2', cfg(inst.status).dot.split(' ')[0]]" />
+              <span
+                class="w-2.5 h-2.5 rounded-full"
+                :class="statusDotClass(inst.status)"
+              ></span>
+              <span class="text-sm" :class="statusTextClass(inst.status)">
+                {{ statusLabel(inst.status) }}
               </span>
-              <span :class="cfg(inst.status).color">{{ cfg(inst.status).label }}</span>
             </span>
           </td>
-          <td class="px-6 py-4 text-right">
+
+          <!-- AÇÕES -->
+          <td class="py-3 px-4 text-right whitespace-nowrap">
             <button
               v-if="inst.status === 'connected'"
               @click="$emit('disconnect', inst)"
-              class="text-slate-600 hover:text-slate-900 font-medium text-sm mr-3"
+              class="text-slate-400 hover:text-slate-600 text-sm mr-4 transition-colors"
             >
               Desconectar
             </button>
             <button
               v-else
               @click="$emit('reconnect', inst)"
-              class="text-indigo-600 hover:text-indigo-800 font-medium text-sm mr-3"
+              class="text-indigo-500 hover:text-indigo-700 text-sm mr-4 transition-colors"
             >
               Reconectar
             </button>
-
             <button
-              @click="$emit('delete', inst)"
-              class="text-red-500 hover:text-red-700 font-medium text-sm"
+              @click="confirmDelete(inst)"
+              class="text-red-400 hover:text-red-600 transition-colors"
+              title="Excluir instância permanentemente"
             >
-              Excluir
+              <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
             </button>
           </td>
         </tr>
       </tbody>
     </table>
+
+    <!-- Empty state -->
+    <div v-if="!instances || instances.length === 0" class="text-center py-12 text-slate-400">
+      <p class="text-lg">Nenhuma conexão WhatsApp</p>
+      <p class="text-sm mt-1">Clique em "+ Conectar WhatsApp" para adicionar</p>
+    </div>
   </div>
 </template>
+
+<script setup>
+import { defineProps, defineEmits } from 'vue'
+import api from '@/plugins/axios'
+
+const props = defineProps({
+  instances: { type: Array, default: () => [] },
+  pipelines: { type: Array, default: () => [] }
+})
+
+const emit = defineEmits(['disconnect', 'reconnect', 'delete'])
+
+// --- Formatação ---
+
+function formatPhone(phone) {
+  if (!phone) return '—'
+  const clean = String(phone).replace(/\D/g, '')
+  // Formato brasileiro: +55 XX XXXXX-XXXX
+  if (clean.length === 13) {
+    return `+${clean.slice(0,2)} ${clean.slice(2,4)} ${clean.slice(4,9)}-${clean.slice(9)}`
+  }
+  if (clean.length === 12) {
+    return `+${clean.slice(0,2)} ${clean.slice(2,4)} ${clean.slice(4,8)}-${clean.slice(8)}`
+  }
+  return phone.startsWith('+') ? phone : `+${clean}`
+}
+
+function statusDotClass(status) {
+  switch (status) {
+    case 'connected': return 'bg-green-500'
+    case 'connecting': return 'bg-yellow-400 animate-pulse'
+    case 'qr_pending': return 'bg-yellow-400 animate-pulse'
+    default: return 'bg-red-400'
+  }
+}
+
+function statusTextClass(status) {
+  switch (status) {
+    case 'connected': return 'text-green-700'
+    case 'connecting': return 'text-yellow-600'
+    case 'qr_pending': return 'text-yellow-600'
+    default: return 'text-red-500'
+  }
+}
+
+function statusLabel(status) {
+  switch (status) {
+    case 'connected': return 'Conectado'
+    case 'connecting': return 'Conectando...'
+    case 'qr_pending': return 'Aguardando conexão'
+    default: return 'Desconectado'
+  }
+}
+
+// --- Ações inline ---
+
+async function onNameBlur(event, inst) {
+  const newName = event.target.value.trim()
+  if (newName === (inst.name || '')) return // sem mudança
+
+  try {
+    await api.patch(`/api/v1/whatsapp/instances/${inst.instance_id}`, {
+      instance: { name: newName }
+    })
+    inst.name = newName
+  } catch (e) {
+    console.error('[WhatsApp] Erro ao salvar nome:', e)
+    event.target.value = inst.name || '' // reverter
+  }
+}
+
+async function onPipelineChange(event, inst) {
+  const newPipelineId = event.target.value ? Number(event.target.value) : null
+
+  try {
+    await api.patch(`/api/v1/whatsapp/instances/${inst.instance_id}`, {
+      instance: { pipeline_id: newPipelineId }
+    })
+    inst.pipeline_id = newPipelineId
+  } catch (e) {
+    console.error('[WhatsApp] Erro ao vincular funil:', e)
+    event.target.value = inst.pipeline_id || '' // reverter
+  }
+}
+
+function confirmDelete(inst) {
+  const msg = `Tem certeza que deseja EXCLUIR a conexão "${inst.name || inst.phone_number || inst.instance_id}"?\n\nEsta ação é irreversível e desconectará o WhatsApp permanentemente.`
+  if (confirm(msg)) {
+    emit('delete', inst)
+  }
+}
+</script>
