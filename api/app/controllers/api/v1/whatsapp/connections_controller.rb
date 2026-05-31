@@ -6,44 +6,71 @@ module Api
 
         # POST /api/v1/whatsapp/connect
         def connect
-          raw_phone = params[:phone_number].to_s.gsub(/\D/, "")
-          phone         = raw_phone.length >= 10 ? raw_phone : nil
-          instance_name = phone \
-            ? "zavy-#{current_workspace.id}-#{phone}" \
-            : "zavy-#{current_workspace.id}-#{SecureRandom.uuid}"
-
           evo_client = ::Whatsapp::EvolutionClient.new
-          state      = evo_client.connection_state(instance_name)
 
-          if state == "open"
-            wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
-            wi.update!(phone_number: phone, status: "connected")
-            return render json: { data: instance_payload(wi) }
+          # Reutilizar instância pendente (qr_pending/connecting) se existir
+          # Evita criar nova instância a cada clique em "Conectar"
+          pending = current_workspace.whatsapp_instances
+                      .where(status: %w[qr_pending connecting])
+                      .order(created_at: :desc)
+                      .first
+
+          if pending
+            evo_state = evo_client.connection_state(pending.instance_id)
+
+            if evo_state == "open"
+              # Raro: conectou mas webhook não atualizou — corrigir status e retornar
+              pending.update_columns(status: "connected")
+              return render json: { data: instance_payload(pending.reload) }
+            elsif evo_state != "not_found"
+              # Instância existe na Evolution — gerar QR novo para ela
+              result = evo_client.get_qr(pending.instance_id)
+              pending.update_columns(status: "qr_pending")
+              return render json: {
+                data: instance_payload(pending).merge(
+                  qr_code_base64: result[:qr_base64],
+                  expires_at:     result[:expires_at],
+                  reused:         true
+                )
+              }
+            else
+              # Instância sumiu da Evolution — limpar tudo e criar do zero
+              cleanup_instance(pending, evo_client)
+            end
           end
 
-          evo_client.create_instance(instance_name, workspace_id: current_workspace.id) if state == "not_found"
+          # Criar nova instância com nome identificável (pending-hex ao invés de UUID longo)
+          instance_name = "zavy-#{current_workspace.id}-pending-#{SecureRandom.hex(3)}"
 
-          result = if params[:method] == "pairing" && phone
-            evo_client.get_pairing_code(instance_name, phone)
-          else
-            evo_client.get_qr(instance_name)
-          end
+          begin
+            evo_client.create_instance(instance_name, workspace_id: current_workspace.id)
 
-          wi = current_workspace.whatsapp_instances.find_or_initialize_by(instance_id: instance_name)
-          wi.phone_number    = phone
-          wi.status          = "qr_pending"
-          wi.chatwoot_inbox_id ||= fetch_chatwoot_inbox_id(instance_name)
-          wi.save!
+            result = evo_client.get_qr(instance_name)
 
-          auto_configure_chatwoot
+            inbox_id = fetch_chatwoot_inbox_id(instance_name)
 
-          render json: {
-            data: instance_payload(wi).merge(
-              qr_code_base64: result[:qr_base64],
-              pairing_code:   result[:pairing_code],
-              expires_at:     result[:expires_at]
+            wi = current_workspace.whatsapp_instances.create!(
+              instance_id:       instance_name,
+              status:            "qr_pending",
+              chatwoot_inbox_id: inbox_id
             )
-          }
+
+            auto_configure_chatwoot
+
+            render json: {
+              data: instance_payload(wi).merge(
+                qr_code_base64: result[:qr_base64],
+                expires_at:     result[:expires_at]
+              )
+            }
+          rescue => e
+            # Rollback: limpar Evolution + Chatwoot se falhou antes de salvar
+            evo_client.delete_instance(instance_name) rescue nil
+            if inbox_id
+              begin; ::Chatwoot::Client.from_env.delete_inbox(inbox_id); rescue nil; end
+            end
+            raise e
+          end
         rescue ::Whatsapp::EvolutionClient::ApiError => e
           render json: { error: "Erro na Evolution API: #{e.message}" }, status: :unprocessable_entity
         end
@@ -104,18 +131,7 @@ module Api
             return render json: { data: { deleted: true, message: "Instância não encontrada" } }
           end
 
-          ::Whatsapp::EvolutionClient.new.delete_instance(instance_name)
-
-          begin
-            cw = ::Chatwoot::Client.from_env
-            inbox_id = wi.chatwoot_inbox_id ||
-                       cw.find_inbox_by_name(instance_name)&.then { |i| i[:id] || i["id"] }
-            cw.delete_inbox(inbox_id) if inbox_id
-          rescue => e
-            Rails.logger.warn "[WhatsApp] Falha ao deletar inbox Chatwoot para #{instance_name}: #{e.message}"
-          end
-
-          wi.destroy!
+          cleanup_instance(wi, ::Whatsapp::EvolutionClient.new)
 
           render json: { data: { deleted: true, instance_id: instance_name } }
         rescue ActionController::ParameterMissing => e
@@ -123,6 +139,22 @@ module Api
         end
 
         private
+
+        # Remove instância da Evolution, inbox do Chatwoot e registro do banco
+        def cleanup_instance(wi, evo_client = ::Whatsapp::EvolutionClient.new)
+          evo_client.delete_instance(wi.instance_id)
+
+          begin
+            cw = ::Chatwoot::Client.from_env
+            inbox_id = wi.chatwoot_inbox_id ||
+                       cw.find_inbox_by_name(wi.instance_id)&.then { |i| i[:id] || i["id"] }
+            cw.delete_inbox(inbox_id) if inbox_id
+          rescue => e
+            Rails.logger.warn "[WhatsApp] Falha ao deletar inbox Chatwoot para #{wi.instance_id}: #{e.message}"
+          end
+
+          wi.destroy!
+        end
 
         def instance_update_params
           params.require(:instance).permit(:name, :pipeline_id)
@@ -164,12 +196,9 @@ module Api
 
         def auto_configure_chatwoot
           return if ENV["CHATWOOT_URL"].blank? || ENV["CHATWOOT_API_TOKEN"].blank?
-
           config = current_workspace.chatwoot_config ||
                    current_workspace.build_chatwoot_config
-
           return if config.persisted? && config.chatwoot_url.present?
-
           config.assign_attributes(
             chatwoot_url:        ENV["CHATWOOT_URL"],
             chatwoot_account_id: ENV.fetch("CHATWOOT_ACCOUNT_ID", "1")
