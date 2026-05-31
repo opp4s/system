@@ -115,7 +115,7 @@ module Whatsapp
       false
     end
 
-    # Lista todas as instâncias
+    # Lista todas as instâncias com status e ownerJid
     def fetch_instances
       resp = get("/instance/fetchInstances")
       resp.is_a?(Array) ? resp : []
@@ -123,7 +123,37 @@ module Whatsapp
       []
     end
 
+    # Retorna hash { instance_name => { status:, phone: } } para um conjunto de nomes
+    # Substitui N chamadas a connection_state por 1 chamada a fetchInstances
+    def bulk_status(instance_names)
+      all = fetch_instances
+      result = {}
+      all.each do |ei|
+        name = ei["name"]
+        next unless instance_names.include?(name)
+        raw_status  = ei["connectionStatus"]
+        owner_jid   = ei["ownerJid"]
+        phone       = owner_jid&.split("@")&.first&.then { |p| p.present? ? "+#{p}" : nil }
+        result[name] = {
+          status: map_evolution_status(raw_status),
+          phone:  phone
+        }
+      end
+      result
+    rescue => e
+      Rails.logger.warn "[Evolution] bulk_status error: #{e.message}"
+      {}
+    end
+
     private
+
+    def map_evolution_status(raw)
+      case raw
+      when "open"             then "connected"
+      when "close", "refused" then "disconnected"
+      when "connecting"       then "connecting"
+      end
+    end
 
     def get(path)
       handle_response(@conn.get(path))

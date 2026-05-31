@@ -76,15 +76,24 @@ module Api
         end
 
         # GET /api/v1/whatsapp/status
+        # Uma chamada fetchInstances para todas as instâncias (captura status + phone)
         def status
           instances  = current_workspace.whatsapp_instances.includes(:pipeline).order(:created_at)
           evo_client = ::Whatsapp::EvolutionClient.new
 
+          evo_data = evo_client.bulk_status(instances.map(&:instance_id))
+
           result = instances.map do |wi|
-            real_status = evolution_status(evo_client, wi.instance_id)
-            if real_status && real_status != wi.status
-              wi.update_columns(status: real_status)
-              wi.status = real_status
+            evo = evo_data[wi.instance_id]
+            if evo
+              updates = {}
+              updates[:status]       = evo[:status] if evo[:status] && evo[:status] != wi.status
+              updates[:phone_number] = evo[:phone]  if evo[:phone].present? && wi.phone_number.blank?
+              if updates.any?
+                wi.update_columns(updates)
+                wi.status       = updates[:status]       if updates[:status]
+                wi.phone_number = updates[:phone_number] if updates[:phone_number]
+              end
             end
             instance_payload(wi)
           end
@@ -179,18 +188,6 @@ module Api
           inbox ? (inbox[:id] || inbox["id"]) : nil
         rescue => e
           Rails.logger.warn "[WhatsApp] Não foi possível capturar inbox_id do Chatwoot: #{e.message}"
-          nil
-        end
-
-        def evolution_status(client, instance_id)
-          state = client.connection_state(instance_id)
-          case state
-          when "open"             then "connected"
-          when "close", "refused" then "disconnected"
-          when "connecting"       then "connecting"
-          end
-        rescue => e
-          Rails.logger.warn "[WhatsApp] Erro ao consultar Evolution para #{instance_id}: #{e.message}"
           nil
         end
 
