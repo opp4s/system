@@ -22,8 +22,11 @@ module Api
               # Raro: conectou mas webhook não atualizou — corrigir status e retornar
               pending.update_columns(status: "connected")
               return render json: { data: instance_payload(pending.reload) }
+            elsif abandoned?(pending)
+              # Pendente velha (>5min sem conectar) — limpar e criar do zero
+              cleanup_instance(pending, evo_client)
             elsif evo_state != "not_found"
-              # Instância existe na Evolution — gerar QR novo para ela
+              # Pendente recente — gerar QR novo para ela
               result = evo_client.get_qr(pending.instance_id)
               pending.update_columns(status: "qr_pending")
               return render json: {
@@ -34,7 +37,7 @@ module Api
                 )
               }
             else
-              # Instância sumiu da Evolution — limpar tudo e criar do zero
+              # Instância sumiu da Evolution — limpar e criar do zero
               cleanup_instance(pending, evo_client)
             end
           end
@@ -83,7 +86,14 @@ module Api
 
           evo_data = evo_client.bulk_status(instances.map(&:instance_id))
 
-          result = instances.map do |wi|
+          result = []
+          instances.each do |wi|
+            # Auto-cleanup: pendentes abandonadas (sem phone, >5min, não conectadas)
+            if abandoned?(wi)
+              cleanup_instance(wi, evo_client)
+              next
+            end
+
             evo = evo_data[wi.instance_id]
             if evo
               updates = {}
@@ -95,7 +105,8 @@ module Api
                 wi.phone_number = updates[:phone_number] if updates[:phone_number]
               end
             end
-            instance_payload(wi)
+
+            result << instance_payload(wi)
           end
 
           render json: { data: { instances: result } }
@@ -148,6 +159,15 @@ module Api
         end
 
         private
+
+        PENDING_TTL = 5.minutes
+
+        # Pendente abandonada: sem phone, status não-connected, criada há >5min
+        def abandoned?(wi)
+          wi.phone_number.blank? &&
+            %w[qr_pending connecting].include?(wi.status) &&
+            wi.created_at < PENDING_TTL.ago
+        end
 
         # Remove instância da Evolution, inbox do Chatwoot e registro do banco
         def cleanup_instance(wi, evo_client = ::Whatsapp::EvolutionClient.new)
