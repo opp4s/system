@@ -37,51 +37,7 @@
     <!-- Área de Rolagem -->
     <div class="flex-1 overflow-y-auto p-6 space-y-6">
       
-      <!-- Banner informativo do WhatsApp (Status de Conexão) -->
-      <div 
-        v-if="!isWhatsappConnected" 
-        class="bg-[#efeae2]/40 border border-[#efeae2] rounded-3xl p-6 flex items-start space-x-4 transition-all duration-200 shadow-sm"
-      >
-        <div class="p-3 bg-emerald-500 text-white rounded-2xl shadow-sm">
-          <component :is="MessageSquare" class="h-6 w-6" />
-        </div>
-        <div class="flex-1">
-          <h3 class="text-xs font-black text-slate-900 uppercase tracking-wider">Conecte seu WhatsApp para habilitar o Broadcast</h3>
-          <p class="text-xs text-slate-600 mt-1 leading-normal font-semibold">
-            Para realizar campanhas de Transmissão (Broadcast) e enviar mensagens em massa de forma automática, conecte sua conta do WhatsApp via QR Code em Configurações.
-          </p>
-          <div class="mt-3">
-            <button 
-              @click="connectWhatsapp"
-              class="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wider py-2 px-4 rounded-xl shadow-sm transition-all focus:outline-none"
-            >
-              Conectar Dispositivo
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <!-- Feedback de Conexão WhatsApp Ativa -->
-      <div 
-        v-else 
-        class="bg-emerald-50/50 border border-emerald-100 rounded-3xl p-5 flex items-center justify-between transition-all duration-200 shadow-sm"
-      >
-        <div class="flex items-center space-x-3">
-          <div class="p-2.5 bg-emerald-500 text-white rounded-xl shadow-sm">
-            <component :is="MessageSquare" class="h-4.5 w-4.5" />
-          </div>
-          <div>
-            <h4 class="text-xs font-bold text-emerald-950 uppercase tracking-wider">WhatsApp Integrado & Ativo</h4>
-            <p class="text-[10px] text-emerald-700 font-semibold mt-0.5">Sincronização operacional no workspace <strong>{{ workspaceStore.currentWorkspace?.name }}</strong>.</p>
-          </div>
-        </div>
-        <button 
-          @click="disconnectWhatsapp"
-          class="text-[10px] font-bold uppercase tracking-wider text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-2 rounded-xl transition-all focus:outline-none"
-        >
-          Desconectar
-        </button>
-      </div>
 
       <!-- Row 1: 4 Cards de KPI -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -273,8 +229,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useChatwootStore } from '@/stores/chatwoot'
 import { useDashboardStore } from '@/stores/dashboard'
@@ -283,7 +238,6 @@ import FunnelChart from './dashboard/FunnelChart.vue'
 import AgentRanking from './dashboard/AgentRanking.vue'
 import { 
   LayoutDashboard, 
-  MessageSquare,
   Users, 
   DollarSign, 
   TrendingUp, 
@@ -294,7 +248,6 @@ const workspaceStore = useWorkspaceStore()
 const chatwootStore = useChatwootStore()
 const dashboardStore = useDashboardStore()
 const toast = useToast()
-const router = useRouter()
 
 const selectedPeriod = ref('30d')
 
@@ -319,23 +272,7 @@ const loadDashboardData = async () => {
   await dashboardStore.fetchDashboardMetrics(selectedPeriod.value)
 }
 
-const isWhatsappConnected = computed(() => {
-  return chatwootStore.configured
-})
 
-const connectWhatsapp = () => {
-  router.push('/settings/whatsapp')
-}
-
-const disconnectWhatsapp = async () => {
-  if (!confirm('Deseja realmente desconectar o WhatsApp?')) return
-  try {
-    await chatwootStore.disconnectChatwoot()
-    toast.warning('WhatsApp desconectado do workspace.')
-  } catch (e) {
-    toast.error('Erro ao desconectar.')
-  }
-}
 
 // Formatadores
 const formatCurrency = (val) => {
