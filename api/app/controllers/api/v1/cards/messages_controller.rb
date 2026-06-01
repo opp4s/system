@@ -51,15 +51,19 @@ module Api
           client  = ::Chatwoot::Client.new(config)
           private = message_params[:private_note].in?([true, "true"])
 
+          in_reply_to = message_params[:in_reply_to].presence
+
           cw_msg = if attachment
             client.send_message_with_attachment(
               conv.chatwoot_conversation_id,
-              content:    content,
-              attachment: attachment,
-              private:    private
+              content:     content,
+              attachment:  attachment,
+              private:     private,
+              in_reply_to: in_reply_to
             )
           else
-            client.send_message(conv.chatwoot_conversation_id, content, private: private)
+            client.send_message(conv.chatwoot_conversation_id, content,
+                                private: private, in_reply_to: in_reply_to)
           end
 
           # Persistir na tabela messages local — upsert para cobrir race com webhook
@@ -121,7 +125,7 @@ module Api
         end
 
         def message_params
-          params.require(:message).permit(:content, :private_note, :attachment)
+          params.require(:message).permit(:content, :private_note, :attachment, :in_reply_to)
         end
 
         def validate_attachment(file)

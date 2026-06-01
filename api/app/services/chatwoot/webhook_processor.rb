@@ -134,16 +134,29 @@ module Chatwoot
       sender_name  = msg.dig(:sender, :name).to_s
       sender_phone = msg.dig(:sender, :phone_number).to_s.presence
       chatwoot_msg_id = msg[:id].to_s
+      source_id    = msg[:source_id].to_s.presence
+      in_reply_to  = msg.dig(:content_attributes, :in_reply_to)
 
-      # Persistir mensagem localmente (deduplicação por chatwoot_message_id)
+      # Extrair attachments do webhook (imagens, documentos, áudios)
+      cw_attachments = (msg[:attachments] || []).map do |att|
+        {
+          url:          att[:data_url] || att[:file_url],
+          content_type: att[:file_type],
+          filename:     att[:file_name] || att[:file_type]
+        }.compact
+      end
+
       persist_message(
-        workspace:          workspace,
-        conv:               conv,
+        workspace:           workspace,
+        conv:                conv,
         chatwoot_message_id: chatwoot_msg_id,
-        content:            content,
-        message_type:       message_type == "outgoing" ? "outgoing" : "incoming",
-        sender_name:        sender_name,
-        sender_phone:       sender_phone
+        content:             content,
+        message_type:        message_type == "outgoing" ? "outgoing" : "incoming",
+        sender_name:         sender_name,
+        sender_phone:        sender_phone,
+        attachments:         cw_attachments,
+        in_reply_to:         in_reply_to,
+        source_id:           source_id
       )
 
       card_event = CardEvent.create!(
@@ -156,8 +169,10 @@ module Chatwoot
           content:         content,
           sender_name:     sender_name,
           conversation_id: conv_id,
-          message_id:      msg[:id]
-        }
+          message_id:      msg[:id],
+          attachments:     cw_attachments,
+          in_reply_to:     in_reply_to
+        }.compact
       )
 
       broadcast(conv.card, "chatwoot_message_received",
@@ -307,21 +322,33 @@ module Chatwoot
       [nil, nil]
     end
 
-    def persist_message(workspace:, conv:, chatwoot_message_id:, content:, message_type:, sender_name:, sender_phone:)
+    def persist_message(workspace:, conv:, chatwoot_message_id:, content:, message_type:,
+                        sender_name:, sender_phone:, attachments: [], in_reply_to: nil, source_id: nil)
       return if chatwoot_message_id.blank?
-      Message.find_or_create_by!(
+
+      meta = {}
+      meta["in_reply_to"] = in_reply_to if in_reply_to.present?
+
+      msg_record = Message.find_or_initialize_by(
         workspace:           workspace,
         chatwoot_message_id: chatwoot_message_id
-      ) do |m|
-        m.card         = conv.card
-        m.contact      = conv.card&.then { |c| Contact.find_by(workspace: workspace, phone_number: sender_phone) } if sender_phone.present?
-        m.conversation = conv
-        m.content      = content
-        m.message_type = message_type
-        m.sender_name  = sender_name
-        m.sender_phone = sender_phone
-        m.channel      = "whatsapp"
+      )
+      msg_record.assign_attributes(
+        card:         conv.card,
+        conversation: conv,
+        content:      content,
+        message_type: message_type,
+        sender_name:  sender_name,
+        sender_phone: sender_phone,
+        channel:      "whatsapp",
+        attachments:  attachments,
+        source_id:    source_id,
+        metadata:     (msg_record.metadata || {}).merge(meta)
+      )
+      if sender_phone.present? && msg_record.contact_id.blank?
+        msg_record.contact = Contact.find_by(workspace: workspace, phone_number: sender_phone)
       end
+      msg_record.save!
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.warn "[WebhookProcessor] persist_message failed: #{e.message}"
     end

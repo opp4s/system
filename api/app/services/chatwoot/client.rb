@@ -52,20 +52,18 @@ module Chatwoot
       get("/api/v1/accounts/#{@account_id}/conversations/#{conversation_id}/messages")
     end
 
-    def send_message(conversation_id, content, private: false)
-      post("/api/v1/accounts/#{@account_id}/conversations/#{conversation_id}/messages", {
-        content:      content,
-        message_type: "outgoing",
-        private:      private
-      })
+    def send_message(conversation_id, content, private: false, in_reply_to: nil)
+      body = { content: content, message_type: "outgoing", private: private }
+      body[:content_attributes] = { in_reply_to: in_reply_to } if in_reply_to.present?
+      post("/api/v1/accounts/#{@account_id}/conversations/#{conversation_id}/messages", body)
     end
 
     # Envia mensagem com attachment via multipart (não usa Faraday — Net::HTTP direto)
-    def send_message_with_attachment(conversation_id, content:, attachment:, private: false)
+    def send_message_with_attachment(conversation_id, content:, attachment:, private: false, in_reply_to: nil)
       uri      = URI("#{@base_url}/api/v1/accounts/#{@account_id}/conversations/#{conversation_id}/messages")
       boundary = SecureRandom.hex(16)
 
-      body = build_multipart_body(boundary, content, attachment, private)
+      body = build_multipart_body(boundary, content, attachment, private, in_reply_to)
 
       http             = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl     = uri.scheme == "https"
@@ -151,7 +149,7 @@ module Chatwoot
       end
     end
 
-    def build_multipart_body(boundary, content, attachment, private_msg)
+    def build_multipart_body(boundary, content, attachment, private_msg, in_reply_to = nil)
       body = +"".encode("ASCII-8BIT")
 
       field = ->(name, value) {
@@ -164,6 +162,7 @@ module Chatwoot
       field.call("content",      content.to_s)
       field.call("message_type", "outgoing")
       field.call("private",      private_msg.to_s)
+      field.call("content_attributes[in_reply_to]", in_reply_to.to_s) if in_reply_to.present?
 
       body << "--#{boundary}\r\n"
       body << "Content-Disposition: form-data; name=\"attachments[]\"; filename=\"#{attachment.original_filename.encode('UTF-8')}\"\r\n".encode("ASCII-8BIT")
