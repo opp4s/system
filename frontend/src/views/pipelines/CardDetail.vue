@@ -158,11 +158,6 @@
               </div>
             </div>
 
-            <!-- Separador -->
-            <div class="border-t border-gray-100 my-2"></div>
-
-            <!-- Conexão WhatsApp / Conversa Chatwoot -->
-            <ConversationLinker v-if="!hasConversation" :card="card" />
           </div>
 
           <!-- TAB 2: CAMPOS PERSONALIZADOS (TIPADOS) -->
@@ -282,20 +277,44 @@
 
         <!-- Coluna Direita / Centro: Timeline de Atividades / WhatsApp Chat -->
         <section class="flex-1 flex flex-col bg-slate-50/50 overflow-hidden">
+          <!-- Filtro de Abas no Topo do Chat (WhatsApp, Nota Interna, Histórico) -->
+          <div class="h-11 px-6 border-b border-gray-100 flex items-center space-x-5 bg-white shrink-0">
+            <button 
+              v-for="tab in ['whatsapp', 'notes', 'history']" 
+              :key="tab"
+              @click="rightActiveTab = tab"
+              class="h-full border-b-2 text-xs font-bold transition-all px-1 focus:outline-none"
+              :class="rightActiveTab === tab ? 'border-slate-900 text-slate-900' : 'border-transparent text-gray-400 hover:text-gray-600'"
+            >
+              {{ tab === 'whatsapp' ? 'WhatsApp' : tab === 'notes' ? 'Nota Interna' : 'Histórico' }}
+            </button>
+          </div>
+
           <!-- Area de Mensagens / Chat -->
           <div 
             ref="timelineContainer" 
-            class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth"
+            class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth flex flex-col"
           >
             <!-- Loader da Timeline -->
             <div v-if="pipelineStore.loading.timeline" class="space-y-4">
               <div v-for="i in 3" :key="i" class="h-20 bg-white border border-gray-150 rounded-2xl animate-pulse"></div>
             </div>
 
-            <!-- Se a timeline estiver vazia -->
-            <div v-else-if="pipelineStore.cardTimeline.length === 0" class="h-full flex flex-col items-center justify-center text-center text-sm text-gray-400 py-12">
+            <!-- Se a timeline filtrada estiver vazia -->
+            <div v-else-if="filteredTimelineEvents.length === 0" class="h-full flex flex-col items-center justify-center text-center text-sm text-gray-455 py-12 flex-1">
               <component :is="MessageSquare" class="h-10 w-10 text-gray-300 mb-2" />
-              <span>Nenhuma atividade ou mensagem registrada.</span>
+              <template v-if="rightActiveTab === 'whatsapp'">
+                <span class="font-bold text-gray-700 block mb-1">Nenhuma mensagem ainda</span>
+                <span class="text-xs text-gray-400">As mensagens aparecerão aqui quando o contato enviar via WhatsApp</span>
+              </template>
+              <template v-else-if="rightActiveTab === 'notes'">
+                <span class="font-bold text-gray-700 block mb-1">Nenhuma nota interna registrada</span>
+                <span class="text-xs text-gray-400">Escreva uma nota interna no compositor abaixo para guardar lembretes</span>
+              </template>
+              <template v-else>
+                <span class="font-bold text-gray-700 block mb-1">Nenhum evento registrado</span>
+                <span class="text-xs text-gray-400">O histórico de auditoria de etapas e criação aparecerá aqui</span>
+              </template>
             </div>
 
             <!-- Lista Agrupada por Data -->
@@ -415,8 +434,8 @@ import { usePipelineSocket } from '@/composables/usePipelineSocket'
 import StageSwitcher from './StageSwitcher.vue'
 import LossReasonModal from './LossReasonModal.vue'
 import CardComposer from './CardComposer.vue'
-import ConversationLinker from './ConversationLinker.vue'
 import { X, Plus, MoveRight, HelpCircle, FileText, Send, MessageSquare } from 'lucide-vue-next'
+import api from '@/plugins/axios'
 
 const route = useRoute()
 const router = useRouter()
@@ -424,13 +443,10 @@ const pipelineStore = usePipelineStore()
 
 const cardId = computed(() => Number(route.params.cardId))
 const activeTab = ref('dados')
+const rightActiveTab = ref('whatsapp') // 'whatsapp', 'notes', 'history'
 
 const card = computed(() => {
   return pipelineStore.cards.find(c => c.id === cardId.value)
-})
-
-const hasConversation = computed(() => {
-  return !!(card.value?.conversation?.id || card.value?.conversation_id || card.value?.conversation?.chatwoot_conversation_id)
 })
 
 // Modal de perda e estágio pendente
@@ -684,10 +700,24 @@ onMounted(() => {
   // Escuta evento customizado de nova mensagem para fazer scroll
   window.addEventListener('zavy-new-message', onNewMessageReceived)
 
-  // Polling a cada 5 segundos para garantir atualização em tempo real
+  // Polling incremental a cada 5 segundos para garantir atualização em tempo real sem piscar a tela
   pollInterval = setInterval(async () => {
     if (route.params.id && cardId.value) {
-      await pipelineStore.fetchCardTimeline(route.params.id, cardId.value)
+      try {
+        const response = await api.get(`/api/v1/pipelines/${route.params.id}/cards/${cardId.value}/timeline`)
+        const newItems = response.data.data || response.data
+        
+        // Só atualizar se houver itens novos para evitar re-render completo do array e flicker
+        if (newItems.length > pipelineStore.cardTimeline.length) {
+          const existingKeys = new Set(pipelineStore.cardTimeline.map(i => i.id || i.created_at))
+          const onlyNew = newItems.filter(i => !existingKeys.has(i.id || i.created_at))
+          if (onlyNew.length > 0) {
+            pipelineStore.cardTimeline = [...pipelineStore.cardTimeline, ...onlyNew]
+          }
+        }
+      } catch (e) {
+        console.error("Erro no polling de timeline:", e)
+      }
     }
   }, 5000)
 })
@@ -766,9 +796,22 @@ const normalizedTimeline = computed(() => {
   return list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 })
 
+const filteredTimelineEvents = computed(() => {
+  if (rightActiveTab.value === 'whatsapp') {
+    // Apenas mensagens do WhatsApp (ignora notas internas e histórico de auditoria)
+    return normalizedTimeline.value.filter(e => e.event_type === 'message' && e.message_type !== 'private')
+  } else if (rightActiveTab.value === 'notes') {
+    // Apenas notas internas do time
+    return normalizedTimeline.value.filter(e => e.event_type === 'message' && e.message_type === 'private')
+  } else {
+    // Apenas histórico do sistema (eventos que não sejam mensagens de chat)
+    return normalizedTimeline.value.filter(e => e.event_type !== 'message')
+  }
+})
+
 const groupedTimeline = computed(() => {
   const groups = {}
-  normalizedTimeline.value.forEach(event => {
+  filteredTimelineEvents.value.forEach(event => {
     const dateKey = getFriendlyDateKey(event.created_at)
     if (!groups[dateKey]) {
       groups[dateKey] = []

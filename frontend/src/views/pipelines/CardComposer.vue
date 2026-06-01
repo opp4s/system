@@ -33,28 +33,6 @@
       </button>
     </div>
 
-    <!-- Aviso de conversa não vinculada (Apenas para modo WhatsApp) -->
-    <div 
-      v-if="mode === 'whatsapp' && !hasConversation" 
-      class="bg-rose-50 border border-rose-100 rounded-xl p-3 flex items-start space-x-2.5 animate-scale-up"
-    >
-      <component :is="AlertCircle" class="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-      <div class="flex-1">
-        <p class="text-xs font-bold text-rose-800">Sem conversa vinculada</p>
-        <p class="text-[10px] text-rose-600 mt-0.5">
-          Vincule uma conversa a este negócio para poder enviar mensagens via WhatsApp.
-        </p>
-      </div>
-      <!-- Botão para simular vinculação de conversa (Para teste imediato no Dia 13) -->
-      <button
-        type="button"
-        @click="simulateLink"
-        class="text-[10px] font-bold text-rose-700 hover:text-rose-900 bg-white hover:bg-rose-100/50 px-2 py-1 border border-rose-200 rounded-lg shrink-0 transition-colors"
-      >
-        Vincular Agora
-      </button>
-    </div>
-
     <!-- Área de Digitação (Composer) -->
     <div class="flex items-end space-x-2">
       <div class="flex-1 relative">
@@ -65,15 +43,14 @@
           @keydown="handleKeyDown"
           :placeholder="
             mode === 'whatsapp'
-              ? (hasConversation ? 'Digite uma mensagem (Ctrl+Enter para enviar)...' : 'WhatsApp bloqueado (vincule uma conversa)...')
+              ? 'Digite uma mensagem (Ctrl+Enter para enviar)...'
               : 'Digite uma nota interna privada (Ctrl+Enter para enviar)...'
           "
-          :disabled="mode === 'whatsapp' && !hasConversation"
           rows="1"
           class="block w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-1 bg-gray-50/20 text-xs transition-all resize-none max-h-[200px] overflow-y-auto"
           :class="[
             mode === 'whatsapp'
-              ? 'border-gray-250 focus:border-zavy-500 focus:ring-zavy-500 disabled:bg-gray-100/50 disabled:cursor-not-allowed'
+              ? 'border-gray-250 focus:border-zavy-500 focus:ring-zavy-500'
               : 'border-gray-250 focus:border-amber-500 focus:ring-amber-500'
           ]"
         ></textarea>
@@ -83,7 +60,7 @@
       <button
         type="button"
         @click="send"
-        :disabled="sending || !messageText.trim() || (mode === 'whatsapp' && !hasConversation)"
+        :disabled="sending || !messageText.trim()"
         class="p-3 text-white rounded-xl shadow transition-all duration-150 shrink-0 disabled:bg-gray-300 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
         :class="[
           mode === 'whatsapp' 
@@ -123,7 +100,6 @@ import {
   Send, 
   MessageSquare, 
   Lock, 
-  AlertCircle, 
   Check, 
   Loader2 
 } from 'lucide-vue-next'
@@ -147,17 +123,9 @@ const statusText = ref('')
 const textareaRef = ref(null)
 const showToken = ref(false)
 
-// Simulação de vinculação de conversa para testes locais
-const localLinkedConversation = ref(false)
-
-const hasConversation = computed(() => {
-  return !!(props.card?.conversation?.id || props.card?.conversation_id || props.card?.conversation?.chatwoot_conversation_id || localLinkedConversation.value)
-})
-
 // Observa mudança de card para resetar composer e estado local de simulação
 watch(() => props.card?.id, () => {
   messageText.value = ''
-  localLinkedConversation.value = false
   statusText.value = ''
   nextTick(() => adjustHeight())
 })
@@ -178,11 +146,7 @@ const handleKeyDown = (e) => {
   }
 }
 
-// Simula vinculação para testes
-const simulateLink = () => {
-  localLinkedConversation.value = true
-  toast.success('Conversa vinculada temporariamente para testes!')
-}
+
 
 // Ação de envio de mensagem
 const send = async () => {
