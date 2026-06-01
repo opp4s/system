@@ -51,7 +51,7 @@ module Api
           client  = ::Chatwoot::Client.new(config)
           private = message_params[:private_note].in?([true, "true"])
 
-          in_reply_to = message_params[:in_reply_to].presence
+          in_reply_to = message_params[:in_reply_to].presence&.to_i&.then { |v| v > 0 ? v : nil }
 
           cw_msg = if attachment
             client.send_message_with_attachment(

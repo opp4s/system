@@ -60,6 +60,7 @@ services:
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID}
       APP_URL: ${APP_URL}
+      WHISPER_URL: http://zavy-whisper:8000
       RAILS_LOG_TO_STDOUT: "true"
       RAILS_SERVE_STATIC_FILES: "true"
     depends_on:
@@ -95,6 +96,7 @@ services:
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID}
       APP_URL: ${APP_URL}
+      WHISPER_URL: http://zavy-whisper:8000
       RAILS_LOG_TO_STDOUT: "true"
     depends_on:
       zavy-postgres:
@@ -115,10 +117,25 @@ services:
     networks:
       - zavy-net
 
+  zavy-whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    container_name: zavy-whisper
+    restart: unless-stopped
+    ports:
+      - "8085:8000"
+    environment:
+      WHISPER__MODEL: medium
+      WHISPER__LANGUAGE: pt
+    volumes:
+      - zavy-whisper-models:/root/.cache/huggingface
+    networks:
+      - zavy-net
+
 volumes:
   zavy-postgres-data:
   zavy-redis-data:
   zavy-storage:
+  zavy-whisper-models:
 
 networks:
   zavy-net:

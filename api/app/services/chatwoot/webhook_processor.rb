@@ -105,7 +105,8 @@ module Chatwoot
       conv_id      = (msg.dig(:conversation, :id) || msg[:conversation_id]).to_i
       message_type = msg[:message_type].to_s
       content      = msg[:content].to_s
-      return if content.blank? || conv_id == 0
+      has_attachment = msg[:attachments].present? && msg[:attachments].any?
+      return if (content.blank? && !has_attachment) || conv_id == 0
 
       conv = Conversation.find_or_initialize_by(
         workspace:                workspace,
@@ -333,10 +334,15 @@ module Chatwoot
         workspace:           workspace,
         chatwoot_message_id: chatwoot_message_id
       )
+      # Áudio/mídia pode ter content vazio — usar filename como fallback
+      effective_content = content.presence ||
+                          attachments.map { |a| a["filename"] }.compact.first ||
+                          "[mídia]"
+
       msg_record.assign_attributes(
         card:         conv.card,
         conversation: conv,
-        content:      content,
+        content:      effective_content,
         message_type: message_type,
         sender_name:  sender_name,
         sender_phone: sender_phone,
@@ -349,6 +355,10 @@ module Chatwoot
         msg_record.contact = Contact.find_by(workspace: workspace, phone_number: sender_phone)
       end
       msg_record.save!
+
+      # Enfileirar transcrição se tiver attachment de áudio
+      has_audio = attachments.any? { |a| a["content_type"].to_s.start_with?("audio/") }
+      TranscribeAudioJob.perform_later(msg_record.id) if has_audio && msg_record.persisted?
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.warn "[WebhookProcessor] persist_message failed: #{e.message}"
     end
