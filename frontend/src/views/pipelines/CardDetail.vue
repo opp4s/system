@@ -343,14 +343,31 @@
                       <!-- Bolha de Mensagem Outgoing (Enviada pelo Agente Zavy) -->
                       <div 
                         v-if="event.message_type === 'outgoing'"
-                        class="max-w-[70%] flex flex-col items-end space-y-1"
+                        class="max-w-[70%] flex flex-col items-end space-y-1 relative group"
                       >
+                        <!-- Botão Responder para Outgoing -->
+                        <button 
+                          @click="triggerReply(event)"
+                          class="opacity-0 group-hover:opacity-100 absolute left-[-32px] top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-all select-none"
+                          title="Responder"
+                        >
+                          <component :is="CornerUpLeft" class="h-3.5 w-3.5" />
+                        </button>
+
                         <div class="flex items-center space-x-1.5 text-[9px] font-bold text-slate-400 pr-1 select-none">
                           <span>{{ getSenderDisplayName(event) }}</span>
                           <span>{{ formatTimeOnly(event.created_at) }}</span>
                           <span class="text-emerald-500 font-bold">✓✓</span>
                         </div>
                         <div class="bg-slate-900 text-white rounded-2xl rounded-tr-none px-4 py-2.5 shadow-sm text-left w-full">
+                          <!-- Quote/Reply Reference -->
+                          <div v-if="event.in_reply_to" class="mb-2">
+                            <div class="text-[10px] bg-slate-800 border-l-2 border-slate-500 px-2 py-1 rounded text-slate-350">
+                              <span class="font-bold text-slate-400">Respondendo a:</span>
+                              <span class="italic block truncate">"{{ getReplyMessageContent(event.in_reply_to) || '...' }}"</span>
+                            </div>
+                          </div>
+
                           <!-- Exibição de Anexos -->
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
                             <div v-for="att in event.attachments" :key="att.url">
@@ -375,13 +392,30 @@
                       <!-- Bolha de Mensagem Incoming (Recebida do Cliente) -->
                       <div 
                         v-else-if="event.message_type === 'incoming'"
-                        class="max-w-[70%] flex flex-col items-start space-y-1"
+                        class="max-w-[70%] flex flex-col items-start space-y-1 relative group"
                       >
+                        <!-- Botão Responder para Incoming -->
+                        <button 
+                          @click="triggerReply(event)"
+                          class="opacity-0 group-hover:opacity-100 absolute right-[-32px] top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-all select-none"
+                          title="Responder"
+                        >
+                          <component :is="CornerUpLeft" class="h-3.5 w-3.5" />
+                        </button>
+
                         <div class="flex items-center space-x-1.5 text-[9px] font-bold text-zavy-600 pl-1 select-none">
                           <span>{{ event.sender_name || card?.contact_name || 'Cliente' }}</span>
                           <span class="text-slate-450">{{ formatTimeOnly(event.created_at) }}</span>
                         </div>
                         <div class="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 shadow-sm text-left w-full">
+                          <!-- Quote/Reply Reference -->
+                          <div v-if="event.in_reply_to" class="mb-2">
+                            <div class="text-[10px] bg-slate-100 border-l-2 border-slate-300 px-2 py-1 rounded text-slate-600">
+                              <span class="font-bold text-slate-400">Respondendo a:</span>
+                              <span class="italic block truncate">"{{ getReplyMessageContent(event.in_reply_to) || '...' }}"</span>
+                            </div>
+                          </div>
+
                           <!-- Exibição de Anexos -->
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
                             <div v-for="att in event.attachments" :key="att.url">
@@ -438,7 +472,12 @@
           </div>
 
           <!-- Compositor de Mensagens / Notas -->
-          <CardComposer :card="card" @message-sent="scrollToBottom" />
+          <CardComposer 
+            :card="card" 
+            :replying-to="replyingTo"
+            @message-sent="onMessageSent" 
+            @cancel-reply="cancelReply"
+          />
         </section>
       </div>
 
@@ -468,7 +507,7 @@ import { usePipelineSocket } from '@/composables/usePipelineSocket'
 import StageSwitcher from './StageSwitcher.vue'
 import LossReasonModal from './LossReasonModal.vue'
 import CardComposer from './CardComposer.vue'
-import { X, Plus, MoveRight, HelpCircle, FileText, Send, MessageSquare } from 'lucide-vue-next'
+import { X, Plus, MoveRight, HelpCircle, FileText, Send, MessageSquare, CornerUpLeft } from 'lucide-vue-next'
 import api from '@/plugins/axios'
 
 const route = useRoute()
@@ -479,6 +518,26 @@ const authStore = useAuthStore()
 const cardId = computed(() => Number(route.params.cardId))
 const activeTab = ref('dados')
 const rightActiveTab = ref('whatsapp') // 'whatsapp', 'notes', 'history'
+
+// Reply/Quote states
+const replyingTo = ref(null)
+
+const triggerReply = (msg) => {
+  replyingTo.value = {
+    id: msg.payload?.chatwoot_msg_id || msg.payload?.message_id || msg.chatwoot_message_id || msg.id,
+    content: msg.content?.substring(0, 100),
+    sender_name: msg.sender_name || msg.payload?.sender_name || (msg.message_type === 'outgoing' ? 'Você' : 'Cliente')
+  }
+}
+
+const cancelReply = () => {
+  replyingTo.value = null
+}
+
+const onMessageSent = () => {
+  replyingTo.value = null
+  scrollToBottom()
+}
 
 const getSenderDisplayName = (event) => {
   const name = event.user?.name || event.sender_name
@@ -817,6 +876,16 @@ const openFullscreen = (url) => {
   window.open(url, '_blank')
 }
 
+const getReplyMessageContent = (inReplyToId) => {
+  if (!inReplyToId) return null
+  const original = pipelineStore.cardTimeline.find(item => {
+    const itemId = item.id?.toString()
+    const itemCwId = (item.payload?.chatwoot_msg_id || item.payload?.message_id || item.chatwoot_message_id || item.payload?.in_reply_to || item.in_reply_to)?.toString()
+    return itemId === inReplyToId.toString() || itemCwId === inReplyToId.toString()
+  })
+  return original?.payload?.content || original?.content || null
+}
+
 const formatSize = (bytes) => {
   if (bytes === undefined || bytes === null || isNaN(bytes)) return '0 B'
   const k = 1024
@@ -850,7 +919,8 @@ const normalizedTimeline = computed(() => {
         content: event.payload?.content || '',
         message_type: event.payload?.message_type || 'incoming',
         sender_name: event.payload?.sender_name || '',
-        attachments: event.payload?.attachments || event.attachments || []
+        attachments: event.payload?.attachments || event.attachments || [],
+        in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null
       }
     }
     if (event.event_type === 'message_sent') {
@@ -860,7 +930,15 @@ const normalizedTimeline = computed(() => {
         content: event.payload?.content || '',
         message_type: event.payload?.private_note ? 'private' : 'outgoing',
         sender_name: 'Você',
-        attachments: event.payload?.attachments || event.attachments || []
+        attachments: event.payload?.attachments || event.attachments || [],
+        in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null
+      }
+    }
+    if (event.event_type === 'message') {
+      return {
+        ...event,
+        attachments: event.payload?.attachments || event.attachments || [],
+        in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null
       }
     }
     return event

@@ -73,6 +73,17 @@
       </div>
     </div>
 
+    <!-- Preview da Mensagem sendo Respondida -->
+    <div v-if="replyingTo" class="animate-scale-up bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-start space-x-3 relative">
+      <div class="flex-1 min-w-0 border-l-2 border-slate-300 pl-2">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Respondendo a {{ replyingTo.sender_name }}</p>
+        <p class="text-xs text-slate-650 truncate italic">"{{ replyingTo.content }}"</p>
+      </div>
+      <button type="button" @click="$emit('cancel-reply')" class="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-700 transition-colors" title="Cancelar resposta">
+        <component :is="X" class="h-3.5 w-3.5" />
+      </button>
+    </div>
+
     <!-- Área de Digitação (Composer) -->
     <div class="flex items-end space-x-2">
       <!-- Botão Clip Anexo -->
@@ -169,10 +180,14 @@ const props = defineProps({
   card: {
     type: Object,
     required: true
+  },
+  replyingTo: {
+    type: Object,
+    default: null
   }
 })
 
-const emits = defineEmits(['message-sent'])
+const emits = defineEmits(['message-sent', 'cancel-reply'])
 
 const pipelineStore = usePipelineStore()
 const toast = useToast()
@@ -240,6 +255,9 @@ const removeStagedFile = () => {
     stagedPreview.value = null
   }
   stagedFile.value = null
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
 }
 
 const formatSize = (bytes) => {
@@ -297,18 +315,25 @@ const send = async () => {
       formData.append('message[content]', content)
       formData.append('message[attachment]', file)
       formData.append('message[private_note]', isPrivate.toString())
+      if (props.replyingTo) {
+        formData.append('message[in_reply_to]', props.replyingTo.id)
+      }
 
       const response = await api.post(`/api/v1/cards/${props.card.id}/messages`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       newMessage = response.data.data || response.data
     } else {
-      const response = await api.post(`/api/v1/cards/${props.card.id}/messages`, {
+      const payload = {
         message: {
           content: content,
           private_note: isPrivate
         }
-      })
+      }
+      if (props.replyingTo) {
+        payload.message.in_reply_to = props.replyingTo.id
+      }
+      const response = await api.post(`/api/v1/cards/${props.card.id}/messages`, payload)
       newMessage = response.data.data || response.data
     }
 
