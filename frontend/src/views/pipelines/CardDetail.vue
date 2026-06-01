@@ -364,7 +364,7 @@
                           <div v-if="event.in_reply_to" class="mb-2">
                             <div class="text-[10px] bg-slate-800 border-l-2 border-slate-500 px-2 py-1 rounded text-slate-350">
                               <span class="font-bold text-slate-400">Respondendo a:</span>
-                              <span class="italic block truncate">"{{ getReplyMessageContent(event.in_reply_to) || '...' }}"</span>
+                              <span class="italic block truncate">"{{ getQuotePreview(event.in_reply_to) }}"</span>
                             </div>
                           </div>
 
@@ -377,14 +377,19 @@
                                    @click="openFullscreen(att.url)" />
 
                               <!-- Áudio: player inline -->
-                              <div v-else-if="att.content_type && att.content_type.startsWith('audio/')" class="my-1.5 w-full">
-                                <audio controls class="w-full max-w-[300px] h-10 select-none">
-                                  <source :src="att.url" :type="att.content_type" />
+                              <div v-else-if="isAudio(att)" class="my-1.5 w-full">
+                                <audio controls class="w-full max-w-[280px] h-10 rounded-full select-none">
+                                  <source :src="att.url" :type="getAudioMimeType(att)" />
+                                  Seu navegador não suporta áudio.
                                 </audio>
-                                <!-- Transcrição (se disponível) -->
-                                <p v-if="event.metadata?.transcription || event.payload?.metadata?.transcription"
-                                   class="text-xs text-slate-350 italic mt-1 border-l-2 border-slate-500 pl-2 bg-slate-800/50 p-1.5 rounded-r-lg max-w-[300px]">
-                                  📝 {{ event.metadata?.transcription || event.payload?.metadata?.transcription }}
+                                <!-- Transcrição (se disponível ou em processamento) -->
+                                <p v-if="getTranscription(event)"
+                                   class="text-xs text-slate-355 italic mt-1.5 border-l-2 border-slate-500 pl-2 bg-slate-800/50 p-1.5 rounded-r-lg max-w-[280px]">
+                                  📝 {{ getTranscription(event) }}
+                                </p>
+                                <p v-else
+                                   class="text-xs text-slate-400 italic mt-1.5 pl-1">
+                                  ⏳ Transcrevendo...
                                 </p>
                               </div>
 
@@ -424,7 +429,7 @@
                           <div v-if="event.in_reply_to" class="mb-2">
                             <div class="text-[10px] bg-slate-100 border-l-2 border-slate-300 px-2 py-1 rounded text-slate-600">
                               <span class="font-bold text-slate-400">Respondendo a:</span>
-                              <span class="italic block truncate">"{{ getReplyMessageContent(event.in_reply_to) || '...' }}"</span>
+                              <span class="italic block truncate">"{{ getQuotePreview(event.in_reply_to) }}"</span>
                             </div>
                           </div>
 
@@ -437,14 +442,19 @@
                                    @click="openFullscreen(att.url)" />
 
                               <!-- Áudio: player inline -->
-                              <div v-else-if="att.content_type && att.content_type.startsWith('audio/')" class="my-1.5 w-full">
-                                <audio controls class="w-full max-w-[300px] h-10 select-none">
-                                  <source :src="att.url" :type="att.content_type" />
+                              <div v-else-if="isAudio(att)" class="my-1.5 w-full">
+                                <audio controls class="w-full max-w-[280px] h-10 rounded-full select-none">
+                                  <source :src="att.url" :type="getAudioMimeType(att)" />
+                                  Seu navegador não suporta áudio.
                                 </audio>
-                                <!-- Transcrição (se disponível) -->
-                                <p v-if="event.metadata?.transcription || event.payload?.metadata?.transcription"
-                                   class="text-xs text-slate-500 italic mt-1 border-l-2 border-slate-200 pl-2 bg-slate-100/50 p-1.5 rounded-r-lg max-w-[300px]">
-                                  📝 {{ event.metadata?.transcription || event.payload?.metadata?.transcription }}
+                                <!-- Transcrição (se disponível ou em processamento) -->
+                                <p v-if="getTranscription(event)"
+                                   class="text-xs text-slate-500 italic mt-1.5 border-l-2 border-slate-200 pl-2 bg-slate-100/50 p-1.5 rounded-r-lg max-w-[280px]">
+                                  📝 {{ getTranscription(event) }}
+                                </p>
+                                <p v-else
+                                   class="text-xs text-slate-400 italic mt-1.5 pl-1">
+                                  ⏳ Transcrevendo...
                                 </p>
                               </div>
 
@@ -900,14 +910,56 @@ const openFullscreen = (url) => {
   window.open(url, '_blank')
 }
 
-const getReplyMessageContent = (inReplyToId) => {
-  if (!inReplyToId) return null
+const isAudio = (att) => {
+  if (!att) return false
+  const type = att.content_type || att.type || ''
+  const filename = att.filename || ''
+  return type.toLowerCase().startsWith('audio') || 
+         filename.toLowerCase().endsWith('.ogg') || 
+         filename.toLowerCase().endsWith('.oga') || 
+         filename.toLowerCase().endsWith('.mp3') || 
+         filename.toLowerCase().endsWith('.webm') ||
+         filename.toLowerCase().endsWith('.m4a') ||
+         filename.toLowerCase().endsWith('.wav')
+}
+
+const getAudioMimeType = (att) => {
+  const type = att.content_type || ''
+  if (type.startsWith('audio/')) return type
+  const filename = att.filename || ''
+  if (filename.toLowerCase().endsWith('.mp3')) return 'audio/mpeg'
+  if (filename.toLowerCase().endsWith('.wav')) return 'audio/wav'
+  if (filename.toLowerCase().endsWith('.webm')) return 'audio/webm'
+  if (filename.toLowerCase().endsWith('.m4a')) return 'audio/x-m4a'
+  return 'audio/ogg' // fallback padrão
+}
+
+const getTranscription = (event) => {
+  return event.metadata?.transcription || 
+         event.payload?.metadata?.transcription || 
+         event.payload?.transcription || 
+         null
+}
+
+const getQuotePreview = (inReplyToId) => {
+  if (!inReplyToId) return '...'
   const original = pipelineStore.cardTimeline.find(item => {
     const itemId = item.id?.toString()
     const itemCwId = (item.payload?.chatwoot_msg_id || item.payload?.message_id || item.chatwoot_message_id || item.payload?.in_reply_to || item.in_reply_to)?.toString()
     return itemId === inReplyToId.toString() || itemCwId === inReplyToId.toString()
   })
-  return original?.payload?.content || original?.content || null
+  
+  if (!original) return '...'
+  
+  const attachments = original.payload?.attachments || original.attachments || []
+  if (attachments.some(isAudio)) return '🎙 Áudio'
+  if (attachments.some(a => a.content_type?.startsWith('image/') || a.type?.startsWith('image'))) return '🖼️ Imagem'
+  if (attachments.length > 0) {
+    const att = attachments[0]
+    return '📄 ' + (att.filename || 'Arquivo')
+  }
+  
+  return original.payload?.content || original.content || '...'
 }
 
 const formatSize = (bytes) => {
