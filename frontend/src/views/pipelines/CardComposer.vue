@@ -151,7 +151,7 @@ const showToken = ref(false)
 const localLinkedConversation = ref(false)
 
 const hasConversation = computed(() => {
-  return !!props.card?.conversation_id || localLinkedConversation.value
+  return !!props.card?.conversation_id || !!props.card?.conversation?.id || localLinkedConversation.value
 })
 
 // Observa mudança de card para resetar composer e estado local de simulação

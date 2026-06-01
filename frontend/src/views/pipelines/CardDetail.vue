@@ -162,7 +162,7 @@
             <div class="border-t border-gray-100 my-2"></div>
 
             <!-- Conexão WhatsApp / Conversa Chatwoot -->
-            <ConversationLinker :card="card" />
+            <ConversationLinker v-if="!hasConversation" :card="card" />
           </div>
 
           <!-- TAB 2: CAMPOS PERSONALIZADOS (TIPADOS) -->
@@ -427,6 +427,10 @@ const activeTab = ref('dados')
 
 const card = computed(() => {
   return pipelineStore.cards.find(c => c.id === cardId.value)
+})
+
+const hasConversation = computed(() => {
+  return !!(card.value?.conversation_id || card.value?.conversation?.id)
 })
 
 // Modal de perda e estágio pendente
@@ -730,9 +734,24 @@ const getFriendlyDateKey = (dateStr) => {
   }
 }
 
+const normalizedTimeline = computed(() => {
+  return pipelineStore.cardTimeline.map(event => {
+    if (event.event_type === 'chatwoot_message') {
+      return {
+        ...event,
+        event_type: 'message',
+        content: event.payload?.content || '',
+        message_type: event.payload?.message_type || 'incoming',
+        sender_name: event.payload?.sender_name || ''
+      }
+    }
+    return event
+  })
+})
+
 const groupedTimeline = computed(() => {
   const groups = {}
-  pipelineStore.cardTimeline.forEach(event => {
+  normalizedTimeline.value.forEach(event => {
     const dateKey = getFriendlyDateKey(event.created_at)
     if (!groups[dateKey]) {
       groups[dateKey] = []
@@ -744,7 +763,7 @@ const groupedTimeline = computed(() => {
 
 // Timeline de Auditoria de Sistema
 const systemEvents = computed(() => {
-  return pipelineStore.cardTimeline.filter(event => event.event_type !== 'message')
+  return normalizedTimeline.value.filter(event => event.event_type !== 'message')
 })
 
 

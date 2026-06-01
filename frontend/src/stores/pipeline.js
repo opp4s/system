@@ -637,6 +637,7 @@ export const usePipelineStore = defineStore('pipeline', {
         const cardIdx = this.cards.findIndex(c => c.id === cardId)
         if (cardIdx !== -1) {
           this.cards[cardIdx].conversation_id = conversationId
+          this.cards[cardIdx].conversation = { id: conversationId }
         }
         
         return response.data?.data || response.data
@@ -646,6 +647,7 @@ export const usePipelineStore = defineStore('pipeline', {
         const cardIdx = this.cards.findIndex(c => c.id === cardId)
         if (cardIdx !== -1) {
           this.cards[cardIdx].conversation_id = conversationId
+          this.cards[cardIdx].conversation = { id: conversationId }
         }
         
         if (error.response?.status === 404) {
@@ -665,6 +667,7 @@ export const usePipelineStore = defineStore('pipeline', {
         const cardIdx = this.cards.findIndex(c => c.id === cardId)
         if (cardIdx !== -1) {
           this.cards[cardIdx].conversation_id = null
+          this.cards[cardIdx].conversation = null
         }
         
         return response.data?.data || response.data
@@ -674,6 +677,7 @@ export const usePipelineStore = defineStore('pipeline', {
         const cardIdx = this.cards.findIndex(c => c.id === cardId)
         if (cardIdx !== -1) {
           this.cards[cardIdx].conversation_id = null
+          this.cards[cardIdx].conversation = null
         }
         
         if (error.response?.status === 404) {
