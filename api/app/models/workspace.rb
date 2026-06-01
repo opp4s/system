@@ -14,6 +14,7 @@ class Workspace < ApplicationRecord
   has_many :broadcasts,               dependent: :destroy
   has_many :custom_field_definitions, dependent: :destroy
   has_many :whatsapp_instances,       dependent: :destroy
+  has_many :messages,                 dependent: :destroy
 
   validates :name, presence: true, length: { maximum: 100 }
   validates :slug, presence: true,

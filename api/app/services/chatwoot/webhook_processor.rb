@@ -126,7 +126,20 @@ module Chatwoot
 
       return unless conv.linked?
 
-      sender_name = msg.dig(:sender, :name).to_s
+      sender_name  = msg.dig(:sender, :name).to_s
+      sender_phone = msg.dig(:sender, :phone_number).to_s.presence
+      chatwoot_msg_id = msg[:id].to_s
+
+      # Persistir mensagem localmente (deduplicação por chatwoot_message_id)
+      persist_message(
+        workspace:          workspace,
+        conv:               conv,
+        chatwoot_message_id: chatwoot_msg_id,
+        content:            content,
+        message_type:       message_type == "outgoing" ? "outgoing" : "incoming",
+        sender_name:        sender_name,
+        sender_phone:       sender_phone
+      )
 
       CardEvent.create!(
         card:       conv.card,
@@ -285,6 +298,25 @@ module Chatwoot
     rescue => e
       Rails.logger.warn "[WebhookProcessor] pipeline_from_whatsapp_instance error: #{e.message}"
       [nil, nil]
+    end
+
+    def persist_message(workspace:, conv:, chatwoot_message_id:, content:, message_type:, sender_name:, sender_phone:)
+      return if chatwoot_message_id.blank?
+      Message.find_or_create_by!(
+        workspace:           workspace,
+        chatwoot_message_id: chatwoot_message_id
+      ) do |m|
+        m.card         = conv.card
+        m.contact      = conv.card&.then { |c| Contact.find_by(workspace: workspace, phone_number: sender_phone) } if sender_phone.present?
+        m.conversation = conv
+        m.content      = content
+        m.message_type = message_type
+        m.sender_name  = sender_name
+        m.sender_phone = sender_phone
+        m.channel      = "whatsapp"
+      end
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.warn "[WebhookProcessor] persist_message failed: #{e.message}"
     end
 
     def extract_contact_id(data)

@@ -7,6 +7,7 @@ class Card < ApplicationRecord
   has_many :card_events,   dependent: :destroy
   has_many :conversations, dependent: :nullify
   has_many :automation_logs, dependent: :destroy
+  has_many :messages,      dependent: :nullify
 
   validates :title, presence: true, length: { maximum: 255 }
   validates :value, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
