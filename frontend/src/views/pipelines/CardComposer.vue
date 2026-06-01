@@ -114,6 +114,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { usePipelineStore } from '@/stores/pipeline'
 import { useToast } from '@/composables/useToast'
+import api from '@/plugins/axios'
 import { 
   Send, 
   MessageSquare, 
@@ -150,14 +151,61 @@ const triggerFileSelect = () => {
   }
 }
 
-const handleFileChange = (e) => {
+const handleFileChange = async (e) => {
   const file = e.target.files[0]
   if (!file) return
-  
-  toast.info('Envio de arquivos em breve (pendente backend)')
-  
-  if (fileInputRef.value) {
-    fileInputRef.value.value = ''
+
+  const maxSize = 16 * 1024 * 1024 // 16MB
+  const allowedTypes = [
+    'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif',
+    'application/pdf',
+    'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/aac',
+    'video/mp4', 'video/quicktime',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ]
+
+  if (file.size > maxSize) {
+    toast.error('Arquivo muito grande (máximo 16MB)')
+    return
+  }
+  if (!allowedTypes.includes(file.type)) {
+    toast.error('Tipo de arquivo não permitido')
+    return
+  }
+
+  sending.value = true
+  statusText.value = 'Enviando arquivo...'
+
+  const formData = new FormData()
+  formData.append('message[attachment]', file)
+  formData.append('message[content]', '') // legenda vazia
+
+  try {
+    const response = await api.post(`/api/v1/cards/${props.card.id}/messages`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    
+    const newMessage = response.data.data || response.data
+    const exists = pipelineStore.cardTimeline.some(item => item.id === newMessage.id)
+    if (!exists) {
+      pipelineStore.cardTimeline.push(newMessage)
+    }
+
+    statusText.value = 'Arquivo enviado ✓'
+    setTimeout(() => {
+      statusText.value = ''
+    }, 2000)
+
+    emits('message-sent')
+  } catch (error) {
+    toast.error('Erro ao enviar arquivo')
+    console.error(error)
+  } finally {
+    sending.value = false
+    if (fileInputRef.value) {
+      fileInputRef.value.value = ''
+    }
   }
 }
 

@@ -351,7 +351,24 @@
                           <span class="text-emerald-500 font-bold">✓✓</span>
                         </div>
                         <div class="bg-slate-900 text-white rounded-2xl rounded-tr-none px-4 py-2.5 shadow-sm text-left w-full">
-                          <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
+                          <!-- Exibição de Anexos -->
+                          <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
+                            <div v-for="att in event.attachments" :key="att.url">
+                              <!-- Imagem: preview inline -->
+                              <img v-if="att.content_type && att.content_type.startsWith('image/')"
+                                   :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                   @click="openFullscreen(att.url)" />
+
+                              <!-- Documento/Áudio/Vídeo: ícone + nome + download -->
+                              <a v-else :href="att.url" target="_blank"
+                                 class="flex items-center gap-2 p-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors">
+                                <span class="text-lg">📄</span>
+                                <span class="text-xs truncate max-w-[150px] font-semibold">{{ att.filename }}</span>
+                                <span class="text-[10px] text-slate-350">{{ formatSize(att.size) }}</span>
+                              </a>
+                            </div>
+                          </div>
+                          <p v-if="event.content" class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
                         </div>
                       </div>
 
@@ -365,7 +382,24 @@
                           <span class="text-slate-450">{{ formatTimeOnly(event.created_at) }}</span>
                         </div>
                         <div class="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 shadow-sm text-left w-full">
-                          <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
+                          <!-- Exibição de Anexos -->
+                          <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
+                            <div v-for="att in event.attachments" :key="att.url">
+                              <!-- Imagem: preview inline -->
+                              <img v-if="att.content_type && att.content_type.startsWith('image/')"
+                                   :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                   @click="openFullscreen(att.url)" />
+
+                              <!-- Documento/Áudio/Vídeo: ícone + nome + download -->
+                              <a v-else :href="att.url" target="_blank"
+                                 class="flex items-center gap-2 p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
+                                <span class="text-lg">📄</span>
+                                <span class="text-xs text-slate-700 truncate max-w-[150px] font-semibold">{{ att.filename }}</span>
+                                <span class="text-[10px] text-slate-400">{{ formatSize(att.size) }}</span>
+                              </a>
+                            </div>
+                          </div>
+                          <p v-if="event.content" class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
                         </div>
                       </div>
 
@@ -779,6 +813,18 @@ const formatFriendlyDate = (isoString) => {
   return date.toLocaleDateString('pt-BR') + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
+const openFullscreen = (url) => {
+  window.open(url, '_blank')
+}
+
+const formatSize = (bytes) => {
+  if (bytes === undefined || bytes === null || isNaN(bytes)) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
 // Agrupador e formatador de datas da timeline
 const getFriendlyDateKey = (dateStr) => {
   const date = new Date(dateStr)
@@ -803,7 +849,8 @@ const normalizedTimeline = computed(() => {
         event_type: 'message',
         content: event.payload?.content || '',
         message_type: event.payload?.message_type || 'incoming',
-        sender_name: event.payload?.sender_name || ''
+        sender_name: event.payload?.sender_name || '',
+        attachments: event.payload?.attachments || event.attachments || []
       }
     }
     if (event.event_type === 'message_sent') {
@@ -812,7 +859,8 @@ const normalizedTimeline = computed(() => {
         event_type: 'message',
         content: event.payload?.content || '',
         message_type: event.payload?.private_note ? 'private' : 'outgoing',
-        sender_name: 'Você'
+        sender_name: 'Você',
+        attachments: event.payload?.attachments || event.attachments || []
       }
     }
     return event
