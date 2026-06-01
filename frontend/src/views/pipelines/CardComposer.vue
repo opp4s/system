@@ -35,6 +35,24 @@
 
     <!-- Área de Digitação (Composer) -->
     <div class="flex items-end space-x-2">
+      <!-- Botão Clip Anexo -->
+      <button
+        type="button"
+        @click="triggerFileSelect"
+        class="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-150 shrink-0"
+        title="Anexar arquivo (imagem, documento)"
+      >
+        <component :is="Paperclip" class="h-4 w-4" />
+      </button>
+
+      <!-- File input invisível -->
+      <input
+        ref="fileInputRef"
+        type="file"
+        class="hidden"
+        @change="handleFileChange"
+      />
+
       <div class="flex-1 relative">
         <textarea
           ref="textareaRef"
@@ -101,7 +119,8 @@ import {
   MessageSquare, 
   Lock, 
   Check, 
-  Loader2 
+  Loader2,
+  Paperclip
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -122,6 +141,25 @@ const sending = ref(false)
 const statusText = ref('')
 const textareaRef = ref(null)
 const showToken = ref(false)
+
+const fileInputRef = ref(null)
+
+const triggerFileSelect = () => {
+  if (fileInputRef.value) {
+    fileInputRef.value.click()
+  }
+}
+
+const handleFileChange = (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+  
+  toast.info('Envio de arquivos em breve (pendente backend)')
+  
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
+}
 
 // Observa mudança de card para resetar composer e estado local de simulação
 watch(() => props.card?.id, () => {

@@ -45,11 +45,11 @@
           </div>
 
           <!-- TAB 1: DADOS PRINCIPAIS -->
-          <div v-if="activeTab === 'dados'" class="space-y-4 flex-1">
+          <div v-if="activeTab === 'dados'" class="space-y-3 flex-1">
             <!-- Título do negócio -->
-            <div class="space-y-1">
-              <label class="text-[10px] font-bold text-gray-450 uppercase tracking-wider block">Título do Negócio</label>
-              <div v-if="!isEditingTitle" @click="isEditingTitle = true" class="text-sm font-bold text-gray-900 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center transition-colors">
+            <div class="border-b border-slate-100 pb-3 mb-3">
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Título do Negócio</label>
+              <div v-if="!isEditingTitle" @click="isEditingTitle = true" class="text-xs font-semibold text-slate-850 cursor-pointer hover:bg-slate-100/60 px-2 py-1 rounded-lg min-h-[1.75rem] flex items-center transition-colors">
                 {{ card.title }}
               </div>
               <input
@@ -59,13 +59,13 @@
                 @keyup.enter="saveTitle"
                 type="text"
                 autofocus
-                class="text-sm font-bold text-gray-900 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+                class="text-xs font-semibold text-slate-850 w-full border border-slate-200 focus:outline-none focus:border-slate-800 rounded-xl px-2.5 py-1 bg-white"
               />
             </div>
 
             <!-- Estágio Atual (StageSwitcher integrado) -->
-            <div class="space-y-1">
-              <label class="text-[10px] font-bold text-gray-450 uppercase tracking-wider block mb-1">Etapa do Funil</label>
+            <div class="border-b border-slate-100 pb-3 mb-3">
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Etapa do Funil</label>
               <StageSwitcher 
                 :active-stage-id="card.stage_id"
                 @change-stage="handleStageChange"
@@ -73,39 +73,36 @@
             </div>
 
             <!-- Valor e Moeda -->
-            <div class="space-y-1">
-              <label class="text-[10px] font-bold text-gray-450 uppercase tracking-wider block">Valor da Oportunidade</label>
-              <div v-if="!isEditingValue" @click="isEditingValue = true" class="text-sm font-bold text-gray-900 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center transition-colors">
+            <div class="border-b border-slate-100 pb-3 mb-3">
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Valor da Oportunidade</label>
+              <div v-if="!isEditingValue" @click="isEditingValue = true" class="text-xs font-semibold text-slate-850 cursor-pointer hover:bg-slate-100/60 px-2 py-1 rounded-lg min-h-[1.75rem] flex items-center transition-colors">
                 {{ formatCurrency(card.value, card.currency) }}
               </div>
               <div v-else class="flex items-center space-x-1.5">
-                <span class="text-xs font-bold text-gray-400">R$</span>
+                <span class="text-xs font-bold text-slate-400">R$</span>
                 <input
                   v-model.number="editingValue"
                   @blur="saveValue"
                   @keyup.enter="saveValue"
                   type="number"
                   autofocus
-                  class="text-sm font-bold text-gray-900 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+                  class="text-xs font-semibold text-slate-850 w-full border border-slate-200 focus:outline-none focus:border-slate-800 rounded-xl px-2.5 py-1 bg-white"
                 />
               </div>
             </div>
 
-            <!-- Separador -->
-            <div class="border-t border-gray-100 my-2"></div>
-
             <!-- Dados do Contato Principal -->
-            <div class="space-y-3.5">
-              <div class="flex items-center justify-between">
-                <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Contato Principal</h3>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between pb-1">
+                <h3 class="text-xs font-bold text-slate-850 uppercase tracking-wider">Contato Principal</h3>
                 <span v-if="contactSaveStatus" class="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                   {{ contactSaveStatus }}
                 </span>
               </div>
               
-              <div class="space-y-1.5">
-                <label class="text-[10px] font-bold text-gray-450 uppercase block">Nome</label>
-                <div v-if="!isEditingContactName" @click="isEditingContactName = true" class="text-xs font-semibold text-gray-800 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center transition-colors">
+              <div class="border-b border-slate-100 pb-3 mb-3">
+                <label class="text-[10px] font-bold text-slate-400 uppercase block">Nome</label>
+                <div v-if="!isEditingContactName" @click="isEditingContactName = true" class="text-xs font-semibold text-slate-850 cursor-pointer hover:bg-slate-100/60 px-2 py-1 rounded-lg min-h-[1.75rem] flex items-center transition-colors">
                   {{ card.contact_name || 'Não informado (clique para editar)' }}
                 </div>
                 <input
@@ -115,15 +112,15 @@
                   @keyup.enter="saveContactName"
                   type="text"
                   autofocus
-                  class="text-xs font-semibold text-gray-800 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+                  class="text-xs font-semibold text-slate-850 w-full border border-slate-200 focus:outline-none focus:border-slate-800 rounded-xl px-2.5 py-1 bg-white"
                 />
               </div>
 
-              <div class="space-y-1.5">
-                <label class="text-[10px] font-bold text-gray-450 uppercase block">Telefone</label>
-                <div v-if="!isEditingContactPhone" @click="isEditingContactPhone = true" class="text-xs font-semibold text-gray-800 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center justify-between transition-colors group/phone">
+              <div class="border-b border-slate-100 pb-3 mb-3">
+                <label class="text-[10px] font-bold text-slate-400 uppercase block">Telefone</label>
+                <div v-if="!isEditingContactPhone" @click="isEditingContactPhone = true" class="text-xs font-semibold text-slate-850 cursor-pointer hover:bg-slate-100/60 px-2 py-1 rounded-lg min-h-[1.75rem] flex items-center justify-between transition-colors group/phone">
                   <span>{{ card.contact_phone || 'Não informado (clique para editar)' }}</span>
-                  <button @click.stop="addSecondaryPhone" class="p-1 opacity-0 group-hover/phone:opacity-100 hover:bg-gray-200 rounded text-gray-500 transition-all" title="Adicionar telefone secundário">
+                  <button @click.stop="addSecondaryPhone" class="p-1 opacity-0 group-hover/phone:opacity-100 hover:bg-slate-200 rounded text-slate-500 transition-all" title="Adicionar telefone secundário">
                     <component :is="Plus" class="h-3 w-3" />
                   </button>
                 </div>
@@ -134,15 +131,15 @@
                   @keyup.enter="saveContactPhone"
                   type="text"
                   autofocus
-                  class="text-xs font-semibold text-gray-800 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+                  class="text-xs font-semibold text-slate-850 w-full border border-slate-200 focus:outline-none focus:border-slate-800 rounded-xl px-2.5 py-1 bg-white"
                 />
               </div>
 
-              <div class="space-y-1.5">
-                <label class="text-[10px] font-bold text-gray-450 uppercase block">E-mail</label>
-                <div v-if="!isEditingContactEmail" @click="isEditingContactEmail = true" class="text-xs font-semibold text-gray-800 cursor-pointer hover:bg-gray-100/50 p-1.5 rounded-lg min-h-[2rem] flex items-center justify-between transition-colors group/email">
+              <div class="border-b border-slate-100 pb-3 mb-3">
+                <label class="text-[10px] font-bold text-slate-400 uppercase block">E-mail</label>
+                <div v-if="!isEditingContactEmail" @click="isEditingContactEmail = true" class="text-xs font-semibold text-slate-850 cursor-pointer hover:bg-slate-100/60 px-2 py-1 rounded-lg min-h-[1.75rem] flex items-center justify-between transition-colors group/email">
                   <span class="break-all">{{ card.contact_email || 'Não informado (clique para editar)' }}</span>
-                  <button @click.stop="addSecondaryEmail" class="p-1 opacity-0 group-hover/email:opacity-100 hover:bg-gray-200 rounded text-gray-500 transition-all" title="Adicionar e-mail secundário">
+                  <button @click.stop="addSecondaryEmail" class="p-1 opacity-0 group-hover/email:opacity-100 hover:bg-slate-200 rounded text-slate-500 transition-all" title="Adicionar e-mail secundário">
                     <component :is="Plus" class="h-3 w-3" />
                   </button>
                 </div>
@@ -153,11 +150,10 @@
                   @keyup.enter="saveContactEmail"
                   type="email"
                   autofocus
-                  class="text-xs font-semibold text-gray-800 w-full border border-gray-300 focus:outline-none focus:border-slate-800 rounded-xl px-3 py-1.5 bg-white"
+                  class="text-xs font-semibold text-slate-850 w-full border border-slate-200 focus:outline-none focus:border-slate-800 rounded-xl px-2.5 py-1 bg-white"
                 />
               </div>
             </div>
-
           </div>
 
           <!-- TAB 2: CAMPOS PERSONALIZADOS (TIPADOS) -->
@@ -182,13 +178,13 @@
             </div>
 
             <!-- Lista de Campos Baseados nas Definições do Funil -->
-            <div class="space-y-3.5 pt-2">
+            <div class="space-y-3 pt-2">
               <div 
                 v-for="field in pipelineStore.customFields" 
                 :key="field.id"
-                class="space-y-1 bg-white p-3 border border-gray-150 rounded-2xl shadow-sm"
+                class="border-b border-slate-100 pb-3 mb-3"
               >
-                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{{ field.name }}</label>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">{{ field.name }}</label>
                 
                 <!-- Tipo: text -->
                 <input 
@@ -196,7 +192,7 @@
                   v-model="localCustomFields[field.name]"
                   type="text"
                   @blur="triggerAutoSave"
-                  class="block w-full px-3 py-1.5 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 text-xs text-gray-800 transition-all bg-gray-50/20"
+                  class="block w-full px-2.5 py-1 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-800 text-xs text-slate-850 transition-all bg-white"
                   placeholder="Preencher texto..."
                 />
 
@@ -206,7 +202,7 @@
                   v-model.number="localCustomFields[field.name]"
                   type="number"
                   @blur="triggerAutoSave"
-                  class="block w-full px-3 py-1.5 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 text-xs text-gray-800 transition-all bg-gray-50/20"
+                  class="block w-full px-2.5 py-1 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-800 text-xs text-slate-850 transition-all bg-white"
                   placeholder="0"
                 />
 
@@ -215,7 +211,7 @@
                   v-else-if="field.field_type === 'select'"
                   v-model="localCustomFields[field.name]"
                   @change="triggerAutoSave"
-                  class="block w-full px-3 py-1.5 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 text-xs text-gray-800 transition-all bg-gray-50/20"
+                  class="block w-full px-2.5 py-1 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-800 text-xs text-slate-850 transition-all bg-white"
                 >
                   <option :value="undefined">Selecione...</option>
                   <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
@@ -238,7 +234,7 @@
                   v-model="localCustomFields[field.name]"
                   type="date"
                   @change="triggerAutoSave"
-                  class="block w-full px-3 py-1.5 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 text-xs text-gray-800 transition-all bg-gray-50/20"
+                  class="block w-full px-2.5 py-1 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-800 text-xs text-slate-850 transition-all bg-white"
                 />
               </div>
 
@@ -337,7 +333,7 @@
                     <!-- 1. Renderização de Mensagens (Tipo = message) -->
                     <div 
                       v-if="event.event_type === 'message'"
-                      class="flex w-full"
+                      class="flex w-full animate-fade-in"
                       :class="[
                         event.message_type === 'outgoing' 
                           ? 'justify-end' 
@@ -347,26 +343,29 @@
                       <!-- Bolha de Mensagem Outgoing (Enviada pelo Agente Zavy) -->
                       <div 
                         v-if="event.message_type === 'outgoing'"
-                        class="max-w-[70%] bg-slate-900 text-white rounded-2xl rounded-tr-none px-4 py-2.5 shadow-sm space-y-1 relative"
+                        class="max-w-[70%] flex flex-col items-end space-y-1"
                       >
-                        <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
-                        <div class="flex items-center justify-end space-x-1 text-[9px] text-slate-350">
+                        <div class="flex items-center space-x-1.5 text-[9px] font-bold text-slate-400 pr-1 select-none">
+                          <span>{{ getSenderDisplayName(event) }}</span>
                           <span>{{ formatTimeOnly(event.created_at) }}</span>
-                          <span class="text-emerald-400">✓✓</span>
+                          <span class="text-emerald-500 font-bold">✓✓</span>
+                        </div>
+                        <div class="bg-slate-900 text-white rounded-2xl rounded-tr-none px-4 py-2.5 shadow-sm text-left w-full">
+                          <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
                         </div>
                       </div>
 
                       <!-- Bolha de Mensagem Incoming (Recebida do Cliente) -->
                       <div 
                         v-else-if="event.message_type === 'incoming'"
-                        class="max-w-[70%] bg-white border border-gray-200 text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 shadow-sm space-y-1.5"
+                        class="max-w-[70%] flex flex-col items-start space-y-1"
                       >
-                        <div class="flex items-center justify-between text-[9px] font-bold text-zavy-600">
+                        <div class="flex items-center space-x-1.5 text-[9px] font-bold text-zavy-600 pl-1 select-none">
                           <span>{{ event.sender_name || card?.contact_name || 'Cliente' }}</span>
+                          <span class="text-slate-450">{{ formatTimeOnly(event.created_at) }}</span>
                         </div>
-                        <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
-                        <div class="text-right text-[9px] text-gray-400">
-                          {{ formatTimeOnly(event.created_at) }}
+                        <div class="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 shadow-sm text-left w-full">
+                          <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
                         </div>
                       </div>
 
@@ -430,6 +429,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePipelineStore } from '@/stores/pipeline'
+import { useAuthStore } from '@/stores/auth'
 import { usePipelineSocket } from '@/composables/usePipelineSocket'
 import StageSwitcher from './StageSwitcher.vue'
 import LossReasonModal from './LossReasonModal.vue'
@@ -440,10 +440,20 @@ import api from '@/plugins/axios'
 const route = useRoute()
 const router = useRouter()
 const pipelineStore = usePipelineStore()
+const authStore = useAuthStore()
 
 const cardId = computed(() => Number(route.params.cardId))
 const activeTab = ref('dados')
 const rightActiveTab = ref('whatsapp') // 'whatsapp', 'notes', 'history'
+
+const getSenderDisplayName = (event) => {
+  const name = event.user?.name || event.sender_name
+  if (!name) return 'Você'
+  if (authStore.user?.name && name.toLowerCase() === authStore.user.name.toLowerCase()) {
+    return 'Você'
+  }
+  return name
+}
 
 const card = computed(() => {
   return pipelineStore.cards.find(c => c.id === cardId.value)
@@ -807,8 +817,50 @@ const normalizedTimeline = computed(() => {
     }
     return event
   })
+  
   // Ordena por data de criação crescente (mais antiga primeiro no topo, mais recente embaixo)
-  return list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  
+  // Deduplicador de mensagens reativo para evitar duplicar envios locais e eventos do webhook
+  const uniqList = []
+  list.forEach(item => {
+    const isDuplicate = uniqList.some(existing => {
+      if (existing.id && item.id && existing.id === item.id) return true
+      
+      const isMsg1 = existing.event_type === 'message'
+      const isMsg2 = item.event_type === 'message'
+      
+      if (isMsg1 && isMsg2) {
+        const cwId1 = existing.payload?.chatwoot_msg_id || existing.payload?.message_id || existing.chatwoot_message_id
+        const cwId2 = item.payload?.chatwoot_msg_id || item.payload?.message_id || item.chatwoot_message_id
+        
+        if (cwId1 && cwId2 && cwId1.toString() === cwId2.toString()) return true
+        
+        // Se o conteúdo e o tipo coincidirem e a data estiver dentro de 60s
+        if (existing.content.trim() === item.content.trim() && existing.message_type === item.message_type) {
+          const diff = Math.abs(new Date(existing.created_at) - new Date(item.created_at))
+          if (diff < 60000) return true
+        }
+      }
+      return false
+    })
+    
+    if (!isDuplicate) {
+      uniqList.push(item)
+    } else {
+      // Se for duplicado e um tiver informações de banco de dados adicionais, mesclamos
+      const idx = uniqList.findIndex(existing => {
+        const cwId1 = existing.payload?.chatwoot_msg_id || existing.payload?.message_id || existing.chatwoot_message_id
+        const cwId2 = item.payload?.chatwoot_msg_id || item.payload?.message_id || item.chatwoot_message_id
+        return cwId1 && cwId2 && cwId1.toString() === cwId2.toString()
+      })
+      if (idx !== -1) {
+        uniqList[idx] = { ...uniqList[idx], ...item }
+      }
+    }
+  })
+  
+  return uniqList
 })
 
 const filteredTimelineEvents = computed(() => {
