@@ -35,6 +35,22 @@ module Chatwoot
       config&.workspace
     end
 
+    # Busca preview da mensagem original para exibição no quote/reply
+    def reply_preview(workspace, in_reply_to)
+      return nil unless in_reply_to.present?
+      original = Message.find_by(workspace: workspace, chatwoot_message_id: in_reply_to.to_s)
+      return nil unless original
+      {
+        id:          in_reply_to,
+        content:     original.content,
+        sender_name: original.sender_name,
+        attachments: original.attachments
+      }
+    rescue => e
+      Rails.logger.warn "[WebhookProcessor] reply_preview error: #{e.message}"
+      nil
+    end
+
     def extract_inbox_id_from_payload
       (@payload[:inbox_id] ||
        @payload.dig(:conversation, :inbox_id) ||
@@ -171,8 +187,9 @@ module Chatwoot
           sender_name:     sender_name,
           conversation_id: conv_id,
           message_id:      msg[:id],
-          attachments:     cw_attachments,
-          in_reply_to:     in_reply_to
+          attachments:          cw_attachments,
+          in_reply_to:          in_reply_to,
+          in_reply_to_content:  reply_preview(workspace, in_reply_to)
         }.compact
       )
 
