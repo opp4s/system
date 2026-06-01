@@ -142,7 +142,10 @@ onMounted(checkSettings)
           <div>
             <h2 class="text-base font-extrabold text-gray-900">WhatsApp Lite</h2>
             <p class="text-xs text-gray-500 mt-0.5">
-              Gerencie conexões WhatsApp via Evolution API
+              Gerencie conexões WhatsApp
+            </p>
+            <p class="text-xs text-slate-400 mt-1 leading-normal font-medium max-w-sm">
+              Se nenhum funil for selecionado, os leads serão direcionados automaticamente para o primeiro funil da conta.
             </p>
           </div>
         </div>
