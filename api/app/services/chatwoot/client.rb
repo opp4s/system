@@ -60,6 +60,30 @@ module Chatwoot
       })
     end
 
+    # Envia mensagem com attachment via multipart (não usa Faraday — Net::HTTP direto)
+    def send_message_with_attachment(conversation_id, content:, attachment:, private: false)
+      uri      = URI("#{@base_url}/api/v1/accounts/#{@account_id}/conversations/#{conversation_id}/messages")
+      boundary = SecureRandom.hex(16)
+
+      body = build_multipart_body(boundary, content, attachment, private)
+
+      http             = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl     = uri.scheme == "https"
+      http.read_timeout = 30
+
+      req = Net::HTTP::Post.new(uri)
+      req["api_access_token"] = @token
+      req["Content-Type"]     = "multipart/form-data; boundary=#{boundary}"
+      req.body = body
+
+      resp = http.request(req)
+      unless resp.is_a?(Net::HTTPSuccess)
+        msg = begin; JSON.parse(resp.body)["message"]; rescue; resp.body.to_s[0..100]; end
+        raise ApiError.new(msg || "HTTP #{resp.code}", status: resp.code.to_i)
+      end
+      JSON.parse(resp.body, symbolize_names: true)
+    end
+
     # ── Contacts ──────────────────────────────────────────────────────────────
 
     def contacts(params = {})
@@ -125,6 +149,29 @@ module Chatwoot
         f.use Faraday::Retry::Middleware, max: 2, interval: 0.5,
               retry_statuses: [429, 503]
       end
+    end
+
+    def build_multipart_body(boundary, content, attachment, private_msg)
+      body = +"".encode("ASCII-8BIT")
+
+      field = ->(name, value) {
+        body << "--#{boundary}\r\n"
+        body << "Content-Disposition: form-data; name=\"#{name}\"\r\n\r\n"
+        body << value.to_s.encode("UTF-8").force_encoding("ASCII-8BIT")
+        body << "\r\n"
+      }
+
+      field.call("content",      content.to_s)
+      field.call("message_type", "outgoing")
+      field.call("private",      private_msg.to_s)
+
+      body << "--#{boundary}\r\n"
+      body << "Content-Disposition: form-data; name=\"attachments[]\"; filename=\"#{attachment.original_filename.encode('UTF-8')}\"\r\n".encode("ASCII-8BIT")
+      body << "Content-Type: #{attachment.content_type}\r\n\r\n".encode("ASCII-8BIT")
+      body << attachment.read.force_encoding("ASCII-8BIT")
+      body << "\r\n"
+      body << "--#{boundary}--\r\n"
+      body
     end
 
     def get(path, params = {})

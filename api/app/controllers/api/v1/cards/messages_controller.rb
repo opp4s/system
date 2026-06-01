@@ -5,13 +5,31 @@ module Api
         before_action :require_workspace!
         before_action :set_card
 
+        ALLOWED_CONTENT_TYPES = %w[
+          image/png image/jpeg image/jpg image/webp image/gif
+          application/pdf
+          audio/ogg audio/mpeg audio/mp4 audio/aac
+          video/mp4 video/quicktime
+          application/msword
+          application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        ].freeze
+        MAX_SIZE_BYTES = 16.megabytes
+
         # POST /api/v1/cards/:card_id/messages
         def create
           authorize @card, :send_message?
 
-          if message_params[:content].blank?
-            return render json: { error: "Conteúdo da mensagem é obrigatório" },
+          attachment = message_params[:attachment]
+          content    = message_params[:content].to_s.strip
+
+          if content.blank? && attachment.nil?
+            return render json: { error: "Conteúdo ou arquivo é obrigatório" },
                           status: :unprocessable_entity
+          end
+
+          if attachment
+            err = validate_attachment(attachment)
+            return render json: { error: err }, status: :unprocessable_entity if err
           end
 
           config = current_workspace.chatwoot_config
@@ -30,12 +48,43 @@ module Api
             }, status: :unprocessable_entity
           end
 
-          client = ::Chatwoot::Client.new(config)
-          cw_msg = client.send_message(
-            conv.chatwoot_conversation_id,
-            message_params[:content],
-            private: message_params[:private_note].in?([true, "true"])
+          client  = ::Chatwoot::Client.new(config)
+          private = message_params[:private_note].in?([true, "true"])
+
+          cw_msg = if attachment
+            client.send_message_with_attachment(
+              conv.chatwoot_conversation_id,
+              content:    content,
+              attachment: attachment,
+              private:    private
+            )
+          else
+            client.send_message(conv.chatwoot_conversation_id, content, private: private)
+          end
+
+          # Persistir na tabela messages local — upsert para cobrir race com webhook
+          attachment_meta = attachment ? [{
+            filename:     attachment.original_filename,
+            content_type: attachment.content_type,
+            size:         attachment.size,
+            url:          cw_msg.dig(:attachments, 0, :data_url) ||
+                          cw_msg.dig(:attachments, 0, :file_url)
+          }.compact] : []
+
+          msg_record = Message.find_or_initialize_by(
+            workspace:           current_workspace,
+            chatwoot_message_id: cw_msg[:id].to_s
           )
+          msg_record.assign_attributes(
+            card:         @card,
+            conversation: conv,
+            content:      content.presence || attachment&.original_filename || "",
+            message_type: "outgoing",
+            channel:      "whatsapp",
+            sender_name:  current_user.name,
+            attachments:  attachment_meta
+          )
+          msg_record.save!
 
           event = CardEvent.create!(
             card:       @card,
@@ -43,10 +92,11 @@ module Api
             user:       current_user,
             event_type: "message_sent",
             payload:    {
-              content:         message_params[:content],
-              private_note:    message_params[:private_note].in?([true, "true"]),
+              content:         content,
+              private_note:    private,
               conversation_id: conv.chatwoot_conversation_id,
-              chatwoot_msg_id: cw_msg[:id]
+              chatwoot_msg_id: cw_msg[:id],
+              attachments:     attachment_meta
             }
           )
 
@@ -71,7 +121,13 @@ module Api
         end
 
         def message_params
-          params.require(:message).permit(:content, :private_note)
+          params.require(:message).permit(:content, :private_note, :attachment)
+        end
+
+        def validate_attachment(file)
+          return "Tipo de arquivo não permitido (#{file.content_type})" unless ALLOWED_CONTENT_TYPES.include?(file.content_type)
+          return "Arquivo excede o limite de 16MB (#{(file.size / 1.megabyte.to_f).round(1)}MB)" if file.size > MAX_SIZE_BYTES
+          nil
         end
 
         def auto_discover_conversation(config)
@@ -108,11 +164,11 @@ module Api
 
         def event_payload(event)
           {
-            id:         event.id,
-            event_type: event.event_type,
-            payload:    event.payload,
-            user:       event.user && { id: event.user.id, name: event.user.name },
-            created_at: event.created_at
+            id:          event.id,
+            event_type:  event.event_type,
+            payload:     event.payload,
+            user:        event.user && { id: event.user.id, name: event.user.name },
+            created_at:  event.created_at
           }
         end
       end
