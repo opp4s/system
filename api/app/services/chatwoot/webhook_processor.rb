@@ -21,9 +21,24 @@ module Chatwoot
 
     private
 
+    # Bug fix: múltiplos workspaces compartilham o mesmo chatwoot_account_id.
+    # Usar inbox_id do payload → WhatsappInstance → workspace correto.
     def find_workspace
+      inbox_id = extract_inbox_id_from_payload
+      if inbox_id > 0
+        wi = WhatsappInstance.find_by(chatwoot_inbox_id: inbox_id)
+        return wi.workspace if wi
+      end
+
+      # Fallback: primeiro workspace com este account_id
       config = ChatwootConfig.find_by(chatwoot_account_id: @account_id)
       config&.workspace
+    end
+
+    def extract_inbox_id_from_payload
+      (@payload[:inbox_id] ||
+       @payload.dig(:conversation, :inbox_id) ||
+       @payload.dig(:inbox, :id)).to_i
     end
 
     # ── Handlers ──────────────────────────────────────────────────────────────
@@ -40,7 +55,7 @@ module Chatwoot
 
       conv.assign_attributes(
         chatwoot_account_id: @account_id,
-        inbox_id:            (conv_data[:inbox_id] || conv_data.dig(:conversation, :inbox_id)).to_i,
+        inbox_id:            extract_inbox_id_from_payload,
         contact_id:          extract_contact_id(conv_data),
         status:              normalize_status(conv_data[:status] || conv_data.dig(:conversation, :status)),
         last_activity_at:    Time.current,
@@ -48,7 +63,6 @@ module Chatwoot
       )
       conv.save!
 
-      # Auto-link to card if not already linked
       try_auto_link(workspace, conv) unless conv.linked?
     end
 
@@ -96,12 +110,18 @@ module Chatwoot
       unless conv.persisted?
         conv.assign_attributes(
           chatwoot_account_id: @account_id,
+          inbox_id:            extract_inbox_id_from_payload,
+          contact_id:          extract_contact_id(msg),
           status:              "open",
           last_activity_at:    Time.current
         )
         conv.save!
+        # conversation_created pode ter sido perdido — tentar auto-link aqui também
+        try_auto_link(workspace, conv) unless conv.linked?
       else
         conv.update!(last_activity_at: Time.current)
+        # Tentar linkar se ainda não está (conversation_created pode ter falhado antes)
+        try_auto_link(workspace, conv) unless conv.linked?
       end
 
       return unless conv.linked?
@@ -134,10 +154,33 @@ module Chatwoot
     def try_auto_link(workspace, conv)
       return if conv.contact_id.blank?
 
-      contact = Contact.find_by(
-        workspace:           workspace,
-        chatwoot_contact_id: conv.contact_id
-      )
+      contact = Contact.find_by(workspace: workspace, chatwoot_contact_id: conv.contact_id)
+
+      # Bug fix: Contact pode não existir ainda para novos remetentes.
+      # Buscar por phone ou criar a partir dos dados do payload.
+      unless contact
+        sender_phone = @payload.dig(:meta, :sender, :phone_number).to_s.presence ||
+                       @payload.dig(:sender, :phone_number).to_s.presence
+        sender_name  = @payload.dig(:meta, :sender, :name).to_s.presence ||
+                       @payload.dig(:sender, :name).to_s.presence
+
+        if sender_phone.present?
+          contact = Contact.find_by(workspace: workspace, phone_number: sender_phone)
+        end
+
+        unless contact
+          contact = Contact.find_or_create_by!(
+            workspace:           workspace,
+            chatwoot_contact_id: conv.contact_id
+          ) do |c|
+            c.name         = sender_name || sender_phone || "Contato #{conv.contact_id}"
+            c.phone_number = sender_phone
+          end
+        else
+          contact.update_columns(chatwoot_contact_id: conv.contact_id) if contact.chatwoot_contact_id.blank?
+        end
+      end
+
       return unless contact
 
       card = nil
@@ -259,7 +302,7 @@ module Chatwoot
 
     def build_meta(data)
       {
-        inbox_id:    (data[:inbox_id] || data.dig(:conversation, :inbox_id)).to_i,
+        inbox_id:    extract_inbox_id_from_payload,
         sender_name: data.dig(:meta, :sender, :name) ||
                      data.dig(:contact_inbox, :contact, :name)
       }.compact
