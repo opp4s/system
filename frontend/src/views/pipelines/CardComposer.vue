@@ -33,6 +33,46 @@
       </button>
     </div>
 
+    <!-- Staging Area de Arquivo Anexo -->
+    <div v-if="stagedFile" class="animate-scale-up">
+      <!-- Se for Imagem -->
+      <div v-if="stagedFile.type.startsWith('image/')" class="flex items-center space-x-3 p-2 bg-slate-50 border border-slate-200 rounded-xl relative group">
+        <div class="h-12 w-12 rounded-lg overflow-hidden border border-slate-200 bg-white shrink-0">
+          <img :src="stagedPreview" class="h-full w-full object-cover" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold text-slate-700 truncate">{{ stagedFile.name }}</p>
+          <p class="text-[10px] text-slate-400">{{ formatSize(stagedFile.size) }}</p>
+        </div>
+        <button 
+          type="button" 
+          @click="removeStagedFile"
+          class="p-1.5 hover:bg-slate-250 rounded-lg text-slate-500 hover:text-slate-750 transition-colors"
+          title="Remover arquivo"
+        >
+          <component :is="X" class="h-4 w-4" />
+        </button>
+      </div>
+      <!-- Se for outro tipo de arquivo (Documento, áudio, etc.) -->
+      <div v-else class="flex items-center space-x-3 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+        <div class="h-10 w-10 rounded-lg bg-slate-100 border border-slate-100 flex items-center justify-center shrink-0">
+          <span class="text-xl">📄</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold text-slate-700 truncate">{{ stagedFile.name }}</p>
+          <p class="text-[10px] text-slate-400">{{ formatSize(stagedFile.size) }}</p>
+        </div>
+        <button 
+          type="button" 
+          @click="removeStagedFile"
+          class="p-1.5 hover:bg-slate-250 rounded-lg text-slate-500 hover:text-slate-750 transition-colors"
+          title="Remover arquivo"
+        >
+          <component :is="X" class="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+
     <!-- Área de Digitação (Composer) -->
     <div class="flex items-end space-x-2">
       <!-- Botão Clip Anexo -->
@@ -78,7 +118,7 @@
       <button
         type="button"
         @click="send"
-        :disabled="sending || !messageText.trim()"
+        :disabled="sending || (!messageText.trim() && !stagedFile)"
         class="p-3 text-white rounded-xl shadow transition-all duration-150 shrink-0 disabled:bg-gray-300 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
         :class="[
           mode === 'whatsapp' 
@@ -111,7 +151,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import { usePipelineStore } from '@/stores/pipeline'
 import { useToast } from '@/composables/useToast'
 import api from '@/plugins/axios'
@@ -121,7 +161,8 @@ import {
   Lock, 
   Check, 
   Loader2,
-  Paperclip
+  Paperclip,
+  X
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -145,13 +186,17 @@ const showToken = ref(false)
 
 const fileInputRef = ref(null)
 
+// Staging Area State
+const stagedFile = ref(null)
+const stagedPreview = ref(null)
+
 const triggerFileSelect = () => {
   if (fileInputRef.value) {
     fileInputRef.value.click()
   }
 }
 
-const handleFileChange = async (e) => {
+const handleFileChange = (e) => {
   const file = e.target.files[0]
   if (!file) return
 
@@ -174,46 +219,47 @@ const handleFileChange = async (e) => {
     return
   }
 
-  sending.value = true
-  statusText.value = 'Enviando arquivo...'
+  // Remove staged file anterior
+  removeStagedFile()
 
-  const formData = new FormData()
-  formData.append('message[attachment]', file)
-  formData.append('message[content]', '') // legenda vazia
+  // Coloca o arquivo em staging
+  stagedFile.value = file
+  if (file.type.startsWith('image/')) {
+    stagedPreview.value = URL.createObjectURL(file)
+  }
 
-  try {
-    const response = await api.post(`/api/v1/cards/${props.card.id}/messages`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    
-    const newMessage = response.data.data || response.data
-    const exists = pipelineStore.cardTimeline.some(item => item.id === newMessage.id)
-    if (!exists) {
-      pipelineStore.cardTimeline.push(newMessage)
-    }
-
-    statusText.value = 'Arquivo enviado ✓'
-    setTimeout(() => {
-      statusText.value = ''
-    }, 2000)
-
-    emits('message-sent')
-  } catch (error) {
-    toast.error('Erro ao enviar arquivo')
-    console.error(error)
-  } finally {
-    sending.value = false
-    if (fileInputRef.value) {
-      fileInputRef.value.value = ''
-    }
+  // Reseta o input para permitir selecionar o mesmo arquivo novamente
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
   }
 }
 
-// Observa mudança de card para resetar composer e estado local de simulação
+const removeStagedFile = () => {
+  if (stagedPreview.value) {
+    URL.revokeObjectURL(stagedPreview.value)
+    stagedPreview.value = null
+  }
+  stagedFile.value = null
+}
+
+const formatSize = (bytes) => {
+  if (bytes === undefined || bytes === null || isNaN(bytes)) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
+// Observa mudança de card para resetar composer e staging
 watch(() => props.card?.id, () => {
   messageText.value = ''
   statusText.value = ''
+  removeStagedFile()
   nextTick(() => adjustHeight())
+})
+
+onUnmounted(() => {
+  removeStagedFile()
 })
 
 // Auto-resize do textarea
@@ -232,24 +278,48 @@ const handleKeyDown = (e) => {
   }
 }
 
-
-
 // Ação de envio de mensagem
 const send = async () => {
   const content = messageText.value.trim()
-  if (!content) return
+  const file = stagedFile.value
+
+  if (!content && !file) return
 
   sending.value = true
   statusText.value = 'Enviando...'
 
   try {
     const isPrivate = mode.value === 'note'
-    
-    // Dispara a action na store
-    await pipelineStore.sendMessage(props.card.id, content, isPrivate)
-    
-    // Limpa o textarea e redefine altura
+    let newMessage
+
+    if (file) {
+      const formData = new FormData()
+      formData.append('message[content]', content)
+      formData.append('message[attachment]', file)
+      formData.append('message[private_note]', isPrivate.toString())
+
+      const response = await api.post(`/api/v1/cards/${props.card.id}/messages`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      newMessage = response.data.data || response.data
+    } else {
+      const response = await api.post(`/api/v1/cards/${props.card.id}/messages`, {
+        message: {
+          content: content,
+          private_note: isPrivate
+        }
+      })
+      newMessage = response.data.data || response.data
+    }
+
+    const exists = pipelineStore.cardTimeline.some(item => item.id === newMessage.id)
+    if (!exists) {
+      pipelineStore.cardTimeline.push(newMessage)
+    }
+
+    // Limpa o textarea e staging
     messageText.value = ''
+    removeStagedFile()
     nextTick(() => adjustHeight())
 
     // Feedback de Sucesso
@@ -262,6 +332,7 @@ const send = async () => {
   } catch (error) {
     statusText.value = ''
     toast.error('Erro ao enviar mensagem. Tente novamente.')
+    console.error(error)
   } finally {
     sending.value = false
   }
