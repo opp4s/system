@@ -296,7 +296,7 @@
             class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth flex flex-col"
           >
             <!-- Loader da Timeline -->
-            <div v-if="pipelineStore.loading.timeline" class="space-y-4">
+            <div v-if="pipelineStore.loading.timeline && pipelineStore.cardTimeline.length === 0" class="space-y-4">
               <div v-for="i in 3" :key="i" class="h-20 bg-white border border-gray-150 rounded-2xl animate-pulse"></div>
             </div>
 
@@ -320,20 +320,20 @@
             <!-- Lista Agrupada por Data -->
             <div v-else class="space-y-6">
               <div 
-                v-for="(events, dateGroup) in groupedTimeline" 
-                :key="dateGroup"
+                v-for="group in groupedTimeline" 
+                :key="group.date"
                 class="space-y-4"
               >
                 <!-- Separador de data do chat -->
                 <div class="flex justify-center my-4">
                   <span class="px-3 py-1 bg-gray-200/80 text-gray-600 rounded-full text-[10px] font-bold tracking-wide shadow-sm">
-                    {{ dateGroup }}
+                    {{ group.date }}
                   </span>
                 </div>
 
                 <!-- Feed do Chat/Eventos -->
                 <div class="space-y-3">
-                  <template v-for="event in events" :key="event.id">
+                  <template v-for="event in group.events" :key="event.id">
                     <!-- 1. Renderização de Mensagens (Tipo = message) -->
                     <div 
                       v-if="event.event_type === 'message'"
@@ -707,13 +707,19 @@ onMounted(() => {
         const response = await api.get(`/api/v1/pipelines/${route.params.id}/cards/${cardId.value}/timeline`)
         const newItems = response.data.data || response.data
         
-        // Só atualizar se houver itens novos para evitar re-render completo do array e flicker
-        if (newItems.length > pipelineStore.cardTimeline.length) {
-          const existingKeys = new Set(pipelineStore.cardTimeline.map(i => i.id || i.created_at))
-          const onlyNew = newItems.filter(i => !existingKeys.has(i.id || i.created_at))
-          if (onlyNew.length > 0) {
-            pipelineStore.cardTimeline = [...pipelineStore.cardTimeline, ...onlyNew]
-          }
+        // Deep compare timeline items to prevent useless state mutation & flickering
+        const isChanged = newItems.length !== pipelineStore.cardTimeline.length ||
+                          newItems.some((item, idx) => {
+                            const oldItem = pipelineStore.cardTimeline[idx]
+                            return !oldItem || 
+                                   oldItem.id !== item.id || 
+                                   oldItem.created_at !== item.created_at ||
+                                   oldItem.event_type !== item.event_type ||
+                                   JSON.stringify(oldItem.payload) !== JSON.stringify(item.payload)
+                          })
+        
+        if (isChanged) {
+          pipelineStore.cardTimeline = newItems
         }
       } catch (e) {
         console.error("Erro no polling de timeline:", e)
@@ -790,6 +796,15 @@ const normalizedTimeline = computed(() => {
         sender_name: event.payload?.sender_name || ''
       }
     }
+    if (event.event_type === 'message_sent') {
+      return {
+        ...event,
+        event_type: 'message',
+        content: event.payload?.content || '',
+        message_type: event.payload?.private_note ? 'private' : 'outgoing',
+        sender_name: 'Você'
+      }
+    }
     return event
   })
   // Ordena por data de criação crescente (mais antiga primeiro no topo, mais recente embaixo)
@@ -810,15 +825,19 @@ const filteredTimelineEvents = computed(() => {
 })
 
 const groupedTimeline = computed(() => {
-  const groups = {}
+  const groupsMap = {}
   filteredTimelineEvents.value.forEach(event => {
     const dateKey = getFriendlyDateKey(event.created_at)
-    if (!groups[dateKey]) {
-      groups[dateKey] = []
+    if (!groupsMap[dateKey]) {
+      groupsMap[dateKey] = []
     }
-    groups[dateKey].push(event)
+    groupsMap[dateKey].push(event)
   })
-  return groups
+  
+  return Object.keys(groupsMap).map(date => ({
+    date,
+    events: groupsMap[date]
+  }))
 })
 
 // Timeline de Auditoria de Sistema

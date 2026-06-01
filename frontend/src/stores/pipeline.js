@@ -589,17 +589,15 @@ export const usePipelineStore = defineStore('pipeline', {
       this.loading.mutation = true
       try {
         const response = await api.post(`/api/v1/cards/${cardId}/messages`, {
-          content,
-          private: isPrivate
+          message: {
+            content: content,
+            private_note: isPrivate
+          }
         })
         const newMessage = response.data.data || response.data
         const exists = this.cardTimeline.some(item => item.id === newMessage.id)
         if (!exists) {
-          this.cardTimeline.push({
-            ...newMessage,
-            event_type: 'message',
-            message_type: newMessage.private ? 'private' : (newMessage.message_type || 'outgoing')
-          })
+          this.cardTimeline.push(newMessage)
         }
         return newMessage
       } catch (error) {

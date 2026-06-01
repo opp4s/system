@@ -117,30 +117,38 @@ export function usePipelineSocket() {
 
   // Processa as mensagens recebidas do ActionCable
   const handleChannelMessage = (message) => {
-    // message deve conter a estrutura: { event: 'timeline_update' / 'card_moved', data: { ... } }
     console.log('Mensagem ActionCable recebida:', message)
 
-    const eventData = message.data || message
-
-    // Se o evento for de timeline e pertencer ao card aberto
-    if (activeCardId && eventData.card_id === Number(activeCardId)) {
-      // Evita duplicar o mesmo ID de evento na tela
-      const exists = pipelineStore.cardTimeline.some(item => item.id === eventData.id)
-      if (!exists) {
-        // Normaliza tipo de mensagem se necessário (lost/won -> lose/win)
-        if (eventData.event_type === 'message' && eventData.message_type) {
-          eventData.message_type = eventData.message_type === 'lost' ? 'lose' : (eventData.message_type === 'won' ? 'win' : eventData.message_type)
+    const cardIdFromMessage = message.card_id
+    if (activeCardId && cardIdFromMessage === Number(activeCardId)) {
+      const eventData = message.event_data || message.data || message
+      
+      const timelineEvents = [
+        'message_sent',
+        'chatwoot_message_received',
+        'chatwoot_status_changed',
+        'conversation_linked',
+        'conversation_unlinked',
+        'timeline_update'
+      ]
+      
+      if (timelineEvents.includes(message.event) || (eventData.event_type && eventData.id)) {
+        const exists = pipelineStore.cardTimeline.some(item => item.id === eventData.id)
+        if (!exists) {
+          // Normaliza tipo de mensagem se necessário
+          if (eventData.event_type === 'message' && eventData.message_type) {
+            eventData.message_type = eventData.message_type === 'lost' ? 'lose' : (eventData.message_type === 'won' ? 'win' : eventData.message_type)
+          }
+          pipelineStore.cardTimeline.push(eventData)
+          
+          // Emite um evento customizado no DOM para que o CardDetail role para baixo
+          const customEvent = new CustomEvent('zavy-new-message', { detail: eventData })
+          window.dispatchEvent(customEvent)
         }
-        pipelineStore.cardTimeline.push(eventData)
-        
-        // Emite um evento customizado no DOM para que o CardDetail role para baixo
-        const customEvent = new CustomEvent('zavy-new-message', { detail: eventData })
-        window.dispatchEvent(customEvent)
       }
-    }
-
-    // Se o evento indicar que um card mudou de etapa, podemos atualizar os cards do board em tempo real
+    }   // Se o evento indicar que um card mudou de etapa, podemos atualizar os cards do board em tempo real
     if (message.event === 'card_moved') {
+      const eventData = message.event_data || message.data || message
       const card = eventData
       const index = pipelineStore.cards.findIndex(c => c.id === card.id)
       if (index !== -1) {

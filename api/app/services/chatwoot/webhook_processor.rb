@@ -80,7 +80,7 @@ module Chatwoot
       conv.update!(status: new_status, last_activity_at: Time.current)
 
       if conv.linked?
-        CardEvent.create!(
+        card_event = CardEvent.create!(
           card:       conv.card,
           workspace:  workspace,
           event_type: "chatwoot_message",
@@ -91,7 +91,12 @@ module Chatwoot
           }
         )
         broadcast(conv.card, "chatwoot_status_changed",
-                  conversation_id: conv_id, status: new_status)
+                  event_data: {
+                    id:         card_event.id,
+                    event_type: card_event.event_type,
+                    payload:    card_event.payload,
+                    created_at: card_event.created_at
+                  })
       end
     end
 
@@ -141,7 +146,7 @@ module Chatwoot
         sender_phone:       sender_phone
       )
 
-      CardEvent.create!(
+      card_event = CardEvent.create!(
         card:       conv.card,
         workspace:  workspace,
         event_type: "chatwoot_message",
@@ -156,10 +161,12 @@ module Chatwoot
       )
 
       broadcast(conv.card, "chatwoot_message_received",
-                conversation_id: conv_id,
-                message_type:    message_type,
-                content:         content,
-                sender_name:     sender_name)
+                event_data: {
+                  id:         card_event.id,
+                  event_type: card_event.event_type,
+                  payload:    card_event.payload,
+                  created_at: card_event.created_at
+                })
     end
 
     # ── Auto-link ─────────────────────────────────────────────────────────────
