@@ -430,7 +430,7 @@ const card = computed(() => {
 })
 
 const hasConversation = computed(() => {
-  return !!(card.value?.conversation_id || card.value?.conversation?.id)
+  return !!(card.value?.conversation?.id || card.value?.conversation_id || card.value?.conversation?.chatwoot_conversation_id)
 })
 
 // Modal de perda e estágio pendente
@@ -669,6 +669,8 @@ const onNewMessageReceived = () => {
   scrollToBottom()
 }
 
+let pollInterval = null
+
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
   loadTimeline()
@@ -681,12 +683,22 @@ onMounted(() => {
 
   // Escuta evento customizado de nova mensagem para fazer scroll
   window.addEventListener('zavy-new-message', onNewMessageReceived)
+
+  // Polling a cada 5 segundos para garantir atualização em tempo real
+  pollInterval = setInterval(async () => {
+    if (route.params.id && cardId.value) {
+      await pipelineStore.fetchCardTimeline(route.params.id, cardId.value)
+    }
+  }, 5000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('zavy-new-message', onNewMessageReceived)
   socket.disconnect()
+  if (pollInterval) {
+    clearInterval(pollInterval)
+  }
 })
 
 const scrollToBottom = () => {
@@ -697,18 +709,21 @@ const scrollToBottom = () => {
   })
 }
 
-// Rola para baixo sempre que a timeline mudar
-watch(() => pipelineStore.cardTimeline, () => {
-  scrollToBottom()
-}, { deep: true })
+// Rola para baixo apenas quando novas mensagens/eventos forem adicionados
+watch(() => pipelineStore.cardTimeline.length, (newVal, oldVal) => {
+  if (newVal > oldVal) {
+    scrollToBottom()
+  }
+})
 
-// Extrai apenas a hora e minuto formatados
+// Extrai a hora, minuto e segundo formatados (HH:MM:SS)
 const formatTimeOnly = (isoString) => {
   if (!isoString) return ''
   const date = new Date(isoString)
   const hours = date.getHours().toString().padStart(2, '0')
   const minutes = date.getMinutes().toString().padStart(2, '0')
-  return `${hours}:${minutes}`
+  const seconds = date.getSeconds().toString().padStart(2, '0')
+  return `${hours}:${minutes}:${seconds}`
 }
 
 // Formatador amigável de datas
@@ -735,7 +750,7 @@ const getFriendlyDateKey = (dateStr) => {
 }
 
 const normalizedTimeline = computed(() => {
-  return pipelineStore.cardTimeline.map(event => {
+  const list = pipelineStore.cardTimeline.map(event => {
     if (event.event_type === 'chatwoot_message') {
       return {
         ...event,
@@ -747,6 +762,8 @@ const normalizedTimeline = computed(() => {
     }
     return event
   })
+  // Ordena por data de criação crescente (mais antiga primeiro no topo, mais recente embaixo)
+  return list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 })
 
 const groupedTimeline = computed(() => {

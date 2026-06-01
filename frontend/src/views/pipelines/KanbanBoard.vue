@@ -110,7 +110,7 @@
                   </div>
                   
                   <div 
-                    v-if="card.conversation_id || card.conversation?.id" 
+                    v-if="card.conversation_id || card.conversation?.id || card.conversation?.chatwoot_conversation_id" 
                     class="flex items-center text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 space-x-0.5"
                     title="WhatsApp Vinculado"
                   >
