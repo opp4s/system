@@ -81,10 +81,10 @@ module Api
         # GET /api/v1/whatsapp/status
         # Uma chamada fetchInstances para todas as instâncias (captura status + phone)
         def status
-          instances  = current_workspace.whatsapp_instances.includes(:pipeline).order(:created_at)
-          evo_client = ::Whatsapp::EvolutionClient.new
-
-          evo_data = evo_client.bulk_status(instances.map(&:instance_id))
+          instances    = current_workspace.whatsapp_instances.includes(:pipeline).order(:created_at)
+          evo_client   = ::Whatsapp::EvolutionClient.new
+          evo_data     = evo_client.bulk_status(instances.map(&:instance_id))
+          default_pipe = nil  # memoizado — só busca se necessário
 
           result = []
           instances.each do |wi|
@@ -103,6 +103,16 @@ module Api
                 wi.update_columns(updates)
                 wi.status       = updates[:status]       if updates[:status]
                 wi.phone_number = updates[:phone_number] if updates[:phone_number]
+              end
+            end
+
+            # Auto-assign pipeline padrão: connected sem funil há mais de 60s
+            if wi.status == "connected" && wi.pipeline_id.nil? && wi.updated_at < 60.seconds.ago
+              default_pipe ||= current_workspace.pipelines.find_by(is_default: true) ||
+                               current_workspace.pipelines.order(:position).first
+              if default_pipe
+                wi.update_columns(pipeline_id: default_pipe.id)
+                wi.pipeline_id = default_pipe.id
               end
             end
 
