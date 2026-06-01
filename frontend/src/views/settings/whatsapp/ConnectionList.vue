@@ -37,9 +37,12 @@
             <select
               :value="inst.pipeline_id"
               @change="onPipelineChange($event, inst)"
-              class="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white hover:border-slate-300 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer min-w-[180px]"
+              :class="[
+                'text-sm border rounded-lg px-3 py-1.5 min-w-[180px] cursor-pointer focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200',
+                inst.pipeline_id ? 'border-slate-200 text-slate-800 bg-white hover:border-slate-300' : 'border-amber-300 text-slate-400 bg-amber-50/50 hover:border-amber-400'
+              ]"
             >
-              <option :value="null">Selecionar funil...</option>
+              <option :value="null" disabled class="text-slate-400">Selecionar funil...</option>
               <option v-for="p in pipelines" :key="p.id" :value="p.id">
                 {{ p.name }}
               </option>
