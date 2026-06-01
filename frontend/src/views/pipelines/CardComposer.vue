@@ -47,15 +47,40 @@
         <button 
           type="button" 
           @click="removeStagedFile"
-          class="p-1.5 hover:bg-slate-250 rounded-lg text-slate-500 hover:text-slate-750 transition-colors"
+          class="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-slate-700 transition-colors"
           title="Remover arquivo"
         >
           <component :is="X" class="h-4 w-4" />
         </button>
       </div>
-      <!-- Se for outro tipo de arquivo (Documento, áudio, etc.) -->
+
+      <!-- Se for Áudio -->
+      <div v-else-if="stagedFile.type.startsWith('audio/')" class="flex items-center space-x-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl relative group">
+        <div class="h-10 w-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+          <span class="text-lg">🎙</span>
+        </div>
+        <div class="flex-1 min-w-0 flex flex-col md:flex-row md:items-center md:space-x-3">
+          <div class="shrink-0 mb-1 md:mb-0">
+            <p class="text-xs font-bold text-slate-700 truncate">{{ stagedFile.name }}</p>
+            <p class="text-[10px] text-slate-400 font-medium">{{ formatSize(stagedFile.size) }}</p>
+          </div>
+          <audio controls class="w-full max-w-[240px] h-8 shrink-0 select-none">
+            <source :src="stagedPreview" :type="stagedFile.type" />
+          </audio>
+        </div>
+        <button 
+          type="button" 
+          @click="removeStagedFile"
+          class="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-slate-700 transition-colors"
+          title="Remover gravação"
+        >
+          <component :is="X" class="h-4 w-4" />
+        </button>
+      </div>
+
+      <!-- Se for outro tipo de arquivo (Documento, etc.) -->
       <div v-else class="flex items-center space-x-3 p-2 bg-slate-50 border border-slate-200 rounded-xl">
-        <div class="h-10 w-10 rounded-lg bg-slate-100 border border-slate-100 flex items-center justify-center shrink-0">
+        <div class="h-10 w-10 rounded-lg bg-slate-100 border border-slate-150 flex items-center justify-center shrink-0">
           <span class="text-xl">📄</span>
         </div>
         <div class="flex-1 min-w-0">
@@ -65,7 +90,7 @@
         <button 
           type="button" 
           @click="removeStagedFile"
-          class="p-1.5 hover:bg-slate-250 rounded-lg text-slate-500 hover:text-slate-750 transition-colors"
+          class="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-slate-700 transition-colors"
           title="Remover arquivo"
         >
           <component :is="X" class="h-4 w-4" />
@@ -86,63 +111,103 @@
 
     <!-- Área de Digitação (Composer) -->
     <div class="flex items-end space-x-2">
-      <!-- Botão Clip Anexo -->
-      <button
-        type="button"
-        @click="triggerFileSelect"
-        class="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-150 shrink-0"
-        title="Anexar arquivo (imagem, documento)"
-      >
-        <component :is="Paperclip" class="h-4 w-4" />
-      </button>
-
-      <!-- File input invisível -->
-      <input
-        ref="fileInputRef"
-        type="file"
-        class="hidden"
-        @change="handleFileChange"
-      />
-
-      <div class="flex-1 relative">
-        <textarea
-          ref="textareaRef"
-          v-model="messageText"
-          @input="adjustHeight"
-          @keydown="handleKeyDown"
-          :placeholder="
-            mode === 'whatsapp'
-              ? 'Digite uma mensagem (Ctrl+Enter para enviar)...'
-              : 'Digite uma nota interna privada (Ctrl+Enter para enviar)...'
-          "
-          rows="1"
-          class="block w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-1 bg-gray-50/20 text-xs transition-all resize-none max-h-[200px] overflow-y-auto"
-          :class="[
-            mode === 'whatsapp'
-              ? 'border-gray-250 focus:border-zavy-500 focus:ring-zavy-500'
-              : 'border-gray-250 focus:border-amber-500 focus:ring-amber-500'
-          ]"
-        ></textarea>
+      <!-- Se estiver gravando áudio -->
+      <div v-if="isRecording" class="flex-1 flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 animate-scale-up h-[42px] select-none">
+        <div class="flex items-center space-x-2">
+          <span class="h-2.5 w-2.5 rounded-full bg-red-550 bg-red-600 animate-pulse"></span>
+          <span class="text-xs font-bold text-red-600">Gravando... {{ formatTime(recordingDuration) }}</span>
+        </div>
+        <div class="flex items-center space-x-2 shrink-0">
+          <button 
+            type="button" 
+            @click="stopRecording" 
+            class="flex items-center space-x-1.5 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all"
+            title="Parar gravação"
+          >
+            <component :is="Square" class="h-3.5 w-3.5" />
+            <span>Parar</span>
+          </button>
+          <button 
+            type="button" 
+            @click="discardRecording" 
+            class="p-1.5 hover:bg-red-100 rounded-lg text-red-605 text-red-600 hover:text-red-800 transition-colors"
+            title="Descartar gravação"
+          >
+            <component :is="X" class="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
-      <!-- Botão Enviar -->
-      <button
-        type="button"
-        @click="send"
-        :disabled="sending || (!messageText.trim() && !stagedFile)"
-        class="p-3 text-white rounded-xl shadow transition-all duration-150 shrink-0 disabled:bg-gray-300 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
-        :class="[
-          mode === 'whatsapp' 
-            ? 'bg-slate-900 hover:bg-slate-800 shadow-slate-900/10' 
-            : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/10'
-        ]"
-      >
-        <component 
-          :is="sending ? Loader2 : Send" 
-          class="h-4 w-4"
-          :class="{'animate-spin': sending}"
+      <!-- Modo normal de Digitação -->
+      <template v-else>
+        <!-- Botão Clip Anexo -->
+        <button
+          type="button"
+          @click="triggerFileSelect"
+          class="p-3 text-gray-400 hover:text-gray-650 hover:bg-gray-100 rounded-xl transition-all duration-150 shrink-0"
+          title="Anexar arquivo (imagem, documento)"
+        >
+          <component :is="Paperclip" class="h-4 w-4" />
+        </button>
+
+        <!-- Botão Gravar Mensagem de Voz -->
+        <button
+          type="button"
+          @click="startRecording"
+          class="p-3 text-gray-400 hover:text-gray-650 hover:bg-gray-100 rounded-xl transition-all duration-150 shrink-0"
+          title="Gravar mensagem de voz"
+        >
+          <component :is="Mic" class="h-4 w-4" />
+        </button>
+
+        <!-- File input invisível -->
+        <input
+          ref="fileInputRef"
+          type="file"
+          class="hidden"
+          @change="handleFileChange"
         />
-      </button>
+
+        <div class="flex-1 relative">
+          <textarea
+            ref="textareaRef"
+            v-model="messageText"
+            @input="adjustHeight"
+            @keydown="handleKeyDown"
+            :placeholder="
+              mode === 'whatsapp'
+                ? 'Digite uma mensagem (Ctrl+Enter para enviar)...'
+                : 'Digite uma nota interna privada (Ctrl+Enter para enviar)...'
+            "
+            rows="1"
+            class="block w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-1 bg-gray-50/20 text-xs transition-all resize-none max-h-[200px] overflow-y-auto"
+            :class="[
+              mode === 'whatsapp'
+                ? 'border-gray-250 focus:border-zavy-500 focus:ring-zavy-500'
+                : 'border-gray-250 focus:border-amber-500 focus:ring-amber-500'
+            ]"
+          ></textarea>
+        </div>
+
+        <!-- Botão Enviar -->
+        <button
+          type="button"
+          @click="send"
+          :disabled="sending || (!messageText.trim() && !stagedFile)"
+          class="p-3 text-white rounded-xl shadow transition-all duration-150 shrink-0 disabled:bg-gray-300 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
+          :class="[
+            mode === 'whatsapp' 
+              ? 'bg-slate-900 hover:bg-slate-800 shadow-slate-900/10' 
+              : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/10'
+          ]"
+        >
+          <component 
+            :is="sending ? Loader2 : Send" 
+            class="h-4 w-4"
+            :class="{'animate-spin': sending}"
+          />
+        </button>
+      </template>
     </div>
 
     <!-- Indicador de Status Discreto -->
@@ -173,7 +238,9 @@ import {
   Check, 
   Loader2,
   Paperclip,
-  X
+  X,
+  Mic,
+  Square
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -204,6 +271,81 @@ const fileInputRef = ref(null)
 // Staging Area State
 const stagedFile = ref(null)
 const stagedPreview = ref(null)
+
+// Audio Recording State
+const isRecording = ref(false)
+const mediaRecorder = ref(null)
+const audioChunks = ref([])
+const recordingDuration = ref(0)
+const recordingInterval = ref(null)
+
+// Iniciar gravação
+const startRecording = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    audioChunks.value = []
+
+    let options = { mimeType: 'audio/webm;codecs=opus' }
+    try {
+      mediaRecorder.value = new MediaRecorder(stream, options)
+    } catch (e) {
+      // Fallback para Safari e outros navegadores sem suporte webm opus
+      mediaRecorder.value = new MediaRecorder(stream)
+    }
+
+    mediaRecorder.value.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        audioChunks.value.push(e.data)
+      }
+    }
+    
+    mediaRecorder.value.onstop = () => {
+      const blob = new Blob(audioChunks.value, { type: 'audio/ogg' })
+      const file = new File([blob], `audio-${Date.now()}.ogg`, { type: 'audio/ogg' })
+      
+      removeStagedFile()
+      
+      stagedFile.value = file
+      stagedPreview.value = URL.createObjectURL(blob)
+      stream.getTracks().forEach(t => t.stop())
+    }
+
+    mediaRecorder.value.start()
+    isRecording.value = true
+    recordingDuration.value = 0
+    recordingInterval.value = setInterval(() => {
+      recordingDuration.value++
+    }, 1000)
+  } catch (err) {
+    console.error('Erro ao acessar microfone:', err)
+    toast.error('Erro ao acessar microfone. Verifique as permissões.')
+  }
+}
+
+// Parar gravação
+const stopRecording = () => {
+  if (mediaRecorder.value && mediaRecorder.value.state !== 'inactive') {
+    mediaRecorder.value.stop()
+  }
+  isRecording.value = false
+  if (recordingInterval.value) {
+    clearInterval(recordingInterval.value)
+    recordingInterval.value = null
+  }
+}
+
+// Descartar gravação
+const discardRecording = () => {
+  stopRecording()
+  removeStagedFile()
+}
+
+// Formatar tempo (segundos em MM:SS)
+const formatTime = (seconds) => {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0')
+  const s = (seconds % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
 
 const triggerFileSelect = () => {
   if (fileInputRef.value) {
@@ -239,7 +381,7 @@ const handleFileChange = (e) => {
 
   // Coloca o arquivo em staging
   stagedFile.value = file
-  if (file.type.startsWith('image/')) {
+  if (file.type.startsWith('image/') || file.type.startsWith('audio/')) {
     stagedPreview.value = URL.createObjectURL(file)
   }
 
@@ -272,11 +414,14 @@ const formatSize = (bytes) => {
 watch(() => props.card?.id, () => {
   messageText.value = ''
   statusText.value = ''
-  removeStagedFile()
+  discardRecording()
   nextTick(() => adjustHeight())
 })
 
 onUnmounted(() => {
+  if (recordingInterval.value) {
+    clearInterval(recordingInterval.value)
+  }
   removeStagedFile()
 })
 

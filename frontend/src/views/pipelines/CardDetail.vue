@@ -370,11 +370,23 @@
 
                           <!-- Exibição de Anexos -->
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
-                            <div v-for="att in event.attachments" :key="att.url">
+                            <div v-for="att in event.attachments" :key="att.url || att.filename">
                               <!-- Imagem: preview inline -->
                               <img v-if="att.content_type && att.content_type.startsWith('image/')"
                                    :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                    @click="openFullscreen(att.url)" />
+
+                              <!-- Áudio: player inline -->
+                              <div v-else-if="att.content_type && att.content_type.startsWith('audio/')" class="my-1.5 w-full">
+                                <audio controls class="w-full max-w-[300px] h-10 select-none">
+                                  <source :src="att.url" :type="att.content_type" />
+                                </audio>
+                                <!-- Transcrição (se disponível) -->
+                                <p v-if="event.metadata?.transcription || event.payload?.metadata?.transcription"
+                                   class="text-xs text-slate-350 italic mt-1 border-l-2 border-slate-500 pl-2 bg-slate-800/50 p-1.5 rounded-r-lg max-w-[300px]">
+                                  📝 {{ event.metadata?.transcription || event.payload?.metadata?.transcription }}
+                                </p>
+                              </div>
 
                               <!-- Documento/Áudio/Vídeo: ícone + nome + download -->
                               <a v-else :href="att.url" target="_blank"
@@ -418,11 +430,23 @@
 
                           <!-- Exibição de Anexos -->
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
-                            <div v-for="att in event.attachments" :key="att.url">
+                            <div v-for="att in event.attachments" :key="att.url || att.filename">
                               <!-- Imagem: preview inline -->
                               <img v-if="att.content_type && att.content_type.startsWith('image/')"
                                    :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                    @click="openFullscreen(att.url)" />
+
+                              <!-- Áudio: player inline -->
+                              <div v-else-if="att.content_type && att.content_type.startsWith('audio/')" class="my-1.5 w-full">
+                                <audio controls class="w-full max-w-[300px] h-10 select-none">
+                                  <source :src="att.url" :type="att.content_type" />
+                                </audio>
+                                <!-- Transcrição (se disponível) -->
+                                <p v-if="event.metadata?.transcription || event.payload?.metadata?.transcription"
+                                   class="text-xs text-slate-500 italic mt-1 border-l-2 border-slate-200 pl-2 bg-slate-100/50 p-1.5 rounded-r-lg max-w-[300px]">
+                                  📝 {{ event.metadata?.transcription || event.payload?.metadata?.transcription }}
+                                </p>
+                              </div>
 
                               <!-- Documento/Áudio/Vídeo: ícone + nome + download -->
                               <a v-else :href="att.url" target="_blank"
@@ -920,7 +944,8 @@ const normalizedTimeline = computed(() => {
         message_type: event.payload?.message_type || 'incoming',
         sender_name: event.payload?.sender_name || '',
         attachments: event.payload?.attachments || event.attachments || [],
-        in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null
+        in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null,
+        metadata: event.payload?.metadata || event.metadata || null
       }
     }
     if (event.event_type === 'message_sent') {
@@ -931,14 +956,16 @@ const normalizedTimeline = computed(() => {
         message_type: event.payload?.private_note ? 'private' : 'outgoing',
         sender_name: 'Você',
         attachments: event.payload?.attachments || event.attachments || [],
-        in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null
+        in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null,
+        metadata: event.payload?.metadata || event.metadata || null
       }
     }
     if (event.event_type === 'message') {
       return {
         ...event,
         attachments: event.payload?.attachments || event.attachments || [],
-        in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null
+        in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null,
+        metadata: event.payload?.metadata || event.metadata || null
       }
     }
     return event
