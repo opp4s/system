@@ -1,5 +1,5 @@
 <template>
-  <div class="audio-player-container flex flex-col w-full max-w-[320px] select-none">
+  <div class="audio-player-container flex flex-col w-full min-w-[240px] max-w-[320px] select-none">
     <div class="audio-player flex items-center gap-3 px-3 py-2 rounded-full w-full h-12"
          :class="isOutgoing ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200/50'">
       
