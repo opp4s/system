@@ -15,17 +15,15 @@
       </button>
 
       <!-- Barra de progresso (Seek bar) -->
-      <div class="flex-1 min-w-0 h-full flex items-center">
-        <div class="relative w-full h-1 rounded-full cursor-pointer"
-             :class="isOutgoing ? 'bg-slate-600' : 'bg-slate-300'"
-             @click="seek($event)">
-          <div class="absolute h-full rounded-full"
-               :class="isOutgoing ? 'bg-white' : 'bg-slate-800'"
-               :style="{ width: progress + '%' }"></div>
-          <div class="absolute w-2.5 h-2.5 rounded-full -top-[3px] -ml-[5px]"
-               :class="isOutgoing ? 'bg-white' : 'bg-slate-800'"
-               :style="{ left: progress + '%' }"></div>
-        </div>
+      <div class="flex-1 relative h-1 rounded-full cursor-pointer mx-2"
+           :class="isOutgoing ? 'bg-slate-600' : 'bg-slate-300'"
+           @click="seek($event)">
+        <div class="absolute h-full rounded-full"
+             :class="isOutgoing ? 'bg-white' : 'bg-slate-800'"
+             :style="{ width: progress + '%' }"></div>
+        <div class="absolute w-2.5 h-2.5 rounded-full -top-[3px]"
+             :class="isOutgoing ? 'bg-white' : 'bg-slate-800'"
+             :style="{ left: `calc(${progress}% - 5px)` }"></div>
       </div>
 
       <!-- Tempo Formatado (MM:SS) -->
