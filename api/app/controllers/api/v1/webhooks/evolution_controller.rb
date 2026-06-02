@@ -13,6 +13,8 @@ module Api
           case event
           when "connection.update"
             handle_connection_update(instance_name, params.to_unsafe_h)
+          when "messages.upsert"
+            Evolution::MessageUpsertProcessor.new(instance_name, params.to_unsafe_h.dig("data") || {}).call
           when "messages.update", "messages.edit"
             handle_message_update(instance_name, params.to_unsafe_h)
           when "qrcode.updated"

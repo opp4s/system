@@ -29,10 +29,11 @@ module Whatsapp
         integration:   "WHATSAPP-BAILEYS",
         qrcode:        true,
         webhook: {
+          enabled:  true,
           url:      "#{ZAVY_WEBHOOK}/api/v1/webhooks/evolution",
           byEvents: false,
           base64:   true,
-          events:   ["connection.update", "qrcode.updated"]
+          events:   WEBHOOK_EVENTS
         },
         webhookByEvents: false,
         chatwootAccountId: ENV["CHATWOOT_ACCOUNT_ID"].to_s.presence || "1",
@@ -86,6 +87,26 @@ module Whatsapp
         pairing_code: code,
         expires_at:   (Time.current + 60.seconds).iso8601
       }
+    end
+
+    # Atualiza configuração do webhook de uma instância existente
+    WEBHOOK_EVENTS = %w[CONNECTION_UPDATE QRCODE_UPDATED MESSAGES_UPSERT MESSAGES_UPDATE].freeze
+
+    def update_webhook(instance_name)
+      body = {
+        webhook: {
+          enabled:  true,
+          url:      "#{ZAVY_WEBHOOK}/api/v1/webhooks/evolution",
+          byEvents: false,
+          base64:   true,
+          events:   WEBHOOK_EVENTS
+        }
+      }
+      post("/webhook/set/#{instance_name}", body)
+      true
+    rescue ApiError => e
+      Rails.logger.warn "[Evolution] update_webhook failed #{instance_name}: #{e.message}"
+      false
     end
 
     # Verifica estado da conexão — retorna string de estado ou "not_found"

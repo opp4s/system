@@ -7,6 +7,7 @@ class CardEvent < ApplicationRecord
     stage_changed
     note_added
     chatwoot_message
+    whatsapp_message
     message_sent
     conversation_linked
     conversation_unlinked

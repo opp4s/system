@@ -6,8 +6,7 @@ class Message < ApplicationRecord
   belongs_to :contact,      optional: true
   belongs_to :conversation, optional: true
 
-  validates :chatwoot_message_id, presence: true,
-                                  uniqueness: { scope: :workspace_id }
+  validates :chatwoot_message_id, uniqueness: { scope: :workspace_id, allow_nil: true }, allow_nil: true
   validates :content,      presence: true
   validates :message_type, inclusion: { in: MESSAGE_TYPES }
 

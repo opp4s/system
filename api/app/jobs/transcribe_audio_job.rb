@@ -15,11 +15,15 @@ class TranscribeAudioJob < ApplicationJob
     return unless audio_att
 
     audio_url = audio_att["url"]
-    return if audio_url.blank?
+    audio_b64 = audio_att["base64"]
 
-    Rails.logger.info "[Whisper] Iniciando transcrição para message ##{message_id}: #{audio_url[0..60]}"
+    Rails.logger.info "[Whisper] Iniciando transcrição para message ##{message_id}"
 
-    tempfile = download_audio(audio_url)
+    tempfile = if audio_b64.present?
+                 decode_base64_audio(audio_b64, audio_att)
+               elsif audio_url.present?
+                 download_audio(audio_url)
+               end
     unless tempfile
       Rails.logger.warn "[Whisper] Falha ao baixar áudio para message ##{message_id}"
       return
@@ -43,6 +47,23 @@ class TranscribeAudioJob < ApplicationJob
   end
 
   private
+
+  def decode_base64_audio(b64, att)
+    ct  = att["content_type"].to_s
+    ext = case ct
+          when /mpeg/ then "mp3"
+          when /mp4/  then "m4a"
+          else "ogg"
+          end
+    tempfile = Tempfile.new(["audio", ".#{ext}"])
+    tempfile.binmode
+    tempfile.write(Base64.decode64(b64))
+    tempfile.rewind
+    tempfile
+  rescue => e
+    Rails.logger.warn "[Whisper] base64 decode falhou: #{e.message}"
+    nil
+  end
 
   # Segue redirects (Active Storage URLs do Chatwoot fazem 302)
   def download_audio(url, redirects_left = MAX_REDIRECTS)
