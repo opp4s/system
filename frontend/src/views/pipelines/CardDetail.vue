@@ -929,12 +929,7 @@ const getTranscription = (event) => {
          null
 }
 
-const isRecent = (msg, seconds) => {
-  const dateStr = msg.created_at || msg.payload?.created_at
-  if (!dateStr) return false
-  const created = new Date(dateStr)
-  return (Date.now() - created.getTime()) < seconds * 1000
-}
+
 
 const getQuotePreview = (inReplyToId) => {
   if (!inReplyToId) return '...'
@@ -983,6 +978,11 @@ const getFriendlyDateKey = (dateStr) => {
 
 const normalizedTimeline = computed(() => {
   const list = pipelineStore.cardTimeline.map(event => {
+    const mergedMetadata = {
+      ...(event.metadata || {}),
+      ...(event.payload?.metadata || {})
+    }
+
     if (event.event_type === 'chatwoot_message') {
       return {
         ...event,
@@ -992,7 +992,7 @@ const normalizedTimeline = computed(() => {
         sender_name: event.payload?.sender_name || '',
         attachments: event.payload?.attachments || event.attachments || [],
         in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null,
-        metadata: event.payload?.metadata || event.metadata || null
+        metadata: Object.keys(mergedMetadata).length > 0 ? mergedMetadata : null
       }
     }
     if (event.event_type === 'message_sent') {
@@ -1004,7 +1004,7 @@ const normalizedTimeline = computed(() => {
         sender_name: 'Você',
         attachments: event.payload?.attachments || event.attachments || [],
         in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null,
-        metadata: event.payload?.metadata || event.metadata || null
+        metadata: Object.keys(mergedMetadata).length > 0 ? mergedMetadata : null
       }
     }
     if (event.event_type === 'message') {
@@ -1012,7 +1012,7 @@ const normalizedTimeline = computed(() => {
         ...event,
         attachments: event.payload?.attachments || event.attachments || [],
         in_reply_to: event.payload?.in_reply_to || event.in_reply_to || null,
-        metadata: event.payload?.metadata || event.metadata || null
+        metadata: Object.keys(mergedMetadata).length > 0 ? mergedMetadata : null
       }
     }
     return event
