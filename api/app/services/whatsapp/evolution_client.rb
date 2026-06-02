@@ -166,6 +166,15 @@ module Whatsapp
       {}
     end
 
+    # Pede à Evolution para re-fetchar a mídia e retornar como base64
+    def get_base64_from_media(instance_name, message_id:, remote_jid:)
+      body = { message: { key: { id: message_id, remoteJid: remote_jid } } }
+      post("/chat/getBase64FromMediaMessage/#{instance_name}", body)
+    rescue ApiError => e
+      Rails.logger.warn "[Evolution] getBase64FromMediaMessage failed #{instance_name}: #{e.message}"
+      nil
+    end
+
     # ── Message send ──────────────────────────────────────────────────────────
 
     def send_text(instance_name, number, text, quoted_source_id: nil)

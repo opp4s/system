@@ -72,6 +72,7 @@ services:
       - zavy-net
     volumes:
       - zavy-storage:/app/storage
+      - zavy-uploads:/app/public/uploads
 
   zavy-sidekiq:
     build:
@@ -105,6 +106,8 @@ services:
         condition: service_healthy
     networks:
       - zavy-net
+    volumes:
+      - zavy-uploads:/app/public/uploads
 
   zavy-frontend:
     build:
@@ -135,6 +138,7 @@ volumes:
   zavy-postgres-data:
   zavy-redis-data:
   zavy-storage:
+  zavy-uploads:
   zavy-whisper-models:
 
 networks:

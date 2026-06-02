@@ -173,8 +173,8 @@ module Evolution
         metadata:     meta
       )
 
-      if attachments.any? { |a| AUDIO_MIMETYPES.any? { |t| a[:content_type].to_s.include?(t) } }
-        TranscribeAudioJob.perform_later(msg.id)
+      if attachments.any?
+        DownloadMediaJob.perform_later(msg.id)
       end
 
       msg
