@@ -33,10 +33,23 @@ module Api
         end
 
         def event_payload(event)
+          payload_data = event.payload || {}
+          if event.event_type == "chatwoot_message" || event.event_type == "message_sent"
+            cw_id = payload_data["chatwoot_msg_id"] || payload_data["message_id"] || payload_data["chatwoot_message_id"]
+            if cw_id.present?
+              msg = Message.find_by(chatwoot_message_id: cw_id.to_s)
+              if msg && msg.metadata.present?
+                payload_data = payload_data.merge(
+                  "transcription" => msg.metadata["transcription"],
+                  "metadata" => (payload_data["metadata"] || {}).merge(msg.metadata)
+                )
+              end
+            end
+          end
           {
             id:         event.id,
             event_type: event.event_type,
-            payload:    event.payload,
+            payload:    payload_data,
             user:       event.user && { id: event.user.id, name: event.user.name },
             created_at: event.created_at,
             label:      human_label(event)

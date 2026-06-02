@@ -5,7 +5,7 @@
       
       <!-- Botão Play/Pause -->
       <button @click="togglePlay" class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150"
-              :class="isOutgoing ? 'bg-slate-700 hover:bg-slate-650 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 shadow-sm border border-slate-200/50'">
+              :class="isOutgoing ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 shadow-sm border border-slate-200/50'">
         <svg v-if="!isPlaying" class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
           <path d="M8 5v14l11-7z"/>
         </svg>
@@ -41,7 +41,7 @@
                   ? 'bg-emerald-500 text-white shadow-sm'
                   : hasTranscription
                     ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
-                    : (isOutgoing ? 'bg-slate-700 hover:bg-slate-650 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-600')
+                    : (isOutgoing ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-600')
               ]"
               :title="hasTranscription ? 'Esconder transcrição' : 'Mostrar transcrição'">
         T
