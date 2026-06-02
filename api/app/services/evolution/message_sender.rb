@@ -74,14 +74,11 @@ module Evolution
     end
 
     # Resolves in_reply_to to an Evolution source_id string.
-    # Accepts: integer (local Message.id or chatwoot_message_id), or source_id string.
     def resolve_quoted_source_id
       return nil if @in_reply_to.blank?
 
       if @in_reply_to.to_s =~ /\A\d+\z/
-        int_val = @in_reply_to.to_i
-        msg = Message.find_by(id: int_val) ||
-              Message.find_by(workspace: @card.workspace, chatwoot_message_id: @in_reply_to.to_s)
+        msg = Message.find_by(id: @in_reply_to.to_i)
         return msg&.source_id
       end
 

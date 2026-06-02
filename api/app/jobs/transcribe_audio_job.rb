@@ -65,7 +65,7 @@ class TranscribeAudioJob < ApplicationJob
     nil
   end
 
-  # Segue redirects (Active Storage URLs do Chatwoot fazem 302)
+  # Segue redirects HTTP (CDN e Active Storage podem retornar 302)
   def download_audio(url, redirects_left = MAX_REDIRECTS)
     return nil if redirects_left == 0
 

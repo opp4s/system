@@ -6,7 +6,6 @@ class Workspace < ApplicationRecord
   has_many :members,         through: :workspace_memberships, source: :user
   has_many :pipelines,       dependent: :destroy
   has_many :cards,           dependent: :destroy
-  has_one  :chatwoot_config, dependent: :destroy
   has_many :conversations,   dependent: :destroy
   has_many :contacts,        dependent: :destroy
   has_many :automations,     dependent: :destroy

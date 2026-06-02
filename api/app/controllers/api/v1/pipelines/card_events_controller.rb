@@ -34,16 +34,13 @@ module Api
 
         def event_payload(event)
           payload_data = event.payload || {}
-          if event.event_type == "chatwoot_message" || event.event_type == "message_sent"
-            cw_id = payload_data["chatwoot_msg_id"] || payload_data["message_id"] || payload_data["chatwoot_message_id"]
-            if cw_id.present?
-              msg = Message.find_by(chatwoot_message_id: cw_id.to_s)
-              if msg && msg.metadata.present?
-                payload_data = payload_data.merge(
-                  "transcription" => msg.metadata["transcription"],
-                  "metadata" => (payload_data["metadata"] || {}).merge(msg.metadata)
-                )
-              end
+          if %w[chatwoot_message whatsapp_message message_sent].include?(event.event_type)
+            msg = find_message_for_event(payload_data)
+            if msg&.metadata.present?
+              payload_data = payload_data.merge(
+                "transcription" => msg.metadata["transcription"],
+                "metadata"      => (payload_data["metadata"] || {}).merge(msg.metadata)
+              )
             end
           end
           {
@@ -73,7 +70,7 @@ module Api
             "#{user_name} alterou a etapa"
           when "note_added"
             "#{user_name} adicionou uma nota"
-          when "chatwoot_message"
+          when "chatwoot_message", "whatsapp_message"
             subtype = event.payload["subtype"]
             if subtype == "status_changed"
               "Status alterado para #{event.payload['status']}"
@@ -85,7 +82,7 @@ module Api
           when "message_sent"
             "#{user_name} enviou uma mensagem"
           when "conversation_linked"
-            "#{user_name} vinculou conversa ##{event.payload['chatwoot_conversation_id']}"
+            "#{user_name} vinculou conversa"
           when "conversation_unlinked"
             "#{user_name} desvinculou conversa"
           when "automation_message_sent"
@@ -101,6 +98,17 @@ module Api
           else
             event.event_type
           end
+        end
+
+        def find_message_for_event(payload_data)
+          source_id   = payload_data["source_id"]
+          cw_msg_id   = payload_data["chatwoot_msg_id"] || payload_data["message_id"] || payload_data["chatwoot_message_id"]
+          message_id  = payload_data["message_id"]
+
+          return Message.find_by(source_id: source_id) if source_id.present?
+          return Message.find_by(id: message_id.to_i) if message_id.to_s =~ /\A\d+\z/
+          return Message.find_by(chatwoot_message_id: cw_msg_id.to_s) if cw_msg_id.present?
+          nil
         end
       end
     end

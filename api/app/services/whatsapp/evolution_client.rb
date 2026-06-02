@@ -35,13 +35,7 @@ module Whatsapp
           base64:   true,
           events:   WEBHOOK_EVENTS
         },
-        webhookByEvents: false,
-        chatwootAccountId: ENV["CHATWOOT_ACCOUNT_ID"].to_s.presence || "1",
-        chatwootToken:     ENV["CHATWOOT_API_TOKEN"],
-        chatwootUrl:       ENV["CHATWOOT_URL"],
-        chatwootSignMsg:   false,
-        chatwootReopenConversation: true,
-        chatwootConversationPending: false
+        webhookByEvents: false
       }
 
       resp = post("/instance/create", body)

@@ -2,8 +2,8 @@ module Broadcasts
   class ExecuteJob < ApplicationJob
     queue_as :default
 
-    MESSAGES_PER_BATCH    = 10
-    DELAY_BETWEEN_MESSAGES = 5   # seconds — ~12 msgs/min
+    MESSAGES_PER_BATCH     = 10
+    DELAY_BETWEEN_MESSAGES = 5   # seconds
     DELAY_BETWEEN_BATCHES  = 30  # seconds
     MAX_FAILURES_PERCENT   = 20
 
@@ -14,14 +14,17 @@ module Broadcasts
 
       broadcast.update!(status: "running", started_at: Time.current) if broadcast.scheduled?
 
-      config = broadcast.workspace.chatwoot_config
-      return broadcast.update!(status: "cancelled", completed_at: Time.current) unless config
+      wi = WhatsappInstance.find_by(workspace: broadcast.workspace, status: "connected")
+      unless wi
+        Rails.logger.warn "[Broadcasts] Nenhuma instância WhatsApp conectada para workspace #{broadcast.workspace_id}"
+        return broadcast.update!(status: "cancelled", completed_at: Time.current)
+      end
 
-      client = ::Chatwoot::Client.new(config)
+      evo_client = Whatsapp::EvolutionClient.new
 
       broadcast.broadcast_messages.pending.find_in_batches(batch_size: MESSAGES_PER_BATCH) do |batch|
         batch.each_with_index do |bm, idx|
-          send_single_message(bm, broadcast, client)
+          send_single_message(bm, broadcast, wi, evo_client)
           sleep DELAY_BETWEEN_MESSAGES if idx < batch.size - 1
         end
 
@@ -45,45 +48,19 @@ module Broadcasts
 
     private
 
-    def send_single_message(bm, broadcast, client)
+    def send_single_message(bm, broadcast, wi, evo_client)
       contact = bm.contact
       return bm.update!(status: "failed", error_message: "Contato sem telefone") if contact.phone_number.blank?
 
-      conv_id = find_conversation_id(contact, client)
-      unless conv_id
-        bm.update!(status: "failed", error_message: "Nenhuma conversa encontrada para #{contact.phone_number}")
-        broadcast.increment!(:failed_count)
-        return
-      end
-
       content = interpolate(broadcast.message, contact)
-      result  = client.send_message(conv_id, content)
+      resp    = evo_client.send_text(wi.instance_id, contact.phone_number, content)
+      source_id = resp&.dig("key", "id") || resp&.dig(:key, :id)
 
-      bm.update!(status: "sent", sent_at: Time.current, chatwoot_message_id: result[:id])
+      bm.update!(status: "sent", sent_at: Time.current)
       broadcast.increment!(:sent_count)
     rescue => e
       bm.update!(status: "failed", error_message: e.message.truncate(255))
       broadcast.increment!(:failed_count)
-    end
-
-    def find_conversation_id(contact, client)
-      # 1. Check local DB first (most recent linked conversation)
-      local = Conversation.where(workspace: contact.workspace)
-                          .where.not(chatwoot_conversation_id: nil)
-                          .joins("INNER JOIN contacts ON contacts.workspace_id = conversations.workspace_id AND contacts.chatwoot_contact_id = conversations.contact_id::bigint")
-                          .where("contacts.id = ?", contact.id)
-                          .order(created_at: :desc).first
-      return local.chatwoot_conversation_id if local
-
-      # 2. Query Chatwoot API by contact_id
-      return nil if contact.chatwoot_contact_id.blank?
-      convs = client.contact_conversations(contact.chatwoot_contact_id)
-      payload = convs[:payload] || []
-      open_conv = payload.find { |c| c[:status] == "open" } || payload.first
-      open_conv&.dig(:id)
-    rescue => e
-      Rails.logger.warn "[Broadcasts] find_conversation failed for contact=#{contact.id}: #{e.message}"
-      nil
     end
 
     def interpolate(template, contact)

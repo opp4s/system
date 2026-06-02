@@ -192,11 +192,9 @@ module Api
             payload[:events_count] = card.card_events.count
             conv = card.conversations.order(created_at: :desc).first
             payload[:conversation] = conv ? {
-              id:                       conv.id,
-              chatwoot_conversation_id: conv.chatwoot_conversation_id,
-              status:                   conv.status,
-              inbox_id:                 conv.inbox_id,
-              last_activity_at:         conv.last_activity_at
+              id:              conv.id,
+              status:          conv.status,
+              last_activity_at: conv.last_activity_at
             } : nil
           end
           payload

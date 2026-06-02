@@ -5,25 +5,27 @@ module Automations
         template = config["message"].to_s
         return { success: false, error: "message template vazio", type: "send_whatsapp" } if template.blank?
 
-        content      = interpolate(template, card)
-        conversation = card.conversations.order(created_at: :desc).first
-        return { success: false, error: "Sem conversa vinculada", type: "send_whatsapp" } unless conversation
+        content = interpolate(template, card)
 
-        client = ::Chatwoot::Client.new(card.workspace)
-        result = client.send_message(conversation.chatwoot_conversation_id, content)
+        wi = WhatsappInstance.find_by(workspace: card.workspace, pipeline_id: card.pipeline_id, status: "connected")
+        unless wi
+          wi = WhatsappInstance.find_by(workspace: card.workspace, status: "connected")
+        end
+        return { success: false, error: "Sem instância WhatsApp conectada", type: "send_whatsapp" } unless wi
+
+        return { success: false, error: "Card sem telefone de contato", type: "send_whatsapp" } if card.contact_phone.blank?
+
+        user = card.workspace.workspace_memberships.first&.user
+        msg = Evolution::MessageSender.new(wi, card, user || OpenStruct.new(name: "Sistema"),
+                                           content: content).call
 
         card.card_events.create!(
           workspace_id: card.workspace_id,
           event_type:   "automation_message_sent",
-          payload:      {
-            content:            content,
-            automation:         true,
-            chatwoot_message_id: result[:id],
-            conversation_id:    conversation.chatwoot_conversation_id
-          }
+          payload:      { content: content, automation: true, source_id: msg.source_id }
         )
 
-        { success: true, type: "send_whatsapp", chatwoot_msg_id: result[:id] }
+        { success: true, type: "send_whatsapp", source_id: msg.source_id }
       rescue => e
         { success: false, type: "send_whatsapp", error: e.message }
       end

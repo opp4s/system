@@ -8,8 +8,6 @@ module Api
         def connect
           evo_client = ::Whatsapp::EvolutionClient.new
 
-          # Reutilizar instância pendente (qr_pending/connecting) se existir
-          # Evita criar nova instância a cada clique em "Conectar"
           pending = current_workspace.whatsapp_instances
                       .where(status: %w[qr_pending connecting])
                       .order(created_at: :desc)
@@ -19,14 +17,11 @@ module Api
             evo_state = evo_client.connection_state(pending.instance_id)
 
             if evo_state == "open"
-              # Raro: conectou mas webhook não atualizou — corrigir status e retornar
               pending.update_columns(status: "connected")
               return render json: { data: instance_payload(pending.reload) }
             elsif abandoned?(pending)
-              # Pendente velha (>5min sem conectar) — limpar e criar do zero
               cleanup_instance(pending, evo_client)
             elsif evo_state != "not_found"
-              # Pendente recente — gerar QR novo para ela
               result = evo_client.get_qr(pending.instance_id)
               pending.update_columns(status: "qr_pending")
               return render json: {
@@ -37,28 +32,20 @@ module Api
                 )
               }
             else
-              # Instância sumiu da Evolution — limpar e criar do zero
               cleanup_instance(pending, evo_client)
             end
           end
 
-          # Criar nova instância com nome identificável (pending-hex ao invés de UUID longo)
           instance_name = "zavy-#{current_workspace.id}-pending-#{SecureRandom.hex(3)}"
 
           begin
             evo_client.create_instance(instance_name, workspace_id: current_workspace.id)
-
             result = evo_client.get_qr(instance_name)
 
-            inbox_id = fetch_chatwoot_inbox_id(instance_name)
-
             wi = current_workspace.whatsapp_instances.create!(
-              instance_id:       instance_name,
-              status:            "qr_pending",
-              chatwoot_inbox_id: inbox_id
+              instance_id: instance_name,
+              status:      "qr_pending"
             )
-
-            auto_configure_chatwoot
 
             render json: {
               data: instance_payload(wi).merge(
@@ -67,11 +54,7 @@ module Api
               )
             }
           rescue => e
-            # Rollback: limpar Evolution + Chatwoot se falhou antes de salvar
             evo_client.delete_instance(instance_name) rescue nil
-            if inbox_id
-              begin; ::Chatwoot::Client.from_env.delete_inbox(inbox_id); rescue nil; end
-            end
             raise e
           end
         rescue ::Whatsapp::EvolutionClient::ApiError => e
@@ -79,16 +62,14 @@ module Api
         end
 
         # GET /api/v1/whatsapp/status
-        # Uma chamada fetchInstances para todas as instâncias (captura status + phone)
         def status
           instances    = current_workspace.whatsapp_instances.includes(:pipeline).order(:created_at)
           evo_client   = ::Whatsapp::EvolutionClient.new
           evo_data     = evo_client.bulk_status(instances.map(&:instance_id))
-          default_pipe = nil  # memoizado — só busca se necessário
+          default_pipe = nil
 
           result = []
           instances.each do |wi|
-            # Auto-cleanup: pendentes abandonadas (sem phone, >5min, não conectadas)
             if abandoned?(wi)
               cleanup_instance(wi, evo_client)
               next
@@ -106,7 +87,6 @@ module Api
               end
             end
 
-            # Auto-assign pipeline padrão: connected sem funil há mais de 60s
             if wi.status == "connected" && wi.pipeline_id.nil? && wi.updated_at < 60.seconds.ago
               default_pipe ||= current_workspace.pipelines.find_by(is_default: true) ||
                                current_workspace.pipelines.order(:position).first
@@ -128,8 +108,7 @@ module Api
           return render json: { error: "Instância não encontrada" }, status: :not_found unless wi
 
           if wi.update(instance_update_params)
-            wi.reload
-            render json: { data: instance_payload(wi) }
+            render json: { data: instance_payload(wi.reload) }
           else
             render json: { errors: wi.errors.full_messages }, status: :unprocessable_entity
           end
@@ -172,26 +151,14 @@ module Api
 
         PENDING_TTL = 5.minutes
 
-        # Pendente abandonada: sem phone, status não-connected, criada há >5min
         def abandoned?(wi)
           wi.phone_number.blank? &&
             %w[qr_pending connecting].include?(wi.status) &&
             wi.created_at < PENDING_TTL.ago
         end
 
-        # Remove instância da Evolution, inbox do Chatwoot e registro do banco
         def cleanup_instance(wi, evo_client = ::Whatsapp::EvolutionClient.new)
           evo_client.delete_instance(wi.instance_id)
-
-          begin
-            cw = ::Chatwoot::Client.from_env
-            inbox_id = wi.chatwoot_inbox_id ||
-                       cw.find_inbox_by_name(wi.instance_id)&.then { |i| i[:id] || i["id"] }
-            cw.delete_inbox(inbox_id) if inbox_id
-          rescue => e
-            Rails.logger.warn "[WhatsApp] Falha ao deletar inbox Chatwoot para #{wi.instance_id}: #{e.message}"
-          end
-
           wi.destroy!
         end
 
@@ -201,39 +168,14 @@ module Api
 
         def instance_payload(wi)
           {
-            instance_id:       wi.instance_id,
-            name:              wi.name,
-            phone:             wi.phone_number.presence,
-            status:            wi.status,
-            pipeline_id:       wi.pipeline_id,
-            pipeline:          wi.pipeline ? { id: wi.pipeline.id, name: wi.pipeline.name } : nil,
-            chatwoot_inbox_id: wi.chatwoot_inbox_id,
-            created_at:        wi.created_at
+            instance_id: wi.instance_id,
+            name:        wi.name,
+            phone:       wi.phone_number.presence,
+            status:      wi.status,
+            pipeline_id: wi.pipeline_id,
+            pipeline:    wi.pipeline ? { id: wi.pipeline.id, name: wi.pipeline.name } : nil,
+            created_at:  wi.created_at
           }
-        end
-
-        def fetch_chatwoot_inbox_id(instance_name)
-          return nil if ENV["CHATWOOT_URL"].blank? || ENV["CHATWOOT_API_TOKEN"].blank?
-          inbox = ::Chatwoot::Client.from_env.find_inbox_by_name(instance_name)
-          inbox ? (inbox[:id] || inbox["id"]) : nil
-        rescue => e
-          Rails.logger.warn "[WhatsApp] Não foi possível capturar inbox_id do Chatwoot: #{e.message}"
-          nil
-        end
-
-        def auto_configure_chatwoot
-          return if ENV["CHATWOOT_URL"].blank? || ENV["CHATWOOT_API_TOKEN"].blank?
-          config = current_workspace.chatwoot_config ||
-                   current_workspace.build_chatwoot_config
-          return if config.persisted? && config.chatwoot_url.present?
-          config.assign_attributes(
-            chatwoot_url:        ENV["CHATWOOT_URL"],
-            chatwoot_account_id: ENV.fetch("CHATWOOT_ACCOUNT_ID", "1")
-          )
-          config.chatwoot_api_token = ENV["CHATWOOT_API_TOKEN"]
-          config.save if config.valid?
-        rescue => e
-          Rails.logger.warn "[WhatsApp] auto_configure_chatwoot failed: #{e.message}"
         end
       end
     end

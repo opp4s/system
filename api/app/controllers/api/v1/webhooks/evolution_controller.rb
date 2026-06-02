@@ -88,9 +88,10 @@ module Api
             )
 
             # Atualizar CardEvent correspondente na timeline
-            if msg.card_id && msg.chatwoot_message_id.present?
-              ce = CardEvent.where(card_id: msg.card_id, workspace: workspace, event_type: "chatwoot_message")
-                            .where("payload->>'message_id' = ?", msg.chatwoot_message_id)
+            if msg.card_id
+              ce = CardEvent.where(card_id: msg.card_id, workspace: workspace,
+                                   event_type: %w[whatsapp_message chatwoot_message message_sent])
+                            .where("payload->>'source_id' = ?", source_id)
                             .first
               ce&.update_columns(payload: ce.payload.merge("content" => new_content, "edited" => true))
             end
