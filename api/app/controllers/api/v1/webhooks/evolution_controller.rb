@@ -47,16 +47,48 @@ module Api
           case state
           when "open"
             updates = { status: "connected" }
-            wuid = data.dig("data", "wuid") || data.dig("data", "user", "id")
-            if wuid.present? && wi.phone_number.blank?
-              updates[:phone_number] = wuid.split("@").first
+            wuid  = data.dig("data", "wuid") || data.dig("data", "user", "id")
+            if wuid.present?
+              digits = wuid.split("@").first.gsub(/\D/, "")
+              phone  = "+#{digits}" if digits.present?
+              updates[:phone_number] = phone if phone.present? && wi.phone_number.blank?
             end
             wi.update_columns(updates)
+            wi.reload
+
+            # Auto-cleanup: remove instâncias desconectadas com o mesmo número
+            # (ocorre quando o usuário clica "Reconectar" e uma nova instância substitui a antiga)
+            cleanup_stale_disconnected(workspace, wi)
+
           when "close", "failed"
             wi.update_columns(status: "disconnected")
           end
         rescue => e
           Rails.logger.error "[Evolution] handle_connection_update error: #{e.message}"
+        end
+
+        # Quando uma nova instância conecta, limpa instâncias desconectadas com o mesmo número.
+        # Herda pipeline_id da antiga para a nova se a nova ainda não tem funil.
+        def cleanup_stale_disconnected(workspace, new_wi)
+          phone = new_wi.phone_number
+          return if phone.blank?
+
+          # Normaliza para comparar com e sem '+' (ex: "+554198..." == "554198...")
+          digits = phone.gsub(/\D/, "")
+          stale = workspace.whatsapp_instances
+                           .where(status: "disconnected")
+                           .where.not(id: new_wi.id)
+                           .select { |wi| wi.phone_number.to_s.gsub(/\D/, "") == digits }
+
+          stale.each do |old|
+            if new_wi.pipeline_id.blank? && old.pipeline_id.present?
+              new_wi.update_columns(pipeline_id: old.pipeline_id, name: old.name.presence || new_wi.name)
+            end
+            old.destroy!
+            Rails.logger.info "[Evolution] Removida instância stale #{old.instance_id} (mesmo número #{phone})"
+          end
+        rescue => e
+          Rails.logger.warn "[Evolution] cleanup_stale_disconnected error: #{e.message}"
         end
 
         def handle_message_update(instance_name, data)
