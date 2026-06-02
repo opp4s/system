@@ -166,7 +166,41 @@ module Whatsapp
       {}
     end
 
+    # ── Message send ──────────────────────────────────────────────────────────
+
+    def send_text(instance_name, number, text, quoted_source_id: nil)
+      body = { number: format_number(number), text: text }
+      attach_quoted!(body, number, quoted_source_id)
+      post("/message/sendText/#{instance_name}", body)
+    end
+
+    # media_type: "image" | "document" | "video"
+    # media: base64 string
+    def send_media(instance_name, number, media, media_type, caption: nil, filename: nil, quoted_source_id: nil)
+      body = { number: format_number(number), mediatype: media_type, media: media, caption: caption.to_s }
+      body[:fileName] = filename if filename.present?
+      attach_quoted!(body, number, quoted_source_id)
+      post("/message/sendMedia/#{instance_name}", body)
+    end
+
+    # audio: base64 string — enviado como voice note (OGG/Opus no WhatsApp)
+    def send_audio(instance_name, number, audio, quoted_source_id: nil)
+      body = { number: format_number(number), audio: audio }
+      attach_quoted!(body, number, quoted_source_id)
+      post("/message/sendWhatsAppAudio/#{instance_name}", body)
+    end
+
     private
+
+    def format_number(number)
+      number.to_s.gsub(/[^0-9]/, "")
+    end
+
+    def attach_quoted!(body, number, source_id)
+      return unless source_id.present?
+      jid = "#{format_number(number)}@s.whatsapp.net"
+      body[:quoted] = { key: { remoteJid: jid, fromMe: false, id: source_id } }
+    end
 
     def map_evolution_status(raw)
       case raw

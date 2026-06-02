@@ -32,9 +32,61 @@ module Api
             return render json: { error: err }, status: :unprocessable_entity if err
           end
 
+          wi = whatsapp_instance_for_card
+          return send_via_evolution(wi, content, attachment) if wi
+
+          send_via_chatwoot(content, attachment)
+        end
+
+        private
+
+        # ── Evolution path ─────────────────────────────────────────────────────
+
+        def send_via_evolution(wi, content, attachment)
+          unless @card.contact_phone.present?
+            return render json: { error: "Card sem telefone de contato" },
+                          status: :unprocessable_entity
+          end
+
+          in_reply_to = message_params[:in_reply_to].presence
+
+          msg = Evolution::MessageSender.new(
+            wi, @card, current_user,
+            content:     content,
+            attachment:  attachment,
+            in_reply_to: in_reply_to
+          ).call
+
+          event = CardEvent.create!(
+            card:       @card,
+            workspace:  current_workspace,
+            user:       current_user,
+            event_type: "message_sent",
+            payload:    {
+              content:      msg.content,
+              source_id:    msg.source_id,
+              attachments:  msg.attachments,
+              private_note: false
+            }.compact
+          )
+
+          ActionCable.server.broadcast(
+            "pipeline_#{@card.pipeline_id}",
+            { event: "message_sent", card_id: @card.id, event_data: event_payload(event) }
+          )
+
+          render json: { data: event_payload(event) }, status: :created
+
+        rescue Evolution::MessageSender::SendError => e
+          render json: { error: e.message }, status: :unprocessable_entity
+        end
+
+        # ── Chatwoot fallback path (mantido para workspaces sem WhatsappInstance) ──
+
+        def send_via_chatwoot(content, attachment)
           config = current_workspace.chatwoot_config
           unless config
-            return render json: { error: "Chatwoot não configurado neste workspace" },
+            return render json: { error: "Nenhuma instância WhatsApp conectada neste pipeline" },
                           status: :unprocessable_entity
           end
 
@@ -43,14 +95,13 @@ module Api
 
           unless conv
             return render json: {
-              error: "Card não possui conversa Chatwoot vinculada. " \
-                     "Aguarde o cliente entrar em contato ou vincule manualmente via POST /cards/:id/link_conversation"
+              error: "Card não possui conversa vinculada. " \
+                     "Aguarde o cliente entrar em contato ou vincule manualmente."
             }, status: :unprocessable_entity
           end
 
           client  = ::Chatwoot::Client.new(config)
           private = message_params[:private_note].in?([true, "true"])
-
           in_reply_to = message_params[:in_reply_to].presence&.to_i&.then { |v| v > 0 ? v : nil }
 
           cw_msg = if attachment
@@ -66,7 +117,6 @@ module Api
                                 private: private, in_reply_to: in_reply_to)
           end
 
-          # Persistir na tabela messages local — upsert para cobrir race com webhook
           attachment_meta = attachment ? [{
             filename:     attachment.original_filename,
             content_type: attachment.content_type,
@@ -116,7 +166,16 @@ module Api
                  status: :unprocessable_entity
         end
 
-        private
+        # ── Helpers ────────────────────────────────────────────────────────────
+
+        def whatsapp_instance_for_card
+          return nil unless @card.pipeline_id.present?
+          WhatsappInstance.find_by(
+            workspace: current_workspace,
+            pipeline_id: @card.pipeline_id,
+            status: "connected"
+          )
+        end
 
         def set_card
           @card = current_workspace.cards.find(params[:card_id])
@@ -168,11 +227,11 @@ module Api
 
         def event_payload(event)
           {
-            id:          event.id,
-            event_type:  event.event_type,
-            payload:     event.payload,
-            user:        event.user && { id: event.user.id, name: event.user.name },
-            created_at:  event.created_at
+            id:         event.id,
+            event_type: event.event_type,
+            payload:    event.payload,
+            user:       event.user && { id: event.user.id, name: event.user.name },
+            created_at: event.created_at
           }
         end
       end
