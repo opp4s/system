@@ -376,21 +376,14 @@
                                    :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                    @click="openFullscreen(att.url)" />
 
-                              <!-- Áudio: player inline -->
+                              <!-- Áudio: player inline customizado -->
                               <div v-else-if="isAudio(att)" class="my-1.5 w-full">
-                                <audio controls class="w-full max-w-[280px] h-10 rounded-full select-none">
-                                  <source :src="att.url" :type="getAudioMimeType(att)" />
-                                  Seu navegador não suporta áudio.
-                                </audio>
-                                <!-- Transcrição (se disponível ou em processamento) -->
-                                <p v-if="getTranscription(event)"
-                                   class="text-xs text-slate-355 italic mt-1.5 border-l-2 border-slate-500 pl-2 bg-slate-800/50 p-1.5 rounded-r-lg max-w-[280px]">
-                                  📝 {{ getTranscription(event) }}
-                                </p>
-                                <p v-else-if="isRecent(event, 120)"
-                                   class="text-xs text-slate-400 italic mt-1.5 pl-1">
-                                  ⏳ Transcrevendo...
-                                </p>
+                                <AudioPlayer 
+                                  :audio-url="att.url"
+                                  :is-outgoing="true"
+                                  :transcription="getTranscription(event)"
+                                  :message-id="event.id"
+                                />
                               </div>
 
                               <!-- Documento/Áudio/Vídeo: ícone + nome + download -->
@@ -441,21 +434,14 @@
                                    :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                    @click="openFullscreen(att.url)" />
 
-                              <!-- Áudio: player inline -->
+                              <!-- Áudio: player inline customizado -->
                               <div v-else-if="isAudio(att)" class="my-1.5 w-full">
-                                <audio controls class="w-full max-w-[280px] h-10 rounded-full select-none">
-                                  <source :src="att.url" :type="getAudioMimeType(att)" />
-                                  Seu navegador não suporta áudio.
-                                </audio>
-                                <!-- Transcrição (se disponível ou em processamento) -->
-                                <p v-if="getTranscription(event)"
-                                   class="text-xs text-slate-500 italic mt-1.5 border-l-2 border-slate-200 pl-2 bg-slate-100/50 p-1.5 rounded-r-lg max-w-[280px]">
-                                  📝 {{ getTranscription(event) }}
-                                </p>
-                                <p v-else-if="isRecent(event, 120)"
-                                   class="text-xs text-slate-400 italic mt-1.5 pl-1">
-                                  ⏳ Transcrevendo...
-                                </p>
+                                <AudioPlayer 
+                                  :audio-url="att.url"
+                                  :is-outgoing="false"
+                                  :transcription="getTranscription(event)"
+                                  :message-id="event.id"
+                                />
                               </div>
 
                               <!-- Documento/Áudio/Vídeo: ícone + nome + download -->
@@ -541,6 +527,7 @@ import { usePipelineSocket } from '@/composables/usePipelineSocket'
 import StageSwitcher from './StageSwitcher.vue'
 import LossReasonModal from './LossReasonModal.vue'
 import CardComposer from './CardComposer.vue'
+import AudioPlayer from './AudioPlayer.vue'
 import { X, Plus, MoveRight, HelpCircle, FileText, Send, MessageSquare, CornerUpLeft } from 'lucide-vue-next'
 import api from '@/plugins/axios'
 
