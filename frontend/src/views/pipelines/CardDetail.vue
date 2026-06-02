@@ -387,7 +387,7 @@
                                    class="text-xs text-slate-355 italic mt-1.5 border-l-2 border-slate-500 pl-2 bg-slate-800/50 p-1.5 rounded-r-lg max-w-[280px]">
                                   📝 {{ getTranscription(event) }}
                                 </p>
-                                <p v-else
+                                <p v-else-if="isRecent(event, 120)"
                                    class="text-xs text-slate-400 italic mt-1.5 pl-1">
                                   ⏳ Transcrevendo...
                                 </p>
@@ -452,7 +452,7 @@
                                    class="text-xs text-slate-500 italic mt-1.5 border-l-2 border-slate-200 pl-2 bg-slate-100/50 p-1.5 rounded-r-lg max-w-[280px]">
                                   📝 {{ getTranscription(event) }}
                                 </p>
-                                <p v-else
+                                <p v-else-if="isRecent(event, 120)"
                                    class="text-xs text-slate-400 italic mt-1.5 pl-1">
                                   ⏳ Transcrevendo...
                                 </p>
@@ -935,10 +935,18 @@ const getAudioMimeType = (att) => {
 }
 
 const getTranscription = (event) => {
-  return event.metadata?.transcription || 
+  return event.transcription ||
+         event.metadata?.transcription || 
          event.payload?.metadata?.transcription || 
          event.payload?.transcription || 
          null
+}
+
+const isRecent = (msg, seconds) => {
+  const dateStr = msg.created_at || msg.payload?.created_at
+  if (!dateStr) return false
+  const created = new Date(dateStr)
+  return (Date.now() - created.getTime()) < seconds * 1000
 }
 
 const getQuotePreview = (inReplyToId) => {
