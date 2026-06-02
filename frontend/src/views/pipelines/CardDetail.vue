@@ -370,7 +370,7 @@
 
                           <!-- Exibição de Anexos -->
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
-                            <div v-for="att in event.attachments" :key="att.url || att.filename">
+                            <div v-for="(att, attIdx) in event.attachments" :key="event.id + '-att-' + attIdx">
                               <!-- Imagem: preview inline -->
                               <img v-if="att.content_type && att.content_type.startsWith('image/')"
                                    :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
@@ -428,7 +428,7 @@
 
                           <!-- Exibição de Anexos -->
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
-                            <div v-for="att in event.attachments" :key="att.url || att.filename">
+                            <div v-for="(att, attIdx) in event.attachments" :key="event.id + '-att-' + attIdx">
                               <!-- Imagem: preview inline -->
                               <img v-if="att.content_type && att.content_type.startsWith('image/')"
                                    :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"

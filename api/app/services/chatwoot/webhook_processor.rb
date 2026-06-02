@@ -374,7 +374,7 @@ module Chatwoot
       msg_record.save!
 
       # Enfileirar transcrição se tiver attachment de áudio
-      has_audio = attachments.any? { |a| a["content_type"].to_s.start_with?("audio/") }
+      has_audio = attachments.any? { |a| a["content_type"].to_s.start_with?("audio") }
       TranscribeAudioJob.perform_later(msg_record.id) if has_audio && msg_record.persisted?
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.warn "[WebhookProcessor] persist_message failed: #{e.message}"

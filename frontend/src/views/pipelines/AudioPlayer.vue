@@ -68,8 +68,15 @@
   </div>
 </template>
 
+<script>
+import { ref } from 'vue'
+const transcribingMessages = ref({})
+const showTranscriptionMessages = ref({})
+const transcribeTimeouts = {}
+</script>
+
 <script setup>
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
   audioUrl: {
@@ -94,9 +101,16 @@ const audioEl = ref(null)
 const isPlaying = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
-const showTranscription = ref(false)
-const isTranscribing = ref(false)
-let transcribeTimeout = null
+
+const showTranscription = computed({
+  get: () => !!showTranscriptionMessages.value[props.messageId],
+  set: (val) => { showTranscriptionMessages.value[props.messageId] = val }
+})
+
+const isTranscribing = computed({
+  get: () => !!transcribingMessages.value[props.messageId],
+  set: (val) => { transcribingMessages.value[props.messageId] = val }
+})
 
 const progress = computed(() => {
   if (!duration.value || isNaN(duration.value) || !isFinite(duration.value)) return 0
@@ -109,18 +123,12 @@ const transcriptionText = computed(() => props.transcription)
 // Se a transcrição chegar via polling, atualiza e exibe
 watch(() => props.transcription, (newVal) => {
   if (newVal) {
-    if (transcribeTimeout) {
-      clearTimeout(transcribeTimeout)
-      transcribeTimeout = null
+    if (transcribeTimeouts[props.messageId]) {
+      clearTimeout(transcribeTimeouts[props.messageId])
+      delete transcribeTimeouts[props.messageId]
     }
     isTranscribing.value = false
     showTranscription.value = true
-  }
-})
-
-onUnmounted(() => {
-  if (transcribeTimeout) {
-    clearTimeout(transcribeTimeout)
   }
 })
 
@@ -178,11 +186,14 @@ function requestTranscription() {
     isTranscribing.value = true
     showTranscription.value = true
     
-    if (transcribeTimeout) clearTimeout(transcribeTimeout)
+    if (transcribeTimeouts[props.messageId]) {
+      clearTimeout(transcribeTimeouts[props.messageId])
+    }
     
     // Oculta a mensagem de "Transcrevendo..." após no máximo 30 segundos
-    transcribeTimeout = setTimeout(() => {
+    transcribeTimeouts[props.messageId] = setTimeout(() => {
       isTranscribing.value = false
+      delete transcribeTimeouts[props.messageId]
     }, 30000)
   }
 }
