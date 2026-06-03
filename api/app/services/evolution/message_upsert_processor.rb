@@ -3,7 +3,7 @@ module Evolution
     ALLOWED_MESSAGE_TYPES = %w[
       conversation extendedTextMessage
       imageMessage audioMessage documentMessage videoMessage stickerMessage
-      contactMessage locationMessage
+      contactMessage locationMessage ptvMessage
     ].freeze
 
     AUDIO_MIMETYPES = %w[audio/ogg audio/mpeg audio/mp4 audio/aac audio/webm audio].freeze
@@ -231,6 +231,7 @@ module Evolution
 
       caption = msg.dig(:imageMessage, :caption) ||
                 msg.dig(:videoMessage, :caption) ||
+                msg.dig(:ptvMessage, :caption) ||
                 msg.dig(:documentMessage, :caption)
       return caption if caption.present?
 
@@ -266,7 +267,8 @@ module Evolution
                 msg.dig(:videoMessage, :contextInfo) ||
                 msg.dig(:audioMessage, :contextInfo) ||
                 msg.dig(:documentMessage, :contextInfo) ||
-                msg.dig(:stickerMessage, :contextInfo)
+                msg.dig(:stickerMessage, :contextInfo) ||
+                msg.dig(:ptvMessage, :contextInfo)
       context&.dig(:stanzaId)
     end
 
@@ -286,9 +288,10 @@ module Evolution
       elsif (dm = msg[:documentMessage])
         { url: dm[:url], content_type: dm[:mimetype] || "application/octet-stream",
           filename: dm[:fileName] || "document", base64: b64 }.compact
-      elsif (vm = msg[:videoMessage])
+      elsif (vm = msg[:videoMessage] || msg[:ptvMessage])
+        is_ptv = msg[:ptvMessage].present?
         { url: vm[:url], content_type: vm[:mimetype]&.split(";")&.first || "video/mp4",
-          filename: "video.mp4", base64: b64 }.compact
+          filename: is_ptv ? "ptv.mp4" : "video.mp4", base64: b64, ptv: is_ptv }.compact
       elsif (sm = msg[:stickerMessage])
         { url: sm[:url], content_type: sm[:mimetype]&.split(";")&.first || "image/webp",
           filename: "sticker.webp", base64: b64 }.compact
