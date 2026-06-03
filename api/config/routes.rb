@@ -100,6 +100,8 @@ Rails.application.routes.draw do
         patch  "instances/:instance_id",   to: "connections#update"
       end
 
+      get  "conversations",     to: "conversations#index"
+
       get  "dashboard",        to: "dashboard#index"
       get  "dashboard/funnel", to: "dashboard#funnel"
       get  "dashboard/agents", to: "dashboard#agents"
