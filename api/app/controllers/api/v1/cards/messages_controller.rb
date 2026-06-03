@@ -32,9 +32,9 @@ module Api
             return render json: { error: err }, status: :unprocessable_entity if err
           end
 
-          wi = whatsapp_instance_for_card
-          unless wi
-            return render json: { error: "Nenhuma instância WhatsApp conectada neste pipeline" },
+          wi, error = whatsapp_instance_for_card
+          if error
+            return render json: { error: error, code: "whatsapp_unavailable" },
                           status: :unprocessable_entity
           end
 
@@ -78,26 +78,36 @@ module Api
 
         private
 
-        # Prioridade: a instância que ORIGINOU a conversa (última mensagem incoming
-        # com instância registrada). Garante que a resposta sai pelo mesmo número que
-        # o lead contatou — crítico quando o pipeline tem múltiplas instâncias.
+        # Retorna [instancia, mensagem_de_erro].
+        # A mensagem SÓ pode sair pela instância que originou a conversa.
+        # SEM fallback para outro número: se a instância de origem estiver
+        # desconectada, o envio falha e o usuário deve reconectar aquele WhatsApp.
         def whatsapp_instance_for_card
           origin = @card.messages
                         .where(message_type: "incoming")
                         .where.not(whatsapp_instance_id: nil)
                         .order(created_at: :desc)
                         .first
-          if origin&.whatsapp_instance&.status == "connected"
-            return origin.whatsapp_instance
+          wi = origin&.whatsapp_instance
+
+          # Card sem instância de origem (ex.: criado manualmente, sem histórico
+          # de mensagem recebida). Só permite envio se houver UMA única instância
+          # conectada no pipeline — caso contrário não há canal definido.
+          if wi.nil?
+            connected = WhatsappInstance.where(
+              workspace: current_workspace, pipeline_id: @card.pipeline_id, status: "connected"
+            )
+            return [connected.first, nil] if connected.count == 1
+            return [nil, "Nenhum WhatsApp conectado para este lead. Verifique a conexão em Configurações › WhatsApp."]
           end
 
-          # Fallback: instância conectada do pipeline (comportamento legado)
-          return nil unless @card.pipeline_id.present?
-          WhatsappInstance.find_by(
-            workspace:   current_workspace,
-            pipeline_id: @card.pipeline_id,
-            status:      "connected"
-          )
+          # Instância de origem existe mas está desconectada → erro explícito.
+          unless wi.status == "connected"
+            phone = wi.phone_number.presence || wi.instance_id
+            return [nil, "O WhatsApp #{phone} está desconectado. Reconecte-o para responder este lead."]
+          end
+
+          [wi, nil]
         end
 
         def set_card
