@@ -68,8 +68,8 @@ module Evolution
       )
       return unless message
 
-      emit_card_event(workspace, card, message, from_me)
-      broadcast(card, message)
+      card_event = emit_card_event(workspace, card, message, from_me)
+      broadcast(card, card_event)
     rescue => e
       Rails.logger.error "[Evolution] MessageUpsertProcessor error: #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
     end
@@ -184,10 +184,11 @@ module Evolution
     end
 
     def emit_card_event(workspace, card, message, from_me)
+      # Usa "chatwoot_message" para compatibilidade com o frontend (CardDetail.vue)
       CardEvent.create!(
         card:       card,
         workspace:  workspace,
-        event_type: "whatsapp_message",
+        event_type: "chatwoot_message",
         payload:    {
           source_id:    message.source_id,
           message_type: message.message_type,
@@ -200,20 +201,19 @@ module Evolution
       )
     end
 
-    def broadcast(card, message)
+    def broadcast(card, event)
+      # Usa "chatwoot_message_received" e event_data com id+event_type
+      # para compatibilidade com usePipelineSocket.js
       ActionCable.server.broadcast(
         "pipeline_#{card.pipeline_id}",
         {
-          event:   "whatsapp_message_received",
+          event:   "chatwoot_message_received",
           card_id: card.id,
           event_data: {
-            source_id:    message.source_id,
-            content:      message.content,
-            message_type: message.message_type,
-            sender_name:  message.sender_name,
-            attachments:  message.attachments,
-            metadata:     message.metadata,
-            created_at:   message.created_at
+            id:         event.id,
+            event_type: event.event_type,
+            payload:    event.payload,
+            created_at: event.created_at
           }
         }
       )
