@@ -254,7 +254,7 @@ const props = defineProps({
   }
 })
 
-const emits = defineEmits(['message-sent', 'cancel-reply'])
+const emits = defineEmits(['message-sent', 'cancel-reply', 'whatsapp-error'])
 
 const pipelineStore = usePipelineStore()
 const toast = useToast()
@@ -501,8 +501,14 @@ const send = async () => {
     emits('message-sent')
   } catch (error) {
     statusText.value = ''
-    toast.error('Erro ao enviar mensagem. Tente novamente.')
+    const errMsg = error.response?.data?.error || 'Erro ao enviar mensagem. Tente novamente.'
+    const errCode = error.response?.data?.code
+    toast.error(errMsg)
     console.error(error)
+    
+    if (errCode === 'whatsapp_unavailable' || error.response?.status === 422) {
+      emits('whatsapp-error', { message: errMsg, code: errCode })
+    }
   } finally {
     sending.value = false
   }

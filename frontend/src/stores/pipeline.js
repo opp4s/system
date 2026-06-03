@@ -253,12 +253,33 @@ export const usePipelineStore = defineStore('pipeline', {
       this.loading.cards = true
       try {
         const response = await api.get(`/api/v1/pipelines/${pipelineId}/cards`)
-        this.cards = response.data.data || response.data
+        const newCards = response.data.data || response.data
+        this.cards = newCards.map(newCard => {
+          const existing = this.cards.find(c => c.id === newCard.id)
+          return existing ? { ...existing, ...newCard } : newCard
+        })
       } catch (error) {
         console.warn(`Erro ao carregar cards do pipeline ${pipelineId} da API. Usando dados mockados.`, error)
         this.cards = []; console.error("Erro ao carregar cards:", error)
       } finally {
         this.loading.cards = false
+      }
+    },
+
+    // Busca os detalhes de um único card (incluindo whatsapp_instance)
+    async fetchCardDetail(pipelineId, cardId) {
+      try {
+        const response = await api.get(`/api/v1/pipelines/${pipelineId}/cards/${cardId}`)
+        const detailedCard = response.data.data || response.data
+        const index = this.cards.findIndex(c => c.id === Number(cardId))
+        if (index !== -1) {
+          this.cards[index] = { ...this.cards[index], ...detailedCard }
+        } else {
+          this.cards.push(detailedCard)
+        }
+        return detailedCard
+      } catch (error) {
+        console.error(`Erro ao carregar detalhes do card ${cardId}:`, error)
       }
     },
 

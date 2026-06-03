@@ -154,6 +154,36 @@
                 />
               </div>
             </div>
+            
+            <!-- Canal de Comunicação -->
+            <div class="border-t border-slate-100 pt-4 mt-4">
+              <h3 class="text-xs font-bold text-slate-850 uppercase tracking-wider mb-2">Canal de Comunicação</h3>
+              
+              <div v-if="card.whatsapp_instance" class="space-y-1">
+                <div class="flex items-center space-x-1.5 text-xs font-semibold text-slate-800">
+                  <span>📱</span>
+                  <span>{{ formatPhone(card.whatsapp_instance.phone || card.whatsapp_instance.phone_number) }}</span>
+                </div>
+                
+                <div class="flex items-center space-x-1.5 pl-5 text-[11px] text-slate-500">
+                  <span v-if="card.whatsapp_instance.name" class="font-medium">{{ card.whatsapp_instance.name }}</span>
+                  <span v-if="card.whatsapp_instance.name">•</span>
+                  <div class="flex items-center space-x-1">
+                    <span 
+                      class="w-2 h-2 rounded-full inline-block"
+                      :class="card.whatsapp_instance.status === 'connected' ? 'bg-green-500' : 'bg-red-500'"
+                    ></span>
+                    <span :class="card.whatsapp_instance.status === 'connected' ? 'text-green-700' : 'text-red-500 font-semibold'">
+                      {{ card.whatsapp_instance.status === 'connected' ? 'Conectado' : 'Desconectado' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-else class="text-xs text-slate-400 italic pl-1">
+                Canal não definido
+              </div>
+            </div>
           </div>
 
           <!-- TAB 2: CAMPOS PERSONALIZADOS (TIPADOS) -->
@@ -505,12 +535,33 @@
             </div>
           </div>
 
+          <!-- Banner de erro do WhatsApp -->
+          <div 
+            v-if="isWhatsappUnavailableError" 
+            class="mx-4 mt-2 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start justify-between shadow-sm animate-scale-up"
+          >
+            <div class="flex items-start space-x-2">
+              <span class="text-rose-500 shrink-0 text-sm mt-0.5">⚠️</span>
+              <div class="text-xs text-rose-800 font-semibold leading-normal">
+                {{ lastErrorMessage || 'WhatsApp desconectado. Reconecte para enviar.' }}
+              </div>
+            </div>
+            <router-link 
+              to="/settings/whatsapp" 
+              class="shrink-0 text-xs font-black text-rose-600 hover:text-rose-800 hover:underline flex items-center space-x-1 pl-3 whitespace-nowrap"
+            >
+              <span>Ir para conexões</span>
+              <span>→</span>
+            </router-link>
+          </div>
+
           <!-- Compositor de Mensagens / Notas -->
           <CardComposer 
             :card="card" 
             :replying-to="replyingTo"
             @message-sent="onMessageSent" 
             @cancel-reply="cancelReply"
+            @whatsapp-error="handleWhatsappError"
           />
         </section>
       </div>
@@ -569,8 +620,18 @@ const cancelReply = () => {
   replyingTo.value = null
 }
 
+const isWhatsappUnavailableError = ref(false)
+const lastErrorMessage = ref('')
+
+const handleWhatsappError = (err) => {
+  isWhatsappUnavailableError.value = true
+  lastErrorMessage.value = err.message
+}
+
 const onMessageSent = () => {
   replyingTo.value = null
+  isWhatsappUnavailableError.value = false
+  lastErrorMessage.value = ''
   scrollToBottom()
 }
 
@@ -830,6 +891,10 @@ onMounted(() => {
   loadTimeline()
   loadCustomFieldDefinitions()
   
+  if (route.params.id && cardId.value) {
+    pipelineStore.fetchCardDetail(route.params.id, cardId.value)
+  }
+
   // Conecta ao ActionCable via WebSocket para updates em tempo real
   if (route.params.id) {
     socket.connect(route.params.id, cardId.value)
@@ -874,6 +939,39 @@ onUnmounted(() => {
     clearInterval(pollInterval)
   }
 })
+
+watch(() => cardId.value, (newCardId) => {
+  if (newCardId) {
+    isWhatsappUnavailableError.value = false
+    lastErrorMessage.value = ''
+    
+    // Conecta novamente o socket
+    socket.disconnect()
+    if (route.params.id) {
+      socket.connect(route.params.id, newCardId)
+    }
+    
+    // Recarrega os dados
+    loadTimeline()
+    loadCustomFieldDefinitions()
+    if (route.params.id) {
+      pipelineStore.fetchCardDetail(route.params.id, newCardId)
+    }
+  }
+})
+
+const formatPhone = (phone) => {
+  if (!phone) return '—'
+  const clean = String(phone).replace(/\D/g, '')
+  // Formato brasileiro: +55 XX XXXXX-XXXX
+  if (clean.length === 13) {
+    return `+${clean.slice(0,2)} ${clean.slice(2,4)} ${clean.slice(4,9)}-${clean.slice(9)}`
+  }
+  if (clean.length === 12) {
+    return `+${clean.slice(0,2)} ${clean.slice(2,4)} ${clean.slice(4,8)}-${clean.slice(8)}`
+  }
+  return phone.startsWith('+') ? phone : `+${clean}`
+}
 
 const scrollToBottom = () => {
   nextTick(() => {
