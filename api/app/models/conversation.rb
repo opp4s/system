@@ -2,7 +2,8 @@ class Conversation < ApplicationRecord
   STATUSES = %w[open pending resolved].freeze
 
   belongs_to :workspace
-  belongs_to :card, optional: true
+  belongs_to :card,               optional: true
+  belongs_to :whatsapp_instance,  optional: true
 
   validates :status, inclusion: { in: STATUSES }
 

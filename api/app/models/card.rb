@@ -2,6 +2,7 @@ class Card < ApplicationRecord
   belongs_to :pipeline
   belongs_to :stage
   belongs_to :workspace
+  belongs_to :contact,        optional: true
   belongs_to :assigned_agent, class_name: "User", foreign_key: :assigned_agent_id, optional: true
 
   has_many :card_events,   dependent: :destroy

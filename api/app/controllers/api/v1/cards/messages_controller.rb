@@ -83,14 +83,20 @@ module Api
         # SEM fallback para outro número: se a instância de origem estiver
         # desconectada, o envio falha e o usuário deve reconectar aquele WhatsApp.
         def whatsapp_instance_for_card
-          origin = @card.messages
-                        .where(message_type: "incoming")
-                        .where.not(whatsapp_instance_id: nil)
-                        .order(created_at: :desc)
-                        .first
-          wi = origin&.whatsapp_instance
+          # 1. Conversation com instância registrada (FK direta)
+          wi = Conversation.find_by(card_id: @card.id)&.whatsapp_instance
 
-          # Card sem instância de origem (ex.: criado manualmente, sem histórico
+          # 2. Fallback: última mensagem incoming com instance_id
+          if wi.nil?
+            origin = @card.messages
+                          .where(message_type: "incoming")
+                          .where.not(whatsapp_instance_id: nil)
+                          .order(created_at: :desc)
+                          .first
+            wi = origin&.whatsapp_instance
+          end
+
+          # 3. Card sem instância de origem (ex.: criado manualmente, sem histórico
           # de mensagem recebida). Só permite envio se houver UMA única instância
           # conectada no pipeline — caso contrário não há canal definido.
           if wi.nil?
