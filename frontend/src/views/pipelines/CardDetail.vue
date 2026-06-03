@@ -372,7 +372,7 @@
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
                             <div v-for="(att, attIdx) in event.attachments" :key="event.id + '-att-' + attIdx">
                               <!-- Imagem: preview inline -->
-                              <img v-if="att.content_type && att.content_type.startsWith('image/')"
+                              <img v-if="isImage(att)"
                                    :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                    @click="openFullscreen(att.url)" />
 
@@ -386,12 +386,19 @@
                                 />
                               </div>
 
-                              <!-- Documento/Áudio/Vídeo: ícone + nome + download -->
+                              <!-- Documento: ícone + nome + link para download/visualização -->
                               <a v-else :href="att.url" target="_blank"
-                                 class="flex items-center gap-2 p-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors">
-                                <span class="text-lg">📄</span>
-                                <span class="text-xs truncate max-w-[150px] font-semibold">{{ att.filename }}</span>
-                                <span class="text-[10px] text-slate-350">{{ formatSize(att.size) }}</span>
+                                 class="flex items-center justify-between gap-3 p-3 bg-slate-800 border border-slate-700/60 rounded-xl hover:bg-slate-750 transition-colors w-full max-w-[280px]">
+                                <div class="flex items-center gap-2 min-w-0">
+                                  <span class="text-lg shrink-0">📄</span>
+                                  <div class="min-w-0">
+                                    <p class="text-xs text-white font-bold truncate">{{ att.filename || 'Arquivo' }}</p>
+                                    <p class="text-[9px] text-slate-300 font-bold">{{ formatSize(att.size) }}</p>
+                                  </div>
+                                </div>
+                                <span class="text-[10px] font-black text-white bg-slate-700 border border-slate-600 px-2 py-1 rounded-lg uppercase tracking-wider hover:bg-slate-650 shrink-0">
+                                  Abrir
+                                </span>
                               </a>
                             </div>
                           </div>
@@ -430,7 +437,7 @@
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
                             <div v-for="(att, attIdx) in event.attachments" :key="event.id + '-att-' + attIdx">
                               <!-- Imagem: preview inline -->
-                              <img v-if="att.content_type && att.content_type.startsWith('image/')"
+                              <img v-if="isImage(att)"
                                    :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                    @click="openFullscreen(att.url)" />
 
@@ -444,12 +451,19 @@
                                 />
                               </div>
 
-                              <!-- Documento/Áudio/Vídeo: ícone + nome + download -->
+                              <!-- Documento: ícone + nome + link para download/visualização -->
                               <a v-else :href="att.url" target="_blank"
-                                 class="flex items-center gap-2 p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
-                                <span class="text-lg">📄</span>
-                                <span class="text-xs text-slate-700 truncate max-w-[150px] font-semibold">{{ att.filename }}</span>
-                                <span class="text-[10px] text-slate-400">{{ formatSize(att.size) }}</span>
+                                 class="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/60 rounded-xl hover:bg-slate-100 transition-colors w-full max-w-[280px]">
+                                <div class="flex items-center gap-2 min-w-0">
+                                  <span class="text-lg shrink-0">📄</span>
+                                  <div class="min-w-0">
+                                    <p class="text-xs text-slate-850 font-bold truncate">{{ att.filename || 'Arquivo' }}</p>
+                                    <p class="text-[9px] text-slate-400 font-bold">{{ formatSize(att.size) }}</p>
+                                  </div>
+                                </div>
+                                <span class="text-[10px] font-black text-zavy-600 bg-zavy-50 border border-zavy-200 px-2 py-1 rounded-lg uppercase tracking-wider hover:bg-zavy-150 shrink-0">
+                                  Abrir
+                                </span>
                               </a>
                             </div>
                           </div>
@@ -910,6 +924,18 @@ const isAudio = (att) => {
          filename.toLowerCase().endsWith('.wav')
 }
 
+const isImage = (att) => {
+  if (!att) return false
+  const type = att.content_type || att.type || ''
+  const filename = att.filename || ''
+  return type.toLowerCase().startsWith('image') || 
+         filename.toLowerCase().endsWith('.jpg') || 
+         filename.toLowerCase().endsWith('.jpeg') || 
+         filename.toLowerCase().endsWith('.png') || 
+         filename.toLowerCase().endsWith('.webp') ||
+         filename.toLowerCase().endsWith('.gif')
+}
+
 const getAudioMimeType = (att) => {
   const type = att.content_type || ''
   if (type.startsWith('audio/')) return type
@@ -1036,8 +1062,10 @@ const normalizedTimeline = computed(() => {
         
         if (cwId1 && cwId2 && cwId1.toString() === cwId2.toString()) return true
         
-        // Se o conteúdo e o tipo coincidirem e a data estiver dentro de 60s
-        if (existing.content.trim() === item.content.trim() && existing.message_type === item.message_type) {
+        // Se o conteúdo e o tipo coincidirem e a data estiver dentro de 60s (apenas se houver texto na mensagem para evitar agrupar anexos vazios distintos)
+        if (existing.content && existing.content.trim() !== '' &&
+            existing.content.trim() === item.content.trim() &&
+            existing.message_type === item.message_type) {
           const diff = Math.abs(new Date(existing.created_at) - new Date(item.created_at))
           if (diff < 60000) return true
         }
