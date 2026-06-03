@@ -270,7 +270,9 @@ module Evolution
 
     def extract_attachment(msg_data)
       msg    = msg_data[:message] || {}
-      b64    = msg_data.dig(:Message, :base64)
+      # Evolution (base64:true) envia a mídia decodificada em data.message.base64.
+      # Cobrir variações de versão: message.base64, data.base64, data.Message.base64.
+      b64    = msg[:base64] || msg_data[:base64] || msg_data.dig(:Message, :base64)
 
       if (im = msg[:imageMessage])
         { url: im[:url], content_type: im[:mimetype]&.split(";")&.first || "image/jpeg",

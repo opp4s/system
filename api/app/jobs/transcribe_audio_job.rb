@@ -4,46 +4,73 @@ class TranscribeAudioJob < ApplicationJob
   WHISPER_URL     = ENV.fetch("WHISPER_URL", "http://zavy-whisper:8000")
   WHISPER_MODEL   = ENV.fetch("WHISPER_MODEL", "Systran/faster-whisper-small")
   AUDIO_TYPES     = %w[audio/ogg audio/mpeg audio/mp4 audio/aac audio/webm audio].freeze
-  TIMEOUT_SECONDS = 120
+  TIMEOUT_SECONDS = 300         # Whisper CPU: áudio de 95s leva ~77s; margem p/ áudios longos
   MAX_REDIRECTS   = 5
+  LOCK_KEY        = "whisper:transcribe:lock"
+  LOCK_TTL        = 600         # segundos — auto-libera se o worker morrer
+  REQUEUE_WAIT    = 25          # segundos — espera antes de tentar de novo se Whisper ocupado
 
   def perform(message_id)
     message = Message.find_by(id: message_id)
     return unless message
+    return if message.metadata&.dig("transcription").present?  # idempotência
 
     audio_att = message.attachments&.find { |a| AUDIO_TYPES.any? { |t| a["content_type"].to_s.include?(t) } }
     return unless audio_att
 
-    audio_url = audio_att["url"]
-    audio_b64 = audio_att["base64"]
-
-    Rails.logger.info "[Whisper] Iniciando transcrição para message ##{message_id}"
-
-    tempfile = if audio_b64.present?
-                 decode_base64_audio(audio_b64, audio_att)
-               elsif audio_url.present?
-                 download_audio(audio_url)
-               end
-    unless tempfile
-      Rails.logger.warn "[Whisper] Falha ao baixar áudio para message ##{message_id}"
+    # Serializa: Whisper roda em CPU e processa 1 por vez.
+    # Áudios concorrentes estouravam o read_timeout. Lock garante 1 transcrição por vez.
+    unless acquire_lock(message_id)
+      Rails.logger.info "[Whisper] Whisper ocupado, reenfileirando message ##{message_id}"
+      self.class.set(wait: REQUEUE_WAIT.seconds).perform_later(message_id)
       return
     end
 
-    transcription = transcribe(tempfile)
-    unless transcription.present?
-      Rails.logger.warn "[Whisper] Transcrição vazia para message ##{message_id}"
-      return
-    end
+    begin
+      audio_url = audio_att["url"]
+      audio_b64 = audio_att["base64"]
 
-    message.update!(
-      metadata: (message.metadata || {}).merge("transcription" => transcription)
-    )
-    Rails.logger.info "[Whisper] Transcrição concluída ##{message_id}: #{transcription[0..80]}..."
+      Rails.logger.info "[Whisper] Iniciando transcrição para message ##{message_id}"
+
+      tempfile = if audio_b64.present?
+                   decode_base64_audio(audio_b64, audio_att)
+                 elsif audio_url.present?
+                   download_audio(audio_url)
+                 end
+      unless tempfile
+        Rails.logger.warn "[Whisper] Falha ao baixar áudio para message ##{message_id}"
+        return
+      end
+
+      transcription = transcribe(tempfile)
+      unless transcription.present?
+        Rails.logger.warn "[Whisper] Transcrição vazia para message ##{message_id}"
+        return
+      end
+
+      message.update!(
+        metadata: (message.metadata || {}).merge("transcription" => transcription)
+      )
+      Rails.logger.info "[Whisper] Transcrição concluída ##{message_id}: #{transcription[0..80]}..."
+    ensure
+      tempfile&.close
+      tempfile&.unlink
+      release_lock
+    end
   rescue => e
     Rails.logger.error "[Whisper] TranscribeAudioJob falhou ##{message_id}: #{e.class}: #{e.message}"
-  ensure
-    tempfile&.close
-    tempfile&.unlink
+  end
+
+  private
+
+  def acquire_lock(message_id)
+    Sidekiq.redis { |r| r.set(LOCK_KEY, message_id, nx: true, ex: LOCK_TTL) }
+  end
+
+  def release_lock
+    Sidekiq.redis { |r| r.del(LOCK_KEY) }
+  rescue => e
+    Rails.logger.warn "[Whisper] release_lock falhou: #{e.message}"
   end
 
   private
