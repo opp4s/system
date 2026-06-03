@@ -78,7 +78,20 @@ module Api
 
         private
 
+        # Prioridade: a instância que ORIGINOU a conversa (última mensagem incoming
+        # com instância registrada). Garante que a resposta sai pelo mesmo número que
+        # o lead contatou — crítico quando o pipeline tem múltiplas instâncias.
         def whatsapp_instance_for_card
+          origin = @card.messages
+                        .where(message_type: "incoming")
+                        .where.not(whatsapp_instance_id: nil)
+                        .order(created_at: :desc)
+                        .first
+          if origin&.whatsapp_instance&.status == "connected"
+            return origin.whatsapp_instance
+          end
+
+          # Fallback: instância conectada do pipeline (comportamento legado)
           return nil unless @card.pipeline_id.present?
           WhatsappInstance.find_by(
             workspace:   current_workspace,

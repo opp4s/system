@@ -2,9 +2,10 @@ class Message < ApplicationRecord
   MESSAGE_TYPES = %w[incoming outgoing].freeze
 
   belongs_to :workspace
-  belongs_to :card,         optional: true
-  belongs_to :contact,      optional: true
-  belongs_to :conversation, optional: true
+  belongs_to :card,              optional: true
+  belongs_to :contact,           optional: true
+  belongs_to :conversation,      optional: true
+  belongs_to :whatsapp_instance, optional: true
 
   validates :chatwoot_message_id, uniqueness: { scope: :workspace_id, allow_nil: true }, allow_nil: true
   validates :content,      presence: true

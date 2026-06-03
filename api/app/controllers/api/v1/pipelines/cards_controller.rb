@@ -196,6 +196,19 @@ module Api
               status:          conv.status,
               last_activity_at: conv.last_activity_at
             } : nil
+
+            # Canal de comunicação: instância que originou a conversa
+            origin = card.messages
+                         .where(message_type: "incoming")
+                         .where.not(whatsapp_instance_id: nil)
+                         .order(created_at: :desc).first
+            wi = origin&.whatsapp_instance
+            payload[:whatsapp_instance] = wi ? {
+              instance_id: wi.instance_id,
+              name:        wi.name,
+              phone:       wi.phone_number,
+              status:      wi.status
+            } : nil
           end
           payload
         end

@@ -58,6 +58,7 @@ module Evolution
         workspace:    workspace,
         card:         card,
         contact:      contact,
+        instance:     wi,
         evolution_id: evolution_id,
         content:      text_content,
         attachment:   attachment,
@@ -136,7 +137,7 @@ module Evolution
       nil
     end
 
-    def persist_message(workspace:, card:, contact:, evolution_id:, content:, attachment:,
+    def persist_message(workspace:, card:, contact:, instance:, evolution_id:, content:, attachment:,
                         from_me:, sender_name:, sender_phone:, quoted_id:)
       attachments = attachment ? [attachment] : []
 
@@ -160,9 +161,10 @@ module Evolution
       end
 
       msg = Message.create!(
-        workspace:    workspace,
-        card:         card,
-        contact:      contact,
+        workspace:         workspace,
+        card:              card,
+        contact:           contact,
+        whatsapp_instance: instance,
         source_id:    evolution_id,
         content:      effective_content,
         message_type: from_me ? "outgoing" : "incoming",
