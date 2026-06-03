@@ -29,6 +29,7 @@ module Api
           .joins("LEFT JOIN contacts ON contacts.phone_number = cards.contact_phone AND contacts.workspace_id = cards.workspace_id")
           .select(
             "cards.id AS card_id",
+            "cards.pipeline_id AS pipeline_id",
             "COALESCE(contacts.name, cards.contact_name) AS contact_name",
             "COALESCE(contacts.phone_number, cards.contact_phone) AS contact_phone",
             "lm.content AS last_message",
@@ -51,6 +52,7 @@ module Api
             {
               id:                      c.card_id,
               card_id:                 c.card_id,
+              pipeline_id:             c.pipeline_id,
               contact_name:            c.contact_name,
               contact_phone:           c.contact_phone,
               last_message:            c.last_message,
@@ -68,3 +70,4 @@ module Api
     end
   end
 end
+

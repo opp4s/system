@@ -39,21 +39,11 @@
             <input type="text" placeholder="Buscar no CRM..." class="w-64 pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-zavy-500 focus:ring-1 focus:ring-zavy-500 bg-gray-50/50" />
           </div>
 
-          <!-- Ícone de Notificações com Dropdown -->
-          <div class="relative">
-            <button 
-              @click="notificationsOpen = !notificationsOpen"
-              class="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition-all duration-155"
-            >
-              <component :is="Bell" class="h-5 w-5" />
-              <span class="absolute top-1.5 right-1.5 h-2 w-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
-            </button>
-
-            <!-- Dropdown Notificações -->
-            <div v-if="notificationsOpen" class="absolute right-0 mt-2 w-64 bg-white border border-gray-150 rounded-2xl shadow-xl py-4 px-4 z-50 text-center animate-scale-up">
-              <p class="text-xs font-bold text-gray-400 italic">Nenhuma notificação no momento</p>
-            </div>
-          </div>
+          <!-- Ícone de Notificações -->
+          <button class="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition-all duration-150">
+            <component :is="Bell" class="h-5 w-5" />
+            <span class="absolute top-1.5 right-1.5 h-2 w-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
+          </button>
 
           <!-- Divisor -->
           <div class="h-6 w-px bg-gray-200"></div>
@@ -84,7 +74,7 @@
       </header>
 
       <!-- Content Area -->
-      <main :class="route.meta.fullWidth ? 'flex-1 overflow-hidden p-0 bg-slate-50/50' : 'flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/50'">
+      <main class="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/50">
         <router-view />
       </main>
     </div>
@@ -92,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Sidebar from '@/components/Sidebar.vue'
 import { useAuth } from '@/composables/useAuth'
@@ -113,15 +103,6 @@ const { currentUser } = useAuth()
 
 const mobileSidebarOpen = ref(false)
 const profileDropdownOpen = ref(false)
-const notificationsOpen = ref(false)
-
-watch(notificationsOpen, (newVal) => {
-  if (newVal) profileDropdownOpen.value = false
-})
-
-watch(profileDropdownOpen, (newVal) => {
-  if (newVal) notificationsOpen.value = false
-})
 
 const currentRouteName = computed(() => {
   return route.name || ''

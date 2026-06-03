@@ -152,8 +152,8 @@ const filteredConversations = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return conversations.value
   return conversations.value.filter(c => 
-    c.contact_name?.toLowerCase().includes(q) || 
-    c.last_message?.toLowerCase().includes(q)
+    (c.contact_name || '').toLowerCase().includes(q) || 
+    (c.last_message || '').toLowerCase().includes(q)
   )
 })
 

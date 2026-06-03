@@ -8,23 +8,37 @@
       />
     </div>
 
-    <!-- Coluna 2: Dados do Lead (~25%) -->
-    <div class="w-full md:w-80 lg:w-[25vw] h-full shrink-0 flex flex-col border-r border-gray-150 bg-white" v-if="selectedCard">
+    <!-- Coluna 2: Dados do Lead (~25% - Colapsável) -->
+    <div 
+      id="lead-data-column"
+      v-show="!isLeadPanelCollapsed"
+      class="w-full md:w-80 lg:w-[25vw] h-full shrink-0 flex flex-col border-r border-gray-150 bg-white"
+    >
       <CardDataPanel 
+        v-if="selectedCard"
         :card-id="selectedCard.id" 
         :pipeline-id="selectedCard.pipeline_id" 
       />
-    </div>
-    <!-- Coluna 2: Empty State -->
-    <div class="w-full md:w-80 lg:w-[25vw] h-full shrink-0 flex flex-col items-center justify-center border-r border-gray-150 bg-slate-50/50 p-6 text-center text-xs text-gray-400 select-none" v-else>
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-      <span>Nenhum lead selecionado</span>
+      <!-- Coluna 2: Empty State (se a coluna estiver aberta mas nenhum card selecionado) -->
+      <div class="h-full flex flex-col items-center justify-center p-6 text-center text-xs text-gray-400 select-none" v-else>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+        <span>Nenhum lead selecionado</span>
+      </div>
     </div>
 
-    <!-- Coluna 3: Timeline / Conversa (~50%) -->
-    <div class="flex-1 h-full flex flex-col bg-white" v-if="selectedCard">
+    <!-- Coluna 3: Timeline / Conversa (~50% se aberto, ~75% se colapsado) -->
+    <div class="flex-1 h-full flex flex-col bg-white relative" v-if="selectedCard">
+      <!-- Botão Toggle de Colapso na borda esquerda -->
+      <button 
+        @click="isLeadPanelCollapsed = !isLeadPanelCollapsed"
+        class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 h-8 w-8 bg-white border border-gray-200 shadow-md rounded-full flex items-center justify-center hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-705 focus:outline-none"
+        :title="isLeadPanelCollapsed ? 'Mostrar dados do lead' : 'Esconder dados do lead'"
+      >
+        <component :is="isLeadPanelCollapsed ? ChevronRight : ChevronLeft" class="h-4 w-4" />
+      </button>
+
       <!-- Chat Header -->
       <header class="h-16 px-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50/50 select-none">
         <div class="flex items-center space-x-3">
@@ -59,9 +73,11 @@ import { usePipelineStore } from '@/stores/pipeline'
 import ConversationList from './ConversationList.vue'
 import CardDataPanel from '../pipelines/CardDataPanel.vue'
 import ChatTimeline from '../pipelines/ChatTimeline.vue'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
 const pipelineStore = usePipelineStore()
 const selectedCardId = ref(null)
+const isLeadPanelCollapsed = ref(false)
 
 const selectedCard = computed(() => {
   if (!selectedCardId.value) return null

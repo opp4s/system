@@ -109,8 +109,9 @@
                     <span class="truncate font-medium text-gray-700">{{ card.contact_name }}</span>
                   </div>
                   
+                  <!-- Ícone de WhatsApp se o card possui conversa vinculada -->
                   <div 
-                    v-if="card.conversation_id || card.conversation?.id || card.conversation?.chatwoot_conversation_id" 
+                    v-if="card.conversation_id" 
                     class="flex items-center text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 space-x-0.5"
                     title="WhatsApp Vinculado"
                   >
@@ -165,54 +166,9 @@
     <LossReasonModal
       :show="showLossModal"
       :card-title="pendingMove?.cardTitle"
-      :loss-reasons="lossReasons"
       @confirm="handleConfirmLoss"
       @cancel="handleCancelLoss"
     />
-
-    <!-- Modal de Exigência de Valor para Fechado Ganho -->
-    <div v-if="showValueModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div @click="cancelValueMove" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-      <div class="relative bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 z-10 animate-scale-up space-y-4 text-gray-900 text-left">
-        <div>
-          <h3 class="text-base font-extrabold text-gray-900">Valor da Venda Obrigatório</h3>
-          <p class="text-xs text-gray-500 mt-1">Este lead está sendo movido para Ganho. Informe o valor final do negócio.</p>
-        </div>
-
-        <div class="space-y-1.5">
-          <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Valor da Venda (R$)</label>
-          <div class="flex items-center space-x-1.5">
-            <span class="text-xs font-bold text-gray-400">R$</span>
-            <input 
-              v-model.number="inputSaleValue"
-              type="number"
-              min="0.01"
-              step="0.01"
-              required
-              placeholder="0,00"
-              class="block w-full px-4 py-2.5 rounded-xl border border-gray-250 focus:outline-none focus:border-slate-800 focus:ring-1 focus:ring-slate-800 text-sm bg-white text-gray-950"
-              @keyup.enter="confirmValueMove"
-            />
-          </div>
-        </div>
-
-        <div class="flex items-center space-x-3 pt-2">
-          <button 
-            @click="cancelValueMove"
-            class="flex-1 px-4 py-2.5 border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-semibold text-gray-650 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button 
-            @click="confirmValueMove"
-            :disabled="!inputSaleValue || inputSaleValue <= 0"
-            class="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-xs font-bold shadow-md transition-all disabled:cursor-not-allowed"
-          >
-            Confirmar Ganho
-          </button>
-        </div>
-      </div>
-    </div>
 
     <!-- Rota aninhada para Slide-in de Detalhes do Card -->
     <router-view />
@@ -220,7 +176,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick, computed } from 'vue'
+import { ref, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePipelineStore } from '@/stores/pipeline'
 import draggable from 'vuedraggable'
@@ -263,17 +219,6 @@ const localCards = ref({})
 // Modal de perda e movimentação pendente
 const showLossModal = ref(false)
 const pendingMove = ref(null)
-
-// Modal de valor ganho e movimentação ganha pendente
-const showValueModal = ref(false)
-const pendingValueMove = ref(null)
-const inputSaleValue = ref(0)
-
-const lossReasons = computed(() => {
-  if (!pendingMove.value) return []
-  const stage = pipelineStore.stages.find(s => s.id === pendingMove.value.toStageId)
-  return stage?.loss_reasons || []
-})
 
 const formatCurrency = (value, currency = 'BRL') => {
   if (value === undefined || value === null) return 'R$ 0,00'
@@ -339,51 +284,15 @@ const onDragChange = async (event, targetStageId) => {
         newIndex
       }
       showLossModal.value = true
-    } else if (targetStage && targetStage.stage_type === 'win' && (!card.value || card.value <= 0)) {
-      // Se for dropado em coluna "won" (Ganho) e valor for <= 0, exige valor > 0
-      pendingValueMove.value = {
-        cardId: card.id,
-        fromStageId,
-        toStageId: targetStageId,
-        newIndex
-      }
-      inputSaleValue.value = 0
-      showValueModal.value = true
     } else {
-      // Se for etapa padrão ou ganha com valor, envia direto
+      // Se for etapa padrão ou ganha, envia direto
       try {
         await pipelineStore.moveCard(card.id, fromStageId, targetStageId, newIndex)
       } catch (error) {
-        // Rollback automático
+        // Rollback automático disparado pela reatividade da store + watch
       }
     }
   }
-}
-
-const confirmValueMove = async () => {
-  if (!pendingValueMove.value || !inputSaleValue.value || inputSaleValue.value <= 0) return
-  const { cardId, fromStageId, toStageId, newIndex } = pendingValueMove.value
-  
-  showValueModal.value = false
-  
-  try {
-    // 1. Atualiza o valor do card primeiro
-    await pipelineStore.updateCard(cardId, { value: inputSaleValue.value })
-    // 2. Move o card para a etapa ganho
-    await pipelineStore.moveCard(cardId, fromStageId, toStageId, newIndex)
-  } catch (error) {
-    syncLocalCards()
-  } finally {
-    pendingValueMove.value = null
-    inputSaleValue.value = 0
-  }
-}
-
-const cancelValueMove = () => {
-  syncLocalCards()
-  showValueModal.value = false
-  pendingValueMove.value = null
-  inputSaleValue.value = 0
 }
 
 // Confirma perda do lead e salva a justificativa nos custom fields

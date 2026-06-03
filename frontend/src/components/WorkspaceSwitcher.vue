@@ -22,8 +22,8 @@
     <!-- Dropdown Menu -->
     <div 
       v-if="isDropdownOpen" 
-      class="absolute bg-[#252538] border border-slate-800 rounded-xl shadow-2xl py-2 z-[99] overflow-hidden animate-scale-up"
-      :class="isCollapsed ? 'bottom-0 left-16 w-48' : 'bottom-16 left-0 w-full'"
+      class="absolute bg-[#252538] border border-slate-800 rounded-xl shadow-2xl py-2 z-50 overflow-hidden"
+      :class="isCollapsed ? 'bottom-0 left-16 w-48' : 'bottom-14 left-0 w-full'"
     >
       <div class="px-3 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
         Seus Workspaces
@@ -175,19 +175,3 @@ const handleCreateWorkspace = async () => {
   }
 }
 </script>
-
-<style scoped>
-@keyframes scaleUp {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-.animate-scale-up {
-  animation: scaleUp 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-</style>
