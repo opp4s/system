@@ -36,11 +36,18 @@ module Api
           payload_data = event.payload || {}
           if %w[chatwoot_message whatsapp_message message_sent].include?(event.event_type)
             msg = find_message_for_event(payload_data)
-            if msg&.metadata.present?
-              payload_data = payload_data.merge(
-                "transcription" => msg.metadata["transcription"],
-                "metadata"      => (payload_data["metadata"] || {}).merge(msg.metadata)
-              )
+            if msg
+              if msg.metadata.present?
+                payload_data = payload_data.merge(
+                  "transcription" => msg.metadata["transcription"],
+                  "metadata"      => (payload_data["metadata"] || {}).merge(msg.metadata)
+                )
+              end
+              if msg.attachments.present?
+                payload_data = payload_data.merge(
+                  "attachments"   => msg.attachments
+                )
+              end
             end
           end
           {
