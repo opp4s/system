@@ -69,23 +69,33 @@ module Api
 
         # Quando uma nova instância conecta, limpa instâncias desconectadas com o mesmo número.
         # Herda pipeline_id da antiga para a nova se a nova ainda não tem funil.
+        # Remove qualquer outra instância do workspace com o mesmo número de telefone.
+        # Funciona para status disconnected E connected (duplicata após reconexão).
+        # A nova instância herda pipeline_id e name da instância mais antiga com pipeline.
         def cleanup_stale_disconnected(workspace, new_wi)
           phone = new_wi.phone_number
           return if phone.blank?
 
-          # Normaliza para comparar com e sem '+' (ex: "+554198..." == "554198...")
           digits = phone.gsub(/\D/, "")
+
           stale = workspace.whatsapp_instances
-                           .where(status: "disconnected")
                            .where.not(id: new_wi.id)
                            .select { |wi| wi.phone_number.to_s.gsub(/\D/, "") == digits }
 
           stale.each do |old|
+            # Herdar pipeline e nome da instância antiga (se nova não tiver)
             if new_wi.pipeline_id.blank? && old.pipeline_id.present?
               new_wi.update_columns(pipeline_id: old.pipeline_id, name: old.name.presence || new_wi.name)
+              new_wi.reload
             end
+
+            # Se a instância antiga ainda está conectada na Evolution, fazer logout
+            if old.status == "connected"
+              Whatsapp::EvolutionClient.new.logout_instance(old.instance_id) rescue nil
+            end
+
             old.destroy!
-            Rails.logger.info "[Evolution] Removida instância stale #{old.instance_id} (mesmo número #{phone})"
+            Rails.logger.info "[Evolution] Removida instância duplicada #{old.instance_id} (mesmo número #{phone})"
           end
         rescue => e
           Rails.logger.warn "[Evolution] cleanup_stale_disconnected error: #{e.message}"
