@@ -69,6 +69,7 @@ module Evolution
       )
       return unless message
 
+      find_or_upsert_conversation(workspace, card, contact, wi, from_me)
       card_event = emit_card_event(workspace, card, message, from_me)
       broadcast(card, card_event)
     rescue => e
@@ -104,7 +105,11 @@ module Evolution
                       .joins(:pipeline).where(pipelines: { id: pipeline.id })
                       .order(created_at: :desc)
                       .first
-      return card if card
+
+      if card
+        card.update_columns(contact_id: contact.id) if card.contact_id.nil?
+        return card
+      end
 
       stage = pipeline.stages.where(stage_type: "intermediate").order(:position).first ||
               pipeline.stages.order(:position).first
@@ -113,6 +118,7 @@ module Evolution
       card = workspace.cards.create!(
         pipeline:         pipeline,
         stage:            stage,
+        contact_id:       contact.id,
         title:            contact.name,
         contact_name:     contact.name,
         contact_phone:    contact.phone_number,
@@ -135,6 +141,17 @@ module Evolution
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.warn "[Evolution] Card create failed: #{e.message}"
       nil
+    end
+
+    def find_or_upsert_conversation(workspace, card, contact, wi, from_me)
+      conv = Conversation.find_or_initialize_by(workspace: workspace, card: card)
+      conv.contact_id    ||= contact.id
+      conv.status        ||= "open"
+      conv.whatsapp_instance_id = wi.id unless from_me
+      conv.last_activity_at     = Time.current
+      conv.save!
+    rescue => e
+      Rails.logger.warn "[Evolution] Conversation upsert failed card=#{card.id}: #{e.message}"
     end
 
     def persist_message(workspace:, card:, contact:, instance:, evolution_id:, content:, attachment:,
