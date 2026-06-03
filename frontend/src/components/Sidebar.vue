@@ -86,7 +86,8 @@ import {
   Users, 
   Megaphone, 
   Zap, 
-  Settings
+  Settings,
+  MessageSquare
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -105,6 +106,7 @@ const isCollapsed = computed(() => {
 
 const menuItems = ref([
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { name: 'Comunicações', path: '/chats', icon: MessageSquare },
   { name: 'Pipelines', path: '/pipelines', icon: Columns3 },
   { name: 'Contatos', path: '/contacts', icon: Users },
   { name: 'Automações', path: '/automations', icon: Zap },
