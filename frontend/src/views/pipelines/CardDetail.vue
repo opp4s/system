@@ -402,9 +402,19 @@
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
                             <div v-for="(att, attIdx) in event.attachments" :key="event.id + '-att-' + attIdx">
                               <!-- Imagem: preview inline -->
-                              <img v-if="isImage(att)"
-                                   :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                   @click="openFullscreen(att.url)" />
+                              <div v-if="isImage(att)" class="my-1 cursor-pointer" @click="openLightbox(att.url)">
+                                <img :src="att.url" 
+                                     :alt="att.filename"
+                                     class="max-w-[200px] max-h-[200px] rounded-lg object-cover hover:opacity-90 transition-opacity"
+                                     @error="handleImageError($event)" />
+                              </div>
+
+                              <!-- Vídeo: player inline -->
+                              <div v-else-if="isVideo(att)" class="my-1">
+                                <video controls class="max-w-[240px] max-h-[240px] rounded-lg">
+                                  <source :src="att.url" :type="att.content_type || 'video/mp4'" />
+                                </video>
+                              </div>
 
                               <!-- Áudio: player inline customizado -->
                               <div v-else-if="isAudio(att)" class="my-1.5 w-full">
@@ -432,7 +442,7 @@
                               </a>
                             </div>
                           </div>
-                          <p v-if="event.content" class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
+                          <p v-if="shouldShowContent(event)" class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
                         </div>
                       </div>
 
@@ -467,9 +477,19 @@
                           <div v-if="event.attachments && event.attachments.length > 0" class="mb-2 space-y-2">
                             <div v-for="(att, attIdx) in event.attachments" :key="event.id + '-att-' + attIdx">
                               <!-- Imagem: preview inline -->
-                              <img v-if="isImage(att)"
-                                   :src="att.url" class="max-w-[240px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                   @click="openFullscreen(att.url)" />
+                              <div v-if="isImage(att)" class="my-1 cursor-pointer" @click="openLightbox(att.url)">
+                                <img :src="att.url" 
+                                     :alt="att.filename"
+                                     class="max-w-[200px] max-h-[200px] rounded-lg object-cover hover:opacity-90 transition-opacity"
+                                     @error="handleImageError($event)" />
+                              </div>
+
+                              <!-- Vídeo: player inline -->
+                              <div v-else-if="isVideo(att)" class="my-1">
+                                <video controls class="max-w-[240px] max-h-[240px] rounded-lg">
+                                  <source :src="att.url" :type="att.content_type || 'video/mp4'" />
+                                </video>
+                              </div>
 
                               <!-- Áudio: player inline customizado -->
                               <div v-else-if="isAudio(att)" class="my-1.5 w-full">
@@ -497,7 +517,7 @@
                               </a>
                             </div>
                           </div>
-                          <p v-if="event.content" class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
+                          <p v-if="shouldShowContent(event)" class="text-xs leading-relaxed whitespace-pre-wrap">{{ event.content }}</p>
                         </div>
                       </div>
 
@@ -570,6 +590,12 @@
       <div v-else class="flex-1 flex items-center justify-center">
         <span class="text-sm text-gray-500">Buscando informações do card...</span>
       </div>
+    </div>
+
+    <!-- Modal de preview (quando clica na imagem) -->
+    <div v-if="lightboxUrl" class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center cursor-pointer" @click="lightboxUrl = null">
+      <img :src="lightboxUrl" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl" />
+      <button class="absolute top-4 right-4 text-white text-3xl font-bold select-none hover:text-gray-300" @click="lightboxUrl = null">✕</button>
     </div>
 
     <!-- Modal de Motivo de Perda interno do detalhe -->
@@ -1007,6 +1033,33 @@ const formatFriendlyDate = (isoString) => {
 
 const openFullscreen = (url) => {
   window.open(url, '_blank')
+}
+
+const lightboxUrl = ref(null)
+const openLightbox = (url) => {
+  lightboxUrl.value = url
+}
+
+const handleImageError = (e) => {
+  console.error('Erro ao carregar imagem:', e.target.src)
+}
+
+const isVideo = (att) => {
+  if (!att) return false
+  const type = att.content_type || att.type || ''
+  const filename = att.filename || ''
+  return type.toLowerCase().startsWith('video') || 
+         filename.toLowerCase().endsWith('.mp4') || 
+         filename.toLowerCase().endsWith('.3gp') || 
+         filename.toLowerCase().endsWith('.mov')
+}
+
+const shouldShowContent = (event) => {
+  if (!event.content) return false
+  if (event.attachments && event.attachments.length > 0) {
+    return !event.attachments.some(att => att.filename === event.content)
+  }
+  return true
 }
 
 const isAudio = (att) => {
